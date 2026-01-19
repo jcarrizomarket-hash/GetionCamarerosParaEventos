@@ -18,8 +18,10 @@ import {
   FileText,
   Shield,
   Star,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from 'lucide-react';
+import { WhatsAppConfigStatus } from './whatsapp-config-status';
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }) {
   const [clientes, setClientes] = useState([]);
@@ -477,6 +479,15 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
           </div>
         </div>
       )}
+
+      {/* Configuración de WhatsApp */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <Settings className="w-6 h-6 text-gray-600" />
+          Configuración de WhatsApp
+        </h2>
+        <WhatsAppConfigStatus baseUrl={baseUrl} publicAnonKey={publicAnonKey} />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, MessageCircle } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
+import { WhatsAppConfigStatus } from './whatsapp-config-status';
 
 export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey, setPedidos, cargarDatos }) {
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState('');
@@ -9,18 +10,42 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
   const [mensaje, setMensaje] = useState('');
   const [enlaceConfirmar, setEnlaceConfirmar] = useState('');
   const [enlaceNoConfirmar, setEnlaceNoConfirmar] = useState('');
+  const [whatsappConfigured, setWhatsappConfigured] = useState(false);
+  const [checkingConfig, setCheckingConfig] = useState(true);
 
   // Deduplicar datos
   const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values());
   const uniqueCamareros = Array.from(new Map(camareros.map(c => [c.id, c])).values());
   const uniqueCoordinadores = Array.from(new Map(coordinadores.map(c => [c.id, c])).values());
 
+  // Verificar configuración de WhatsApp al cargar
+  useEffect(() => {
+    const verificarConfiguracion = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/verificar-whatsapp-config`, {
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`
+          }
+        });
+        const result = await response.json();
+        setWhatsappConfigured(result.configured);
+      } catch (error) {
+        console.log('Error al verificar configuración WhatsApp:', error);
+        setWhatsappConfigured(false);
+      } finally {
+        setCheckingConfig(false);
+      }
+    };
+    
+    verificarConfiguracion();
+  }, [baseUrl, publicAnonKey]);
+
   const generarToken = () => {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   };
 
   const generarMensaje = async () => {
-    if (!pedidoSeleccionado || !camareroSeleccionado) return '';
+    if (!pedidoSeleccionado || !camareroSeleccionado || !coordinadorSeleccionado) return '';
     
     const pedido = uniquePedidos.find(p => p.id === pedidoSeleccionado);
     const camarero = uniqueCamareros.find(c => c.id === camareroSeleccionado);
@@ -41,7 +66,8 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         body: JSON.stringify({
           token: token,
           pedidoId: pedido.id,
-          camareroId: camarero.id
+          camareroId: camarero.id,
+          coordinadorId: coordinadorSeleccionado
         })
       });
       
@@ -123,6 +149,83 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     setMensaje(mensajeGenerado);
   };
 
+  const enviarMensajeAutomatico = async () => {
+    if (!coordinadorSeleccionado || !camareroSeleccionado || !mensaje) {
+      alert('Por favor genera el mensaje primero');
+      return;
+    }
+    
+    const coordinador = uniqueCoordinadores.find(c => c.id === coordinadorSeleccionado);
+    if (!coordinador || !coordinador.telefono) {
+      alert('El coordinador seleccionado no tiene teléfono configurado');
+      return;
+    }
+    
+    const camarero = uniqueCamareros.find(c => c.id === camareroSeleccionado);
+    if (!camarero || !camarero.telefono) {
+      alert('El camarero seleccionado no tiene teléfono configurado');
+      return;
+    }
+    
+    // Actualizar estado del camarero a "enviado" antes de enviar el mensaje
+    const pedido = uniquePedidos.find(p => p.id === pedidoSeleccionado);
+    if (pedido) {
+      const asignaciones = pedido.asignaciones.map(a => 
+        a.camareroId === camareroSeleccionado ? { ...a, estado: 'enviado' } : a
+      );
+      
+      const updatedPedido = {
+        ...pedido,
+        asignaciones
+      };
+      
+      try {
+        const response = await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify(updatedPedido)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          // Enviar mensaje automáticamente vía servidor
+          const envioResponse = await fetch(`${baseUrl}/enviar-whatsapp`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${publicAnonKey}`
+            },
+            body: JSON.stringify({
+              telefono: camarero.telefono,
+              mensaje: mensaje
+            })
+          });
+          
+          const envioResult = await envioResponse.json();
+          
+          if (envioResult.success) {
+            alert('✅ Mensaje enviado exitosamente por WhatsApp');
+            await cargarDatos();
+            // Limpiar formulario
+            setPedidoSeleccionado('');
+            setCamareroSeleccionado('');
+            setMensaje('');
+          } else {
+            // Si falla la API de WhatsApp, mostrar opción alternativa
+            alert(`⚠️ No se pudo enviar automáticamente: ${envioResult.error}\n\nSe abrirá WhatsApp Web para enviar manualmente.`);
+            enviarPorWhatsApp();
+          }
+        }
+      } catch (error) {
+        console.log('Error al enviar mensaje:', error);
+        alert('Error al enviar el mensaje. Intenta nuevamente.');
+      }
+    }
+  };
+
   const enviarPorWhatsApp = async () => {
     if (!coordinadorSeleccionado) {
       alert('Por favor selecciona un coordinador con teléfono configurado');
@@ -201,6 +304,9 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-gray-900 mb-6">Envío de Mensaje a Camareros por WhatsApp</h2>
         
+        {/* Estado de configuración de WhatsApp */}
+        <WhatsAppConfigStatus baseUrl={baseUrl} publicAnonKey={publicAnonKey} />
+        
         <div className="space-y-4">
           {/* Seleccionar coordinador */}
           <div>
@@ -210,7 +316,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
               onChange={(e) => setCoordinadorSeleccionado(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option key="empty-coordinador" value="">Seleccionar coordinador</option>
+              <option value="">Seleccionar coordinador</option>
               {coordinadoresConTelefono.map((coordinador) => (
                 <option key={coordinador.id} value={coordinador.id}>
                   {coordinador.nombre} - {coordinador.telefono}
@@ -330,14 +436,47 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                 </p>
               </div>
 
-              {/* Botón de envío por WhatsApp */}
-              <button
-                onClick={enviarPorWhatsApp}
-                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Enviar por WhatsApp
-              </button>
+              {/* Botones de envío - Adaptativos según configuración */}
+              <div className="space-y-3">
+                {whatsappConfigured ? (
+                  // Si está configurada la API, priorizar envío automático
+                  <>
+                    <button
+                      onClick={enviarMensajeAutomatico}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      🚀 Enviar Automáticamente (Recomendado)
+                    </button>
+                    
+                    <button
+                      onClick={enviarPorWhatsApp}
+                      className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-2 text-sm"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      O enviar por WhatsApp Web
+                    </button>
+                  </>
+                ) : (
+                  // Si NO está configurada, solo WhatsApp Web
+                  <>
+                    <button
+                      onClick={enviarPorWhatsApp}
+                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      Enviar por WhatsApp Web
+                    </button>
+                    
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-amber-800 text-xs">
+                        💡 <strong>Configura WhatsApp Business API</strong> para envío automático sin abrir el navegador. 
+                        <a href="#" className="underline ml-1">Ver guía</a>
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-blue-800 text-sm mb-2">

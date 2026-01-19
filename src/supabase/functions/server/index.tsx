@@ -283,11 +283,12 @@ app.get('/make-server-25b11ac0/informes/camarero', async (c) => {
 // ============== CONFIRMACIONES ==============
 app.post('/make-server-25b11ac0/guardar-token', async (c) => {
   try {
-    const { token, pedidoId, camareroId } = await c.req.json();
+    const { token, pedidoId, camareroId, coordinadorId } = await c.req.json();
     
     await kv.set(`confirmacion:${token}`, {
       pedidoId,
       camareroId,
+      coordinadorId,
       createdAt: new Date().toISOString()
     });
     
@@ -297,6 +298,54 @@ app.post('/make-server-25b11ac0/guardar-token', async (c) => {
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
+
+// Función para enviar notificación al coordinador
+async function notificarCoordinador(coordinadorId: string, mensaje: string) {
+  try {
+    const coordinador = await kv.get(coordinadorId);
+    if (!coordinador || !coordinador.telefono) {
+      console.log('Coordinador sin teléfono configurado');
+      return;
+    }
+
+    // Obtener la API key de WhatsApp
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    
+    if (!whatsappApiKey || !whatsappPhoneId) {
+      console.log('WhatsApp API no configurada. Mensaje que se enviaría:', mensaje);
+      return;
+    }
+
+    // Limpiar número de teléfono
+    let numeroLimpio = coordinador.telefono.replace(/\D/g, '');
+    if (numeroLimpio.length === 9) {
+      numeroLimpio = '34' + numeroLimpio;
+    }
+
+    // Enviar mensaje usando WhatsApp Business API
+    const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: numeroLimpio,
+        type: 'text',
+        text: {
+          body: mensaje
+        }
+      })
+    });
+
+    const result = await response.json();
+    console.log('Notificación enviada al coordinador:', result);
+  } catch (error) {
+    console.log('Error al notificar coordinador:', error);
+  }
+}
 
 app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
   try {
@@ -327,8 +376,9 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       `);
     }
     
-    const { pedidoId, camareroId } = confirmacionData;
+    const { pedidoId, camareroId, coordinadorId } = confirmacionData;
     const pedido = await kv.get(pedidoId);
+    const camarero = await kv.get(camareroId);
     
     if (!pedido) {
       return c.html(`
@@ -361,6 +411,17 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
     
     await kv.set(pedidoId, { ...pedido, asignaciones });
     
+    // Notificar al coordinador
+    const nombreCamarero = camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero';
+    const fechaEvento = new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long' 
+    });
+    const mensajeCoordinador = `✅ CONFIRMACIÓN RECIBIDA\n\n${nombreCamarero} ha confirmado su asistencia.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}`;
+    
+    await notificarCoordinador(coordinadorId, mensajeCoordinador);
+    
     // Eliminar token usado
     await kv.del(`confirmacion:${token}`);
     
@@ -384,6 +445,7 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
           <div class="success">✓</div>
           <h1>¡Confirmado!</h1>
           <p>Has confirmado tu asistencia al evento exitosamente.</p>
+          <p>El coordinador ha sido notificado de tu confirmación.</p>
           <p>Gracias por tu confirmación.</p>
         </div>
       </body>
@@ -444,13 +506,25 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       `);
     }
     
-    const { pedidoId, camareroId } = confirmacionData;
+    const { pedidoId, camareroId, coordinadorId } = confirmacionData;
     const pedido = await kv.get(pedidoId);
+    const camarero = await kv.get(camareroId);
     
     if (pedido) {
       // Remover camarero de las asignaciones
       const asignaciones = pedido.asignaciones.filter(a => a.camareroId !== camareroId);
       await kv.set(pedidoId, { ...pedido, asignaciones });
+      
+      // Notificar al coordinador
+      const nombreCamarero = camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero';
+      const fechaEvento = new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long' 
+      });
+      const mensajeCoordinador = `❌ RECHAZO DE SERVICIO\n\n${nombreCamarero} ha indicado que NO puede asistir y ha sido eliminado automáticamente.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}\n\n⚠️ ACCIÓN REQUERIDA: Asignar un camarero de reemplazo.`;
+      
+      await notificarCoordinador(coordinadorId, mensajeCoordinador);
     }
     
     // Eliminar token usado
@@ -476,6 +550,8 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
           <div class="info">✗</div>
           <h1>No Confirmado</h1>
           <p>Has indicado que no podrás asistir al evento.</p>
+          <p>Has sido eliminado automáticamente de la asignación.</p>
+          <p>El coordinador ha sido notificado.</p>
           <p>Gracias por tu respuesta.</p>
         </div>
       </body>
@@ -504,6 +580,366 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       </body>
       </html>
     `);
+  }
+});
+
+// ============== ENVÍO DE WHATSAPP ==============
+app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
+  try {
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    
+    const configured = !!(whatsappApiKey && whatsappPhoneId);
+    
+    return c.json({ 
+      success: true, 
+      configured,
+      message: configured 
+        ? 'WhatsApp Business API configurada correctamente' 
+        : 'WhatsApp Business API no configurada. Se usará WhatsApp Web como alternativa.'
+    });
+  } catch (error) {
+    console.log('Error al verificar configuración WhatsApp:', error);
+    return c.json({ success: false, configured: false }, 500);
+  }
+});
+
+app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
+  try {
+    const { telefono, mensaje } = await c.req.json();
+    
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    
+    if (!whatsappApiKey || !whatsappPhoneId) {
+      return c.json({ 
+        success: false, 
+        error: 'WhatsApp API no configurada. Por favor, configura WHATSAPP_API_KEY y WHATSAPP_PHONE_ID en las variables de entorno.' 
+      });
+    }
+
+    // Limpiar número de teléfono
+    let numeroLimpio = telefono.replace(/\D/g, '');
+    if (numeroLimpio.length === 9) {
+      numeroLimpio = '34' + numeroLimpio;
+    }
+
+    // Enviar mensaje usando WhatsApp Business API
+    const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: numeroLimpio,
+        type: 'text',
+        text: {
+          body: mensaje
+        }
+      })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      return c.json({ success: true, data: result });
+    } else {
+      console.log('Error al enviar WhatsApp:', result);
+      return c.json({ success: false, error: result.error?.message || 'Error al enviar mensaje' });
+    }
+  } catch (error) {
+    console.log('Error al enviar WhatsApp:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== ENVÍO DE EMAIL ==============
+
+// Función genérica para enviar emails con detección automática del proveedor
+async function enviarEmailGenerico(params: {
+  destinatario: string;
+  cc?: string | null;
+  asunto: string;
+  htmlBody: string;
+}) {
+  const { destinatario, cc, asunto, htmlBody } = params;
+  
+  // Detectar qué servicio está configurado
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+  const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+  const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
+  
+  // Email remitente configurable
+  const emailFrom = Deno.env.get('EMAIL_FROM') || 'no-reply@sistema.com';
+  
+  // PRIORIDAD 1: Resend
+  if (resendApiKey) {
+    console.log('🚀 Usando Resend para enviar email');
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: emailFrom,
+          to: [destinatario],
+          cc: cc ? [cc] : undefined,
+          subject: asunto,
+          html: htmlBody
+        })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('✅ Email enviado exitosamente con Resend:', result);
+        return { success: true, provider: 'Resend', data: result };
+      } else {
+        console.log('❌ Error al enviar con Resend:', result);
+        return { 
+          success: false, 
+          provider: 'Resend',
+          error: result.message || 'Error al enviar email' 
+        };
+      }
+    } catch (error) {
+      console.log('❌ Error de conexión con Resend:', error);
+      return { success: false, provider: 'Resend', error: String(error) };
+    }
+  }
+  
+  // PRIORIDAD 2: SendGrid
+  if (sendgridApiKey) {
+    console.log('🚀 Usando SendGrid para enviar email');
+    try {
+      const emailData: any = {
+        personalizations: [{
+          to: [{ email: destinatario }],
+          subject: asunto
+        }],
+        from: { email: emailFrom },
+        content: [{
+          type: 'text/html',
+          value: htmlBody
+        }]
+      };
+      
+      // Agregar CC si existe
+      if (cc) {
+        emailData.personalizations[0].cc = [{ email: cc }];
+      }
+      
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sendgridApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(emailData)
+      });
+
+      if (response.ok) {
+        console.log('✅ Email enviado exitosamente con SendGrid');
+        return { success: true, provider: 'SendGrid', data: { id: response.headers.get('x-message-id') } };
+      } else {
+        const errorText = await response.text();
+        console.log('❌ Error al enviar con SendGrid:', errorText);
+        return { 
+          success: false, 
+          provider: 'SendGrid',
+          error: errorText || 'Error al enviar email' 
+        };
+      }
+    } catch (error) {
+      console.log('❌ Error de conexión con SendGrid:', error);
+      return { success: false, provider: 'SendGrid', error: String(error) };
+    }
+  }
+  
+  // PRIORIDAD 3: Mailgun
+  if (mailgunApiKey && mailgunDomain) {
+    console.log('🚀 Usando Mailgun para enviar email');
+    try {
+      const formData = new FormData();
+      formData.append('from', emailFrom);
+      formData.append('to', destinatario);
+      if (cc) formData.append('cc', cc);
+      formData.append('subject', asunto);
+      formData.append('html', htmlBody);
+      
+      const response = await fetch(
+        `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`
+          },
+          body: formData
+        }
+      );
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('✅ Email enviado exitosamente con Mailgun:', result);
+        return { success: true, provider: 'Mailgun', data: result };
+      } else {
+        console.log('❌ Error al enviar con Mailgun:', result);
+        return { 
+          success: false, 
+          provider: 'Mailgun',
+          error: result.message || 'Error al enviar email' 
+        };
+      }
+    } catch (error) {
+      console.log('❌ Error de conexión con Mailgun:', error);
+      return { success: false, provider: 'Mailgun', error: String(error) };
+    }
+  }
+  
+  // Si no hay ningún servicio configurado
+  console.log('⚠️ No hay ningún servicio de email configurado');
+  return { 
+    success: false, 
+    provider: 'Ninguno',
+    error: 'No hay ningún servicio de email configurado. Por favor, configura al menos uno: RESEND_API_KEY, SENDGRID_API_KEY, o MAILGUN_API_KEY + MAILGUN_DOMAIN' 
+  };
+}
+
+// Endpoint para verificar configuración de email
+app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
+  try {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
+    const emailFrom = Deno.env.get('EMAIL_FROM');
+    
+    const serviciosDisponibles = [];
+    let servicioActivo = null;
+    
+    if (resendApiKey) {
+      serviciosDisponibles.push('Resend');
+      servicioActivo = servicioActivo || 'Resend';
+    }
+    if (sendgridApiKey) {
+      serviciosDisponibles.push('SendGrid');
+      servicioActivo = servicioActivo || 'SendGrid';
+    }
+    if (mailgunApiKey && mailgunDomain) {
+      serviciosDisponibles.push('Mailgun');
+      servicioActivo = servicioActivo || 'Mailgun';
+    }
+    
+    const configured = serviciosDisponibles.length > 0;
+    
+    return c.json({ 
+      success: true, 
+      configured,
+      servicioActivo,
+      serviciosDisponibles,
+      emailFrom: emailFrom || 'no-reply@sistema.com',
+      message: configured 
+        ? `Servicio de email configurado: ${servicioActivo} (Disponibles: ${serviciosDisponibles.join(', ')})` 
+        : 'No hay ningún servicio de email configurado. Configura al menos uno: Resend, SendGrid o Mailgun.'
+    });
+  } catch (error) {
+    console.log('Error al verificar configuración de email:', error);
+    return c.json({ success: false, configured: false }, 500);
+  }
+});
+
+app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
+  try {
+    const { destinatario, cc, asunto, mensaje, parteHTML, pedido } = await c.req.json();
+    
+    console.log('📧 Solicitud de envío de email recibida');
+    console.log('   Destinatario:', destinatario);
+    console.log('   CC:', cc || 'No');
+    console.log('   Asunto:', asunto);
+    console.log('   Pedido:', pedido.cliente, '-', pedido.fecha);
+    
+    // Construir el cuerpo del email con diseño profesional
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5; }
+          .wrapper { max-width: 800px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+          .header h2 { color: white; margin: 0; font-size: 24px; }
+          .message-box { background: #f9fafb; padding: 25px; border-left: 4px solid #10b981; border-right: 1px solid #e5e7eb; }
+          .message-box p { color: #374151; line-height: 1.8; white-space: pre-line; margin: 0; }
+          .parte-container { background: white; border: 1px solid #e5e7eb; overflow: hidden; }
+          .footer { margin-top: 20px; padding: 20px; background: #f3f4f6; border-radius: 8px; text-align: center; }
+          .footer p { color: #6b7280; font-size: 13px; margin: 5px 0; }
+          .footer a { color: #10b981; text-decoration: none; }
+          .badge { display: inline-block; padding: 4px 12px; background: #10b981; color: white; border-radius: 12px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="wrapper">
+          <div class="header">
+            <h2>📋 Parte de Servicio</h2>
+            <span class="badge">Sistema de Gestión de Camareros</span>
+          </div>
+          
+          <div class="message-box">
+            <p>${mensaje}</p>
+          </div>
+          
+          <div class="parte-container">
+            ${parteHTML}
+          </div>
+          
+          <div class="footer">
+            <p><strong>Este email fue generado automáticamente</strong></p>
+            <p>Sistema de Gestión de Camareros</p>
+            <p style="margin-top: 15px; font-size: 11px;">
+              Si tienes alguna pregunta sobre este parte, contacta directamente con el coordinador.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Enviar email usando la función genérica
+    const result = await enviarEmailGenerico({
+      destinatario,
+      cc,
+      asunto,
+      htmlBody: emailBody
+    });
+    
+    if (result.success) {
+      console.log(`✅ Email enviado exitosamente usando ${result.provider}`);
+      return c.json({ 
+        success: true, 
+        provider: result.provider,
+        data: result.data,
+        message: `Email enviado correctamente usando ${result.provider}` 
+      });
+    } else {
+      console.log(`❌ Error al enviar email con ${result.provider}:`, result.error);
+      return c.json({ 
+        success: false, 
+        provider: result.provider,
+        error: result.error 
+      }, 400);
+    }
+    
+  } catch (error) {
+    console.log('❌ Error general al procesar envío de email:', error);
+    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 

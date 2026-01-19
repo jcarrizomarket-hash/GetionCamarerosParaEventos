@@ -430,7 +430,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                     >
                       <option value="">Seleccionar...</option>
                       {coordinadores.map(coord => (
-                        <option key={coord.id} value={coord.id}>{coord.nombre} {coord.apellido}</option>
+                        <option key={coord.id} value={coord.id}>{coord.nombre}</option>
                       ))}
                     </select>
                   </div>

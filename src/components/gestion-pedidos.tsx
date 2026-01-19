@@ -718,8 +718,13 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                          camareroLabel = <span className="text-red-400 italic font-normal">-- Vacante --</span>;
                      }
                      
+                     // Generar key única basada en múltiples factores
+                     const uniqueKey = item.type === 'asignado' 
+                       ? `${item.pedido.id}-${item.data.camareroId}-${idx}`
+                       : `${item.pedido.id}-faltante-${item.turno}-${idx}`;
+                     
                      return (
-                      <tr key={`${item.pedido.id}-${idx}`} className={`${item.bgClase} hover:opacity-90 transition-opacity`}>
+                      <tr key={uniqueKey} className={`${item.bgClase} hover:opacity-90 transition-opacity`}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                           {new Date(item.pedido.diaEvento).toLocaleDateString('es-ES')}
                         </td>

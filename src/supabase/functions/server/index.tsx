@@ -9,6 +9,23 @@ const app = new Hono();
 app.use('*', cors());
 app.use('*', logger(console.log));
 
+// Middleware de seguridad simple
+const requireSecret = async (c, next) => {
+  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
+  const providedSecret = c.req.header('x-fn-secret');
+  
+  // Solo validar en métodos mutantes
+  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (methodsToProtect.includes(c.req.method)) {
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+      return c.json({ success: false, error: 'No autorizado' }, 401);
+    }
+  }
+  
+  await next();
+};
+
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -25,7 +42,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -41,7 +58,7 @@ app.post('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -53,7 +70,7 @@ app.put('/make-server-25b11ac0/clientes/:id', async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -75,7 +92,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -106,7 +123,7 @@ app.post('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -129,7 +146,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   try {
     const { nombre, telefono } = await c.req.json();
     
@@ -167,7 +184,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -209,15 +226,19 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
+    
+    console.log('📝 Actualizando pedido:', id);
+    console.log('   Estado asignaciones:', data.asignaciones?.map(a => ({ num: a.camareroNumero, estado: a.estado })));
+    
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.log('Error al actualizar pedido:', error);
+    console.log('❌ Error al actualizar pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -583,20 +604,45 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
   }
 });
 
-// ============== ENVÍO DE WHATSAPP ==============
+// ============== WHATSAPP ==============
 app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
   try {
-    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
-    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    let whatsappApiKey = null;
+    let whatsappPhoneId = null;
+    let source = null;
     
-    const configured = !!(whatsappApiKey && whatsappPhoneId);
+    // PRIORIDAD 1: Buscar en KV store primero
+    const kvApiKey = await kv.get('config:whatsapp_api_key');
+    const kvPhoneId = await kv.get('config:whatsapp_phone_id');
+    
+    if (kvApiKey && kvPhoneId && kvApiKey.length >= 50) {
+      whatsappApiKey = kvApiKey;
+      whatsappPhoneId = kvPhoneId;
+      source = 'configuración guardada (KV store)';
+    } else {
+      // PRIORIDAD 2: Variables de entorno (solo si son válidas)
+      const envApiKey = Deno.env.get('WHATSAPP_API_KEY');
+      const envPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+      
+      // Validar que el token de variables de entorno sea válido
+      if (envApiKey && envPhoneId && envApiKey.length >= 50) {
+        whatsappApiKey = envApiKey;
+        whatsappPhoneId = envPhoneId;
+        source = 'variables de entorno';
+      } else if (envApiKey && envApiKey.length < 50) {
+        console.log(`⚠️ Token en variables de entorno es inválido (${envApiKey.length} chars, comienza con "${envApiKey.substring(0, 10)}..."). Ignorando.`);
+      }
+    }
+    
+    const configured = !!(whatsappApiKey && whatsappPhoneId && whatsappApiKey.length >= 50);
     
     return c.json({ 
       success: true, 
       configured,
+      source: configured ? source : null,
       message: configured 
-        ? 'WhatsApp Business API configurada correctamente' 
-        : 'WhatsApp Business API no configurada. Se usará WhatsApp Web como alternativa.'
+        ? `WhatsApp Business API configurada correctamente (desde ${source})` 
+        : 'WhatsApp Business API no configurada o el token es inválido. Por favor, configura un token permanente válido desde la pestaña "Configuración WhatsApp".'
     });
   } catch (error) {
     console.log('Error al verificar configuración WhatsApp:', error);
@@ -604,28 +650,166 @@ app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
   }
 });
 
+app.post('/make-server-25b11ac0/actualizar-whatsapp-config', async (c) => {
+  try {
+    const { apiKey, phoneId } = await c.req.json();
+    
+    if (!apiKey || !phoneId) {
+      return c.json({ 
+        success: false, 
+        error: 'API Key y Phone ID son requeridos' 
+      });
+    }
+    
+    // Validar formato del token
+    if (apiKey.length < 100) {
+      return c.json({
+        success: false,
+        error: 'El token parece inválido (muy corto). Debe ser un token de acceso permanente.'
+      });
+    }
+    
+    // Guardar en KV store con prefijo especial para configuración
+    await kv.set('config:whatsapp_api_key', apiKey);
+    await kv.set('config:whatsapp_phone_id', phoneId);
+    
+    console.log('✅ Configuración de WhatsApp actualizada en KV store');
+    console.log('   - API Key length:', apiKey.length, 'chars');
+    console.log('   - Phone ID:', phoneId);
+    
+    return c.json({ 
+      success: true, 
+      message: 'Configuración guardada exitosamente. Los cambios están activos inmediatamente.'
+    });
+  } catch (error) {
+    console.log('❌ Error al actualizar configuración WhatsApp:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
   try {
     const { telefono, mensaje } = await c.req.json();
     
-    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
-    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    console.log('📱 Intentando enviar WhatsApp a:', telefono);
+    
+    // Estrategia de obtención de configuración:
+    // 1. Primero intentar KV store (configuración guardada por el usuario)
+    // 2. Luego variables de entorno (solo si son válidas)
+    // 3. Validar que los tokens sean de longitud adecuada
+    
+    let whatsappApiKey = null;
+    let whatsappPhoneId = null;
+    let configSource = null;
+    
+    // PRIORIDAD 1: Buscar en KV store primero
+    const kvApiKey = await kv.get('config:whatsapp_api_key');
+    const kvPhoneId = await kv.get('config:whatsapp_phone_id');
+    
+    if (kvApiKey && kvPhoneId && kvApiKey.length >= 50) {
+      whatsappApiKey = kvApiKey;
+      whatsappPhoneId = kvPhoneId;
+      configSource = 'KV store (configuración guardada desde la pestaña)';
+      console.log('🔑 Usando configuración de WhatsApp desde KV store');
+    } else {
+      // PRIORIDAD 2: Variables de entorno (solo si son válidas)
+      const envApiKey = Deno.env.get('WHATSAPP_API_KEY');
+      const envPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+      
+      // Validar que el token de variables de entorno sea válido (mínimo 50 caracteres)
+      if (envApiKey && envPhoneId && envApiKey.length >= 50) {
+        whatsappApiKey = envApiKey;
+        whatsappPhoneId = envPhoneId;
+        configSource = 'variables de entorno';
+        console.log('🔑 Usando configuración de WhatsApp desde variables de entorno');
+      } else if (envApiKey && envApiKey.length < 50) {
+        console.log(`⚠️ Token en variables de entorno es inválido (${envApiKey.length} chars). Ignorando.`);
+      }
+    }
     
     if (!whatsappApiKey || !whatsappPhoneId) {
+      console.log('❌ WhatsApp API no configurada correctamente');
       return c.json({ 
         success: false, 
-        error: 'WhatsApp API no configurada. Por favor, configura WHATSAPP_API_KEY y WHATSAPP_PHONE_ID en las variables de entorno.' 
+        error: 'WhatsApp API no configurada. Por favor, ve a la pestaña "Configuración WhatsApp" y configura tus credenciales de Meta Business Suite con un token permanente válido.',
+        needsConfiguration: true,
+        helpMessage: '💡 El token debe ser un Token de Acceso PERMANENTE de WhatsApp Business API con 200+ caracteres. Los tokens temporales NO funcionan.'
+      });
+    }
+    
+    // VALIDACIÓN CRÍTICA: El Phone Number ID NO debe ser un número de teléfono
+    // Un Phone Number ID válido es un número largo como "123456789012345"
+    // NO debe contener + ni espacios
+    if (whatsappPhoneId.includes('+') || whatsappPhoneId.includes(' ') || whatsappPhoneId.length < 10) {
+      console.log('❌ Phone Number ID inválido:', whatsappPhoneId);
+      return c.json({
+        success: false,
+        error: `❌ PHONE NUMBER ID INCORRECTO\n\n` +
+               `Has configurado: "${whatsappPhoneId}"\n\n` +
+               `❗ IMPORTANTE: El "Phone Number ID" NO es un número de teléfono.\n\n` +
+               `🔧 CÓMO OBTENER EL PHONE NUMBER ID CORRECTO:\n\n` +
+               `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
+               `2. Selecciona tu cuenta de WhatsApp Business\n` +
+               `3. En la sección "API Setup" o "Configuración de API"\n` +
+               `4. Busca "Phone Number ID" (es un número largo como "123456789012345")\n` +
+               `5. Cópialo EXACTAMENTE (sin el + ni espacios)\n` +
+               `6. Actualízalo en la pestaña "Configuración WhatsApp"\n\n` +
+               `💡 Ejemplo:\n` +
+               `   ✅ Correcto: "106540852500791" (Phone Number ID)\n` +
+               `   ❌ Incorrecto: "+34628904614" (número de teléfono)\n\n` +
+               `El Phone Number ID es diferente al número de teléfono y lo encuentras en la configuración de tu cuenta de WhatsApp Business API.`,
+        needsConfiguration: true,
+        helpUrl: 'https://business.facebook.com/wa/manage/home/',
+        debugInfo: {
+          phoneIdRecibido: whatsappPhoneId,
+          problema: 'El valor contiene caracteres de número de teléfono (+, espacios) o es muy corto',
+          solucion: 'Debes usar el Phone Number ID, no el número de teléfono'
+        }
+      });
+    }
+    
+    // Información de debug (sin mostrar el token completo por seguridad)
+    console.log('🔍 Debug Info:');
+    console.log('   - Config source:', configSource);
+    console.log('   - API Key length:', whatsappApiKey.length, 'chars');
+    console.log('   - API Key prefix:', whatsappApiKey.substring(0, 20) + '...');
+    console.log('   - Phone Number ID:', whatsappPhoneId);
+    
+    // Validar formato del token - Los tokens válidos suelen tener 200+ caracteres
+    if (whatsappApiKey.length < 50) {
+      console.log('⚠️ El token parece ser inválido (muy corto)');
+      return c.json({
+        success: false,
+        error: `El token actual tiene solo ${whatsappApiKey.length} caracteres y no es válido.\n\n` +
+               `Un token válido de WhatsApp Business API debe tener 200+ caracteres.\n\n` +
+               `🔧 SOLUCIÓN:\n` +
+               `1. Ve a la pestaña "Configuración WhatsApp"\n` +
+               `2. Genera un nuevo Token de Acceso PERMANENTE desde Meta Business Suite\n` +
+               `3. Guárdalo en la aplicación\n\n` +
+               `El token guardado sobrescribirá automáticamente cualquier configuración incorrecta.`,
+        needsConfiguration: true,
+        helpUrl: 'https://developers.facebook.com/docs/whatsapp/business-management-api/get-started',
+        debugInfo: {
+          tokenLength: whatsappApiKey.length,
+          configSource: configSource,
+          tokenPrefix: whatsappApiKey.substring(0, 10) + '...'
+        }
       });
     }
 
-    // Limpiar número de teléfono
+    // Limpiar número de teléfono destinatario
     let numeroLimpio = telefono.replace(/\D/g, '');
     if (numeroLimpio.length === 9) {
       numeroLimpio = '34' + numeroLimpio;
     }
+    
+    console.log('📱 Número destinatario limpio:', numeroLimpio);
 
     // Enviar mensaje usando WhatsApp Business API
-    const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+    const whatsappApiUrl = `https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`;
+    console.log('🌐 URL de API:', whatsappApiUrl);
+    
+    const response = await fetch(whatsappApiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappApiKey}`,
@@ -644,13 +828,53 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
     const result = await response.json();
     
     if (response.ok) {
+      console.log('✅ WhatsApp enviado exitosamente:', result);
       return c.json({ success: true, data: result });
     } else {
-      console.log('Error al enviar WhatsApp:', result);
-      return c.json({ success: false, error: result.error?.message || 'Error al enviar mensaje' });
+      console.log('❌ Error al enviar WhatsApp:', result);
+      
+      // Detectar errores específicos
+      let errorMessage = result.error?.message || 'Error al enviar mensaje';
+      let needsConfiguration = false;
+      
+      if (errorMessage.includes('access token') || errorMessage.includes('OAuth') || errorMessage.includes('Invalid OAuth')) {
+        errorMessage = `Token de WhatsApp inválido o expirado: "${result.error?.message}".\n\n` +
+                      `🔧 SOLUCIÓN:\n` +
+                      `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
+                      `2. Genera un nuevo Token de Acceso PERMANENTE (no temporal)\n` +
+                      `3. Ve a la pestaña "Configuración WhatsApp" en la aplicación\n` +
+                      `4. Pega el nuevo token y guarda\n\n` +
+                      `El token debe ser permanente y tener permisos de whatsapp_business_messaging.`;
+        needsConfiguration = true;
+      } else if (errorMessage.includes('does not exist') || errorMessage.includes('cannot be loaded') || result.error?.code === 100) {
+        errorMessage = `❌ PHONE NUMBER ID INCORRECTO\n\n` +
+                      `El Phone Number ID "${whatsappPhoneId}" no existe o no tienes permisos.\n\n` +
+                      `❗ IMPORTANTE: El "Phone Number ID" NO es tu número de teléfono.\n\n` +
+                      `🔧 CÓMO OBTENER EL PHONE NUMBER ID CORRECTO:\n\n` +
+                      `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
+                      `2. Selecciona tu cuenta de WhatsApp Business\n` +
+                      `3. En "API Setup", busca "Phone Number ID"\n` +
+                      `4. Es un número largo (ej: "106540852500791")\n` +
+                      `5. Cópialo y actualízalo en "Configuración WhatsApp"\n\n` +
+                      `💡 NO uses tu número de teléfono (+34...), usa el ID que te proporciona Meta.`;
+        needsConfiguration = true;
+      }
+      
+      return c.json({ 
+        success: false, 
+        error: errorMessage,
+        needsConfiguration,
+        details: result,
+        helpUrl: 'https://business.facebook.com/wa/manage/home/',
+        debugInfo: {
+          configSource: configSource,
+          phoneId: whatsappPhoneId,
+          tokenLength: whatsappApiKey.length
+        }
+      });
     }
   } catch (error) {
-    console.log('Error al enviar WhatsApp:', error);
+    console.log('❌ Error general al enviar WhatsApp:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

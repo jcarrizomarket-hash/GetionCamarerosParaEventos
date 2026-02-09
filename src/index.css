@@ -311,6 +311,9 @@
     letter-spacing: inherit;
     color: inherit;
     opacity: 1;
+    --lightningcss-light: initial;
+    --lightningcss-dark: ;
+    color-scheme: light;
     background-color: #0000;
     border-radius: 0;
   }
@@ -322,6 +325,9 @@
     letter-spacing: inherit;
     color: inherit;
     opacity: 1;
+    --lightningcss-light: initial;
+    --lightningcss-dark: ;
+    color-scheme: light;
     background-color: #0000;
     border-radius: 0;
   }
@@ -662,6 +668,10 @@
 
   .ml-5 {
     margin-left: calc(var(--spacing) * 5);
+  }
+
+  .ml-6 {
+    margin-left: calc(var(--spacing) * 6);
   }
 
   .ml-8 {
@@ -2256,6 +2266,12 @@
   }
 
   @media (hover: hover) {
+    .hover\:text-blue-700:hover {
+      color: var(--color-blue-700);
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:text-gray-200:hover {
       color: var(--color-gray-200);
     }
@@ -2288,6 +2304,12 @@
   @media (hover: hover) {
     .hover\:text-red-600:hover {
       color: var(--color-red-600);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:underline:hover {
+      text-decoration-line: underline;
     }
   }
 
@@ -2362,6 +2384,10 @@
 
   .disabled\:cursor-not-allowed:disabled {
     cursor: not-allowed;
+  }
+
+  .disabled\:bg-gray-300:disabled {
+    background-color: var(--color-gray-300);
   }
 
   .disabled\:opacity-50:disabled {

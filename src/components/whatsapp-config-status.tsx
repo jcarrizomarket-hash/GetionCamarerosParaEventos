@@ -94,15 +94,10 @@ export function WhatsAppConfigStatus({ baseUrl, publicAnonKey }) {
           <div className="space-y-2">
             <p className="text-sm font-medium text-amber-900">Para activar el envío automático:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm text-amber-700">
-              <li>Abre el archivo <code className="bg-amber-100 px-1 py-0.5 rounded">WHATSAPP_SETUP.md</code></li>
-              <li>Sigue la guía para obtener tus credenciales de Meta</li>
-              <li>Configura las variables en Supabase:
-                <ul className="list-disc list-inside ml-5 mt-1 space-y-0.5">
-                  <li><code className="bg-amber-100 px-1 py-0.5 rounded">WHATSAPP_API_KEY</code></li>
-                  <li><code className="bg-amber-100 px-1 py-0.5 rounded">WHATSAPP_PHONE_ID</code></li>
-                </ul>
-              </li>
-              <li>Recarga esta página</li>
+              <li>Ve a la pestaña <strong>"Configuración WhatsApp"</strong> en el menú principal</li>
+              <li>Sigue las instrucciones para obtener tus credenciales de Meta Business Suite</li>
+              <li>Ingresa tu Token de Acceso Permanente y Phone Number ID</li>
+              <li>Guarda la configuración - ¡Los cambios son inmediatos!</li>
             </ol>
           </div>
 

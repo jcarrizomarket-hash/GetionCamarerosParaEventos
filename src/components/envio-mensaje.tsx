@@ -214,14 +214,50 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
             setCamareroSeleccionado('');
             setMensaje('');
           } else {
-            // Si falla la API de WhatsApp, mostrar opción alternativa
-            alert(`⚠️ No se pudo enviar automáticamente: ${envioResult.error}\n\nSe abrirá WhatsApp Web para enviar manualmente.`);
+            console.error('Error al enviar WhatsApp:', envioResult);
+            
+            // Mostrar error específico según el tipo
+            if (envioResult.needsConfiguration) {
+              let mensajeError = `⚠️ ERROR DE CONFIGURACIÓN DE WHATSAPP:\n\n${envioResult.error}\n\n`;
+              
+              // Agregar información de debug si existe
+              if (envioResult.debugInfo) {
+                mensajeError += `📊 INFORMACIÓN DE DEBUG:\n`;
+                mensajeError += `- Fuente de configuración: ${envioResult.debugInfo.configSource}\n`;
+                mensajeError += `- Longitud del token: ${envioResult.debugInfo.tokenLength} caracteres\n`;
+                if (envioResult.debugInfo.tokenPrefix) {
+                  mensajeError += `- Inicio del token: ${envioResult.debugInfo.tokenPrefix}\n`;
+                }
+                if (envioResult.debugInfo.phoneId) {
+                  mensajeError += `- Phone ID: ${envioResult.debugInfo.phoneId}\n`;
+                }
+                mensajeError += `\n`;
+              }
+              
+              mensajeError += `🔧 SOLUCIÓN:\n`;
+              mensajeError += `1. Ve a la pestaña "Configuración WhatsApp" en el menú principal\n`;
+              mensajeError += `2. Haz clic en "¿Cómo obtener el token?" para ver instrucciones\n`;
+              mensajeError += `3. Ve a: https://business.facebook.com/wa/manage/home/\n`;
+              mensajeError += `4. Genera un Token de Acceso PERMANENTE (debe tener 200+ caracteres)\n`;
+              mensajeError += `5. Copia COMPLETAMENTE el token (sin espacios al inicio o final)\n`;
+              mensajeError += `6. Obtén también tu Phone Number ID\n`;
+              mensajeError += `7. Pégalos en "Configuración WhatsApp" y guarda\n\n`;
+              mensajeError += `Por ahora, se abrirá WhatsApp Web para enviar manualmente.`;
+              
+              alert(mensajeError);
+            } else {
+              alert(`⚠️ No se pudo enviar automáticamente: ${envioResult.error}\n\nSe abrirá WhatsApp Web para enviar manualmente.`);
+            }
+            
             enviarPorWhatsApp();
           }
+        } else {
+          console.error('Error al actualizar pedido:', result);
+          alert('Error al actualizar el estado del pedido. Intenta nuevamente.');
         }
       } catch (error) {
-        console.log('Error al enviar mensaje:', error);
-        alert('Error al enviar el mensaje. Intenta nuevamente.');
+        console.error('Error al enviar mensaje:', error);
+        alert('Error de conexión al enviar el mensaje. Verifica tu conexión e intenta nuevamente.');
       }
     }
   };
@@ -316,7 +352,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
               onChange={(e) => setCoordinadorSeleccionado(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Seleccionar coordinador</option>
+              <option key="empty-coordinador" value="">Seleccionar coordinador</option>
               {coordinadoresConTelefono.map((coordinador) => (
                 <option key={coordinador.id} value={coordinador.id}>
                   {coordinador.nombre} - {coordinador.telefono}
@@ -440,7 +476,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
               <div className="space-y-3">
                 {whatsappConfigured ? (
                   // Si está configurada la API, priorizar envío automático
-                  <>
+                  <div key="whatsapp-configured" className="space-y-3">
                     <button
                       onClick={enviarMensajeAutomatico}
                       className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium"
@@ -456,10 +492,10 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                       <MessageCircle className="w-4 h-4" />
                       O enviar por WhatsApp Web
                     </button>
-                  </>
+                  </div>
                 ) : (
                   // Si NO está configurada, solo WhatsApp Web
-                  <>
+                  <div key="whatsapp-not-configured" className="space-y-3">
                     <button
                       onClick={enviarPorWhatsApp}
                       className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
@@ -474,7 +510,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                         <a href="#" className="underline ml-1">Ver guía</a>
                       </p>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -483,12 +519,12 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                   <strong>Cómo funciona:</strong>
                 </p>
                 <ol className="text-blue-800 text-sm space-y-1 list-decimal ml-4">
-                  <li key="paso-1">Al hacer clic en "Enviar por WhatsApp", se abrirá WhatsApp Web con el mensaje listo</li>
-                  <li key="paso-2">El camarero recibirá el mensaje con su información del evento</li>
-                  <li key="paso-3">Al final del mensaje habrá dos enlaces de botón para confirmar o no confirmar</li>
-                  <li key="paso-4">Cuando el camarero haga clic en "✅ CONFIRMO", su estado se actualizará automáticamente a confirmado (verde)</li>
-                  <li key="paso-5">Si hace clic en "❌ NO CONFIRMO", será removido automáticamente de la asignación</li>
-                  <li key="paso-6">Los cambios se reflejarán instantáneamente en la aplicación</li>
+                  <li>Al hacer clic en "Enviar por WhatsApp", se abrirá WhatsApp Web con el mensaje listo</li>
+                  <li>El camarero recibirá el mensaje con su información del evento</li>
+                  <li>Al final del mensaje habrá dos enlaces de botón para confirmar o no confirmar</li>
+                  <li>Cuando el camarero haga clic en "✅ CONFIRMO", su estado se actualizará automáticamente a confirmado (verde)</li>
+                  <li>Si hace clic en "❌ NO CONFIRMO", será removido automáticamente de la asignación</li>
+                  <li>Los cambios se reflejarán instantáneamente en la aplicación</li>
                 </ol>
               </div>
 

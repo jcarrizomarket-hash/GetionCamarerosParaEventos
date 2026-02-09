@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -7,6 +7,7 @@ import { Coordinadores } from './components/coordinadores';
 import { Informes } from './components/informes';
 import { EnvioMensaje } from './components/envio-mensaje';
 import { EnvioParte } from './components/envio-parte';
+import { WhatsAppConfig } from './components/whatsapp-config';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
 export default function App() {
@@ -55,7 +56,8 @@ export default function App() {
     { id: 'coordinadores', label: 'Coordinadores', icon: UserPlus },
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare },
-    { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck }
+    { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck },
+    { id: 'whatsapp-config', label: 'Configuración WhatsApp', icon: Settings }
   ];
 
   return (
@@ -165,6 +167,13 @@ export default function App() {
             publicAnonKey={publicAnonKey}
             setPedidos={setPedidos}
             cargarDatos={cargarDatos}
+          />
+        )}
+
+        {activeTab === 'whatsapp-config' && (
+          <WhatsAppConfig
+            baseUrl={baseUrl}
+            publicAnonKey={publicAnonKey}
           />
         )}
       </div>

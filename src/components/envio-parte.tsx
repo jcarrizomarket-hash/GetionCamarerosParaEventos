@@ -23,6 +23,102 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
     window.print();
   };
 
+  // Función para generar el HTML del parte
+  const generarParteHTML = (pedido) => {
+    const camareros = pedido.asignaciones || [];
+    const filasVacias = Math.max(0, 8 - camareros.length);
+    
+    const filasVaciasHTML = Array.from({ length: filasVacias }).map(() => `
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    `).join('');
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+          .parte { max-width: 800px; margin: 0 auto; border: 2px solid #333; padding: 30px; }
+          h1 { text-align: center; font-size: 24px; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 10px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          .info-row { margin-bottom: 10px; }
+          .label { display: inline-block; width: 150px; font-weight: bold; }
+          .value { border-bottom: 1px solid #333; display: inline-block; min-width: 250px; padding: 2px 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+          th, td { border: 2px solid #333; padding: 10px; text-align: left; }
+          th { background-color: #f0f0f0; font-weight: bold; }
+          .firma { float: right; border: 2px solid #333; padding: 20px; width: 300px; text-align: center; margin-top: 40px; }
+          .firma-linea { border-top: 1px solid #333; margin-top: 80px; }
+        </style>
+      </head>
+      <body>
+        <div class="parte">
+          <h1>PARTE DE SERVICIO</h1>
+          
+          <div class="info-grid">
+            <div>
+              <div class="info-row">
+                <span class="label">Cliente:</span>
+                <span class="value">${pedido.cliente}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Día:</span>
+                <span class="value">${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              </div>
+            </div>
+            <div>
+              <div class="info-row">
+                <span class="label">Lugar del evento:</span>
+                <span class="value">${pedido.lugar}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Hora entrada:</span>
+                <span class="value">${pedido.horaEntrada}${pedido.horaEntrada2 ? ` / ${pedido.horaEntrada2}` : ''}</span>
+              </div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Camarero</th>
+                <th>Hora Entrada</th>
+                <th>Hora Salida</th>
+                <th>Total</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${camareros.map((asig) => `
+                <tr>
+                  <td>#${asig.camareroNumero} - ${asig.camareroNombre}</td>
+                  <td>${pedido.horaEntrada}</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+              `).join('')}
+              ${filasVaciasHTML}
+            </tbody>
+          </table>
+
+          <div class="firma">
+            <p>Firma del Responsable</p>
+            <div class="firma-linea"></div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   const pedidoSeleccionado = uniquePedidos.find(p => p.id === selectedPedido);
 
   return (
@@ -429,98 +525,4 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
       )}
     </div>
   );
-
-  // Función para generar el HTML del parte
-  function generarParteHTML(pedido) {
-    const camareros = pedido.asignaciones || [];
-    const filasVacias = Math.max(0, 8 - camareros.length);
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-          .parte { max-width: 800px; margin: 0 auto; border: 2px solid #333; padding: 30px; }
-          h1 { text-align: center; font-size: 24px; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 10px; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-          .info-row { margin-bottom: 10px; }
-          .label { display: inline-block; width: 150px; font-weight: bold; }
-          .value { border-bottom: 1px solid #333; display: inline-block; min-width: 250px; padding: 2px 8px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-          th, td { border: 2px solid #333; padding: 10px; text-align: left; }
-          th { background-color: #f0f0f0; font-weight: bold; }
-          .firma { float: right; border: 2px solid #333; padding: 20px; width: 300px; text-align: center; margin-top: 40px; }
-          .firma-linea { border-top: 1px solid #333; margin-top: 80px; }
-        </style>
-      </head>
-      <body>
-        <div class="parte">
-          <h1>PARTE DE SERVICIO</h1>
-          
-          <div class="info-grid">
-            <div>
-              <div class="info-row">
-                <span class="label">Cliente:</span>
-                <span class="value">${pedido.cliente}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Día:</span>
-                <span class="value">${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-              </div>
-            </div>
-            <div>
-              <div class="info-row">
-                <span class="label">Lugar del evento:</span>
-                <span class="value">${pedido.lugar}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Hora entrada:</span>
-                <span class="value">${pedido.horaEntrada}${pedido.horaEntrada2 ? ` / ${pedido.horaEntrada2}` : ''}</span>
-              </div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Camarero</th>
-                <th>Hora Entrada</th>
-                <th>Hora Salida</th>
-                <th>Total</th>
-                <th>Observaciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${camareros.map((asig, idx) => `
-                <tr>
-                  <td>#${asig.camareroNumero} - ${asig.camareroNombre}</td>
-                  <td>${pedido.horaEntrada}</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                </tr>
-              `).join('')}
-              ${Array.from({ length: filasVacias }).map((_, idx) => `
-                <tr>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="firma">
-            <p>Firma del Responsable</p>
-            <div class="firma-linea"></div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
 }

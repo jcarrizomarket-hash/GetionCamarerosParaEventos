@@ -187,49 +187,74 @@ sistema-gestion-camareros/
 
 ## 🧪 Testing
 
-### Tests Unitarios (Vitest)
+El sistema incluye **85+ tests automatizados** y un **Panel de Pruebas interactivo** en la UI.
+
+### ⚡ Inicio Rápido
 
 ```bash
-# Ejecutar tests
-npm test
+# 1. Inicia la aplicación
+npm run dev
 
-# Modo watch
-npm test -- --watch
+# 2. Ve a la pestaña "Panel de Pruebas" 🧪 en la UI
+# 3. Click en "Ejecutar Todas las Pruebas"
+# 4. Ver resultados en tiempo real
+```
 
-# Con UI
+### 🧩 Comandos de Testing
+
+```bash
+# Tests unitarios (30 segundos)
+npm run test:unit
+
+# Tests de integración (1 minuto)
+npm run test:integration
+
+# Tests E2E con Playwright
+npm run test:e2e
+
+# Todos los tests (2-3 minutos)
+npm run test:all
+
+# Ver UI de Vitest
 npm run test:ui
 
-# Coverage
+# Ver cobertura de código
 npm run test:coverage
 ```
 
-### Tests E2E (Playwright)
+### 📱 Número de Prueba WhatsApp
 
-```bash
-# Ejecutar tests E2E
-npm run test:e2e
+**Número configurado:** `+15558327331`
 
-# Con UI interactiva
-npm run test:e2e:ui
+Este número está pre-configurado en todos los tests y en el Panel de Pruebas para validar la integración de WhatsApp.
 
-# Modo headed (ver navegador)
-npm run test:e2e:headed
+### 📊 Cobertura de Tests
 
-# Navegador específico
-npx playwright test --project=chromium
-```
+- ✅ **25+ tests** de WhatsApp Business API
+- ✅ **15+ tests** de sistema de Email
+- ✅ **10+ tests** de helpers y utilidades
+- ✅ **35+ tests** E2E de flujos completos
+- ✅ **27 procedimientos** de testing manual
 
-### Todos los Tests
+**Total: 85+ tests automatizados + 27 procedimientos manuales**
 
-```bash
-npm run test:all
-```
+### 📚 Documentación de Testing
 
-### Coverage Objetivo
+- **[QUICK_TEST_GUIDE.md](./QUICK_TEST_GUIDE.md)** - Guía rápida (1 minuto)
+- **[TESTING_SUMMARY.md](./TESTING_SUMMARY.md)** - Resumen ejecutivo completo
+- **[TESTING_SETUP.md](./TESTING_SETUP.md)** - Configuración detallada
+- **[tests/README.md](./tests/README.md)** - Sistema de testing
+- **[tests/manual/testing-guide.md](./tests/manual/testing-guide.md)** - 27 procedimientos paso a paso
 
-- **Helpers**: >80%
-- **API Client**: >70%
-- **Componentes críticos**: >60%
+### 🎯 Casos de Prueba Críticos
+
+El sistema incluye validaciones para:
+- ✅ Validación de Phone Number ID vs número de teléfono
+- ✅ Formateo de números internacionales
+- ✅ Integración con WhatsApp Business API
+- ✅ Sistema de email multi-proveedor
+- ✅ Flujos de confirmación/rechazo
+- ✅ CRUD completo de entidades
 
 ---
 

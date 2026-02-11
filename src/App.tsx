@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, TestTube } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -8,6 +8,7 @@ import { Informes } from './components/informes';
 import { EnvioMensaje } from './components/envio-mensaje';
 import { EnvioParte } from './components/envio-parte';
 import { WhatsAppConfig } from './components/whatsapp-config';
+import { TestPanel } from './components/test-panel';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
 export default function App() {
@@ -57,7 +58,8 @@ export default function App() {
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare },
     { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck },
-    { id: 'whatsapp-config', label: 'Configuración WhatsApp', icon: Settings }
+    { id: 'whatsapp-config', label: 'Configuración WhatsApp', icon: Settings },
+    { id: 'test-panel', label: 'Panel de Pruebas', icon: TestTube }
   ];
 
   return (
@@ -175,6 +177,10 @@ export default function App() {
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
           />
+        )}
+
+        {activeTab === 'test-panel' && (
+          <TestPanel />
         )}
       </div>
     </div>

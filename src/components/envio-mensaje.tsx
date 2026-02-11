@@ -476,7 +476,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
               <div className="space-y-3">
                 {whatsappConfigured ? (
                   // Si está configurada la API, priorizar envío automático
-                  <div key="whatsapp-configured" className="space-y-3">
+                  <div className="space-y-3">
                     <button
                       onClick={enviarMensajeAutomatico}
                       className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium"
@@ -495,7 +495,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                   </div>
                 ) : (
                   // Si NO está configurada, solo WhatsApp Web
-                  <div key="whatsapp-not-configured" className="space-y-3">
+                  <div className="space-y-3">
                     <button
                       onClick={enviarPorWhatsApp}
                       className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"

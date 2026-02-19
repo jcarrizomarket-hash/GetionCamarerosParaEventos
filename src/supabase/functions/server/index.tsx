@@ -554,22 +554,30 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Confirmación Exitosa</title>
+        <title>Confirmación de Asistencia</title>
         <style>
-          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
-          .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-          .success { color: #16a34a; font-size: 3rem; }
-          h1 { color: #16a34a; margin: 1rem 0; }
-          p { color: #666; line-height: 1.6; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: -apple-system, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0fdf4; padding: 1rem; }
+          .container { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 100%; border-top: 6px solid #16a34a; }
+          .icon { font-size: 4rem; margin-bottom: 1rem; }
+          h1 { color: #16a34a; font-size: 1.8rem; margin-bottom: 0.5rem; }
+          .evento { background: #f0fdf4; border-radius: 10px; padding: 1rem; margin: 1.5rem 0; text-align: left; border: 1px solid #bbf7d0; }
+          .evento p { color: #374151; font-size: 0.95rem; margin: 0.3rem 0; }
+          .evento strong { color: #15803d; }
+          p.msg { color: #6b7280; font-size: 0.9rem; margin-top: 1rem; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="success">✓</div>
+          <div class="icon">✅</div>
           <h1>¡Confirmado!</h1>
-          <p>Has confirmado tu asistencia al evento exitosamente.</p>
-          <p>El coordinador ha sido notificado de tu confirmación.</p>
-          <p>Gracias por tu confirmación.</p>
+          <div class="evento">
+            <p>📅 <strong>${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</strong></p>
+            <p>👤 <strong>${pedido.cliente}</strong></p>
+            <p>📍 ${pedido.lugar}</p>
+            <p>🕐 Entrada: ${pedido.horaEntrada}</p>
+          </div>
+          <p class="msg">Tu asistencia ha sido registrada.<br>El coordinador ha sido notificado.</p>
         </div>
       </body>
       </html>
@@ -669,23 +677,30 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>No Confirmado</title>
+        <title>Rechazo Registrado</title>
         <style>
-          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
-          .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-          .info { color: #ea580c; font-size: 3rem; }
-          h1 { color: #ea580c; margin: 1rem 0; }
-          p { color: #666; line-height: 1.6; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: -apple-system, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fef2f2; padding: 1rem; }
+          .container { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 100%; border-top: 6px solid #dc2626; }
+          .icon { font-size: 4rem; margin-bottom: 1rem; }
+          h1 { color: #dc2626; font-size: 1.8rem; margin-bottom: 0.5rem; }
+          .evento { background: #fef2f2; border-radius: 10px; padding: 1rem; margin: 1.5rem 0; text-align: left; border: 1px solid #fecaca; }
+          .evento p { color: #374151; font-size: 0.95rem; margin: 0.3rem 0; }
+          .evento strong { color: #b91c1c; }
+          p.msg { color: #6b7280; font-size: 0.9rem; margin-top: 1rem; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="info">✗</div>
-          <h1>No Confirmado</h1>
-          <p>Has indicado que no podrás asistir al evento.</p>
-          <p>Serás eliminado automáticamente en 5 horas si no se toma acción.</p>
-          <p>El coordinador ha sido notificado para buscar un reemplazo.</p>
-          <p>Gracias por tu respuesta.</p>
+          <div class="icon">❌</div>
+          <h1>Rechazo registrado</h1>
+          <div class="evento">
+            <p>📅 <strong>${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</strong></p>
+            <p>👤 <strong>${pedido.cliente}</strong></p>
+            <p>📍 ${pedido.lugar}</p>
+            <p>🕐 Entrada: ${pedido.horaEntrada}</p>
+          </div>
+          <p class="msg">El coordinador ha sido notificado<br>para buscar un reemplazo.</p>
         </div>
       </body>
       </html>

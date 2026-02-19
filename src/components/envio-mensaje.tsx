@@ -97,45 +97,61 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     const baseUrlConfirmacion = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
     const confirmarUrl = `${baseUrlConfirmacion}/confirmar/${token}`;
     const noConfirmarUrl = `${baseUrlConfirmacion}/no-confirmar/${token}`;
+
+    // Formatear fecha con día y fecha completa
+    const fechaEvento = new Date(pedido.diaEvento);
+    const diaStr = fechaEvento.toLocaleDateString('es-ES', { weekday: 'long' });
+    const fechaStr = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const esCatering = pedido.catering === 'si';
     
     let texto = '';
-    texto += `${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })}\n`;
-    texto += `${pedido.cliente}\n`;
-    texto += `${pedido.lugar}\n`;
-    texto += `Hora de inicio: ${pedido.horaEntrada}\n\n`;
-    
-    if (pedido.ubicacion) {
-      texto += `${pedido.ubicacion}\n\n`;
-    }
-    
-    if (pedido.catering === 'si' && pedido.tiempoViaje) {
+
+    // --- CABECERA ---
+    texto += `📅 ${fechaStr} - ${diaStr.charAt(0).toUpperCase() + diaStr.slice(1)}\n`;
+    texto += `👤 Cliente: ${pedido.cliente}\n`;
+    texto += `📍 Lugar: ${pedido.lugar}\n`;
+    texto += `🕐 Hora entrada: ${pedido.horaEntrada}\n`;
+
+    // --- SECCIÓN CATERING ---
+    if (esCatering && pedido.tiempoViaje) {
       const tiempoViaje = parseInt(pedido.tiempoViaje) || 0;
-      const minutosAntes = tiempoViaje + 10;
+      // Hora de encuentro = hora de entrada - tiempo de viaje - 15 min de margen
+      const minutosAntes = tiempoViaje + 15;
       const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
       const totalMinutos = horas * 60 + minutos - minutosAntes;
-      const horaEncuentro = Math.floor(totalMinutos / 60);
-      const minutosEncuentro = totalMinutos % 60;
+      const horaEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
+      const minutosEncuentro = Math.abs(totalMinutos) % 60;
       const horaEncuentroStr = `${String(horaEncuentro).padStart(2, '0')}:${String(minutosEncuentro).padStart(2, '0')}`;
-      
-      texto += `Hora de encuentro: ${horaEncuentroStr}\n`;
-      texto += `Punto de encuentro detrás de la estación de autobus del Fabra i Puig.\n`;
-      texto += `https://maps.app.goo.gl/1VswxFT1AdT3J3d78\n\n`;
+
+      texto += `\n`;
+      texto += `🚌 *HORA DE ENCUENTRO: ${horaEncuentroStr}*\n`;
+      texto += `📌 *PUNTO DE ENCUENTRO:* https://maps.app.goo.gl/nofiiyVsnx5XLkES8\n`;
     }
-    
-    texto += `Uniforme:\n`;
-    texto += `ZAPATOS, PANTAÓN Y DELANTAL. DE COLOR NEGRO\n\n`;
-    texto += `CAMISA ${pedido.camisa.toUpperCase()}\n\n`;
-    texto += `UNIFORME IMPOLUTO\n\n`;
-    texto += `Estar con 15 minutos antes de anticipación\n\n`;
-    texto += `Por favor, confirma tu asistencia:\n\n`;
-    texto += `✅ ACEPTAR: ${confirmarUrl}\n\n`;
-    texto += `❌ RECHAZAR: ${noConfirmarUrl}\n\n`;
-    texto += `Gracias`;
+
+    // --- LINK DE UBICACIÓN DEL EVENTO ---
+    if (pedido.ubicacion) {
+      texto += `\n`;
+      texto += `🗺 ${pedido.ubicacion}\n`;
+    }
+
+    // --- UNIFORME ---
+    texto += `\n`;
+    texto += `👔 *Uniforme:*\n`;
+    texto += `Zapatos, pantalón, delantal francés largo.\n`;
+    texto += `*TODO DE COLOR NEGRO*\n`;
+    texto += `\n`;
+    texto += `*CAMISA: ${(pedido.camisa || '').toUpperCase()}*\n`;
+    texto += `\n`;
+    texto += `*⏰ ESTAR 15 MINUTOS ANTES PARA ESTAR A PUNTO EN SERVICIO*\n`;
+
+    // --- CONFIRMACIÓN ---
+    texto += `\n`;
+    texto += `Por favor confirma tu asistencia:\n`;
+    texto += `\n`;
+    texto += `✅ *CONFIRMO:* ${confirmarUrl}\n`;
+    texto += `\n`;
+    texto += `❌ *RECHAZO:* ${noConfirmarUrl}`;
     
     return texto;
   };

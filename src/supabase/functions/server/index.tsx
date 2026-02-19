@@ -1839,4 +1839,73 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
   }
 });
 
+
+// ============== GOOGLE MAPS DISTANCE ==============
+app.get('/make-server-25b11ac0/calcular-distancia', async (c) => {
+  try {
+    const { destino } = c.req.query();
+    const googleMapsKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+
+    if (!googleMapsKey) {
+      return c.json({ 
+        success: false, 
+        error: 'GOOGLE_MAPS_API_KEY no configurada',
+        fallback: true 
+      });
+    }
+
+    if (!destino) {
+      return c.json({ success: false, error: 'Falta parámetro destino' });
+    }
+
+    // Punto de encuentro fijo (Fabra i Puig)
+    const origen = 'https://maps.app.goo.gl/nofiiyVsnx5XLkES8';
+    const origenCoords = '41.4400,2.1900'; // Coordenadas aproximadas Fabra i Puig, Barcelona
+
+    // Resolver destino: puede ser URL de Google Maps o nombre de lugar
+    let destinoQuery = destino;
+    if (destino.includes('maps.google.com') || destino.includes('maps.app.goo.gl')) {
+      // Extraer query del URL si es posible
+      const match = destino.match(/query=([^&]+)/);
+      if (match) {
+        destinoQuery = decodeURIComponent(match[1]);
+      }
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origenCoords}&destinations=${encodeURIComponent(destinoQuery)}&mode=driving&language=es&key=${googleMapsKey}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK' || !data.rows?.[0]?.elements?.[0]) {
+      console.log('Google Maps error:', data);
+      return c.json({ success: false, error: 'No se pudo calcular la distancia', fallback: true });
+    }
+
+    const element = data.rows[0].elements[0];
+    
+    if (element.status !== 'OK') {
+      return c.json({ success: false, error: 'Destino no encontrado', fallback: true });
+    }
+
+    const duracionSegundos = element.duration.value;
+    const duracionMinutos = Math.ceil(duracionSegundos / 60);
+    const distanciaKm = (element.distance.value / 1000).toFixed(1);
+
+    console.log(`✅ Distancia calculada: ${distanciaKm}km, ${duracionMinutos}min`);
+
+    return c.json({
+      success: true,
+      duracionMinutos,
+      distanciaKm,
+      duracionTexto: element.duration.text,
+      distanciaTexto: element.distance.text
+    });
+
+  } catch (error) {
+    console.log('Error al calcular distancia:', error);
+    return c.json({ success: false, error: String(error), fallback: true });
+  }
+});
+
 Deno.serve(app.fetch);

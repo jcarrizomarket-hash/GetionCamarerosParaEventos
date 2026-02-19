@@ -104,7 +104,49 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     const fechaStr = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
     const esCatering = pedido.catering === 'si';
-    
+
+    // --- CALCULAR HORA DE ENCUENTRO VÍA GOOGLE MAPS (solo catering) ---
+    let horaEncuentroStr = '';
+    if (esCatering) {
+      try {
+        const destino = encodeURIComponent(pedido.ubicacion || pedido.lugar);
+        const distRes = await fetch(`${baseUrl}/calcular-distancia?destino=${destino}`, {
+          headers: { Authorization: `Bearer ${publicAnonKey}` }
+        });
+        const distData = await distRes.json();
+
+        if (distData.success) {
+          // Hora de encuentro = hora de entrada - tiempo real Google Maps - 15 min margen
+          const minutosAntes = distData.duracionMinutos + 15;
+          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
+          const totalMinutos = horas * 60 + minutos - minutosAntes;
+          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
+          const mEncuentro = Math.abs(totalMinutos) % 60;
+          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
+          console.log(`✅ Hora de encuentro calculada con Google Maps: ${horaEncuentroStr} (${distData.duracionMinutos}min de viaje)`);
+        } else if (pedido.tiempoViaje) {
+          // Fallback: usar tiempoViaje del pedido si Google Maps falla
+          const minutosAntes = parseInt(pedido.tiempoViaje) + 15;
+          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
+          const totalMinutos = horas * 60 + minutos - minutosAntes;
+          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
+          const mEncuentro = Math.abs(totalMinutos) % 60;
+          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
+          console.log(`⚠️ Fallback a tiempoViaje manual: ${horaEncuentroStr}`);
+        }
+      } catch (err) {
+        console.log('Error calculando distancia, usando fallback:', err);
+        if (pedido.tiempoViaje) {
+          const minutosAntes = parseInt(pedido.tiempoViaje) + 15;
+          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
+          const totalMinutos = horas * 60 + minutos - minutosAntes;
+          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
+          const mEncuentro = Math.abs(totalMinutos) % 60;
+          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
+        }
+      }
+    }
+
     let texto = '';
 
     // --- CABECERA ---
@@ -114,16 +156,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     texto += `🕐 Hora entrada: ${pedido.horaEntrada}\n`;
 
     // --- SECCIÓN CATERING ---
-    if (esCatering && pedido.tiempoViaje) {
-      const tiempoViaje = parseInt(pedido.tiempoViaje) || 0;
-      // Hora de encuentro = hora de entrada - tiempo de viaje - 15 min de margen
-      const minutosAntes = tiempoViaje + 15;
-      const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
-      const totalMinutos = horas * 60 + minutos - minutosAntes;
-      const horaEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
-      const minutosEncuentro = Math.abs(totalMinutos) % 60;
-      const horaEncuentroStr = `${String(horaEncuentro).padStart(2, '0')}:${String(minutosEncuentro).padStart(2, '0')}`;
-
+    if (esCatering && horaEncuentroStr) {
       texto += `\n`;
       texto += `🚌 *HORA DE ENCUENTRO: ${horaEncuentroStr}*\n`;
       texto += `📌 *PUNTO DE ENCUENTRO:* https://maps.app.goo.gl/nofiiyVsnx5XLkES8\n`;

@@ -195,6 +195,7 @@ export default function App() {
             clientes={clientes}
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
+            cargarDatos={cargarDatos}
           />
         )}
 

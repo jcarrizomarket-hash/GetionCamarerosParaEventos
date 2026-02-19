@@ -1,18 +1,41 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Mail, Eye, Send, CheckCircle, Clock, AlertCircle, X, FileText, User, AtSign, MessageSquare, Printer } from 'lucide-react';
 
 // v2.0.0 - Lista automática de partes listos para enviar (todos confirmados)
-export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
+export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey, cargarDatos }) {
 
   const [previewPedido, setPreviewPedido]   = useState(null);
   const [emailPedido,   setEmailPedido]     = useState(null);
   const [enviandoId,    setEnviandoId]      = useState(null);
-  const [enviados,      setEnviados]        = useState({});   // pedidoId -> true
+  const [enviados,      setEnviados]        = useState({});   // pedidoId -> {fechaEnvio, destinatario}
   const [emailData,     setEmailData]       = useState({ destinatario: '', asunto: '', mensaje: '', copiaCoordinador: false, emailCoordinador: '' });
 
   // Deduplicar
   const uniquePedidos  = useMemo(() => Array.from(new Map(pedidos.map(p  => [p.id,  p])).values()), [pedidos]);
   const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map(c => [c.id, c])).values()), [clientes]);
+
+  // Cargar partes ya enviados desde servidor al montar
+  useEffect(() => {
+    const cargarEnviados = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/partes-enviados`, {
+          headers: { Authorization: `Bearer ${publicAnonKey}` }
+        });
+        const data = await res.json();
+        if (data.success) setEnviados(data.enviados || {});
+      } catch (err) {
+        console.error('Error al cargar partes enviados:', err);
+      }
+    };
+    cargarEnviados();
+  }, [baseUrl, publicAnonKey]);
+
+  // Polling cada 15s para detectar nuevos eventos confirmados
+  useEffect(() => {
+    if (!cargarDatos) return;
+    const polling = setInterval(cargarDatos, 15000);
+    return () => clearInterval(polling);
+  }, [cargarDatos]);
 
   // Solo pedidos donde TODOS los camareros están confirmados
   const partesListos = useMemo(() => uniquePedidos.filter(p => {
@@ -125,7 +148,17 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
       });
       const result = await response.json();
       if (result.success) {
-        setEnviados(prev => ({ ...prev, [emailPedido.id]: true }));
+        // Persistir en servidor
+        await fetch(`${baseUrl}/partes-enviados`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+          body: JSON.stringify({
+            pedidoId: emailPedido.id,
+            fechaEnvio: new Date().toISOString(),
+            destinatario: emailData.destinatario
+          })
+        }).catch(() => {});
+        setEnviados(prev => ({ ...prev, [emailPedido.id]: { fechaEnvio: new Date().toISOString(), destinatario: emailData.destinatario } }));
         setEmailPedido(null);
         alert('✅ Parte enviado correctamente');
       } else {
@@ -169,7 +202,8 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
       <div className="space-y-3">
         {partesListos.map(pedido => {
           const emailCliente = getEmailCliente(pedido.cliente);
-          const yaEnviado = enviados[pedido.id];
+          const yaEnviado = !!enviados[pedido.id];
+          const infoEnvio = enviados[pedido.id];
           const enviando  = enviandoId === pedido.id;
           const fecha = new Date(pedido.diaEvento);
           const diaStr = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
@@ -200,7 +234,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                     <p className="font-semibold text-gray-900 truncate">{pedido.cliente}</p>
                     {yaEnviado && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                        <CheckCircle className="w-3 h-3" /> Enviado
+                        <CheckCircle className="w-3 h-3" /> Enviado {infoEnvio?.fechaEnvio ? new Date(infoEnvio.fechaEnvio).toLocaleDateString('es-ES') : ''}
                       </span>
                     )}
                   </div>

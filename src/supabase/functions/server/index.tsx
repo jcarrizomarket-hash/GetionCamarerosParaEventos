@@ -548,6 +548,9 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
     // Eliminar token usado
     await kv.del(`confirmacion:${token}`);
     
+        // Limpiar token usado
+    await kv.delete(`token:${token}`);
+
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -671,6 +674,9 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
     // Eliminar token usado
     await kv.del(`confirmacion:${token}`);
     
+    // Limpiar token usado
+    await kv.delete(`token:${token}`);
+
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -1905,6 +1911,41 @@ app.get('/make-server-25b11ac0/calcular-distancia', async (c) => {
   } catch (error) {
     console.log('Error al calcular distancia:', error);
     return c.json({ success: false, error: String(error), fallback: true });
+  }
+});
+
+
+// ============== PARTES ENVIADOS ==============
+// Marcar parte como enviado
+app.post('/make-server-25b11ac0/partes-enviados', async (c) => {
+  try {
+    const { pedidoId, fechaEnvio, destinatario } = await c.req.json();
+    await kv.set(`parte-enviado:${pedidoId}`, {
+      pedidoId,
+      fechaEnvio: fechaEnvio || new Date().toISOString(),
+      destinatario
+    });
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('Error al marcar parte como enviado:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Consultar qué partes ya fueron enviados
+app.get('/make-server-25b11ac0/partes-enviados', async (c) => {
+  try {
+    const enviados = await kv.getByPrefix('parte-enviado:');
+    const map = {};
+    for (const item of enviados) {
+      if (item && item.pedidoId) {
+        map[item.pedidoId] = item;
+      }
+    }
+    return c.json({ success: true, enviados: map });
+  } catch (error) {
+    console.log('Error al obtener partes enviados:', error);
+    return c.json({ success: false, enviados: {} }, 500);
   }
 });
 

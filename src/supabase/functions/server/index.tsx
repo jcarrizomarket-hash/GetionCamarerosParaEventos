@@ -526,8 +526,6 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
         };
         
         await kv.set(chatId, chat);
-        await kv.set(`${chatId}:mensajes`, []);
-        
         console.log(`✅ Chat grupal creado automáticamente para pedido: ${pedido.cliente} (Expira: ${fechaEliminacion.toISOString()})`);
       }
     }
@@ -792,9 +790,6 @@ app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
     };
     
     await kv.set(chatId, chat);
-    
-    // Inicializar array de mensajes vacío
-    await kv.set(`${chatId}:mensajes`, []);
     
     return c.json({ success: true, chatId, chat });
   } catch (error) {
@@ -1074,8 +1069,6 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
         };
         
         await kv.set(chatId, chat);
-        await kv.set(`${chatId}:mensajes`, []);
-        
         console.log(`✅ Chat creado para pedido ${pedidoId}: ${pedido.cliente}`);
         
         resultados.push({
@@ -1172,44 +1165,7 @@ app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
   }
 });
 
-// Enviar mensaje al chat
-app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
-  try {
-    const { chatId, mensaje, remitente, remitenteNombre } = await c.req.json();
-    
-    const mensajesKey = `${chatId}:mensajes`;
-    const mensajes = await kv.get(mensajesKey) || [];
-    
-    const nuevoMensaje = {
-      id: `msg:${Date.now()}`,
-      remitente, // coordinadorId o camareroId
-      remitenteNombre,
-      mensaje,
-      fecha: new Date().toISOString()
-    };
-    
-    mensajes.push(nuevoMensaje);
-    await kv.set(mensajesKey, mensajes);
-    
-    return c.json({ success: true, mensaje: nuevoMensaje });
-  } catch (error) {
-    console.log('Error al enviar mensaje:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
-    
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.log('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
+// Nota: Los endpoints de chat-mensajes están definidos en la sección CHAT GRUPAL al final del archivo
 
 // ============== ENVÍO DE EMAIL ==============
 
@@ -1831,7 +1787,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
 });
 
 // ============== CHAT GRUPAL ==============
-// Obtener mensajes de un chat grupal
+// Obtener mensajes de un chat grupal (usando getByPrefix — compatible con POST)
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
     const chatId = c.req.param('chatId');
@@ -1860,19 +1816,11 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
   try {
     const mensaje = await c.req.json();
     const key = `chat-mensaje:${mensaje.chatId}:${mensaje.id}`;
-    
     await kv.set(key, mensaje);
-    
-    return c.json({
-      success: true,
-      mensaje
-    });
+    return c.json({ success: true, mensaje });
   } catch (error) {
     console.log('Error al crear mensaje en chat:', error);
-    return c.json({
-      success: false,
-      error: String(error)
-    }, 500);
+    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 

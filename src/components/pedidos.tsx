@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
@@ -9,6 +9,8 @@ interface PedidosProps {
   setPedidos: (pedidos: any[]) => void;
   camareros: any[];
   coordinadores: any[];
+  clientes: any[];
+  setClientes: (clientes: any[]) => void;
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
@@ -19,28 +21,15 @@ export function Pedidos({
   setPedidos, 
   camareros,
   coordinadores,
+  clientes,
+  setClientes,
   baseUrl, 
   publicAnonKey, 
   cargarDatos 
 }: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
-  const [clientes, setClientes] = useState([]);
 
-  useEffect(() => {
-    cargarClientes();
-  }, []);
-
-  const cargarClientes = async () => {
-    try {
-      const response = await fetch(`${baseUrl}/clientes`, {
-        headers: { Authorization: `Bearer ${publicAnonKey}` }
-      });
-      const data = await response.json();
-      if (data.success) setClientes(data.data);
-    } catch (error) {
-      console.log('Error al cargar clientes:', error);
-    }
-  };
+  // FIX: Eliminada la doble carga de clientes — recibidos desde el estado global de App.tsx
 
   const subTabs = [
     { id: 'clientes', label: 'Clientes', icon: Building2 },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
@@ -20,6 +20,7 @@ export default function App() {
   const [coordinadores, setCoordinadores] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [selectedPedido, setSelectedPedido] = useState(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -27,8 +28,9 @@ export default function App() {
     cargarDatos();
   }, []);
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
+      setErrorCarga(null);
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
           headers: { Authorization: `Bearer ${publicAnonKey}` }
@@ -54,9 +56,10 @@ export default function App() {
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
-      console.log('Error al cargar datos:', error);
+      console.error('Error al cargar datos:', error);
+      setErrorCarga('No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.');
     }
-  };
+  }, [baseUrl, publicAnonKey]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -78,6 +81,19 @@ export default function App() {
           <h1 className="text-gray-900">Gestión de Camareros para Eventos</h1>
         </div>
       </div>
+
+      {/* Banner de error de conexión */}
+      {errorCarga && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center gap-3">
+          <span className="text-red-600 text-sm font-medium">⚠️ {errorCarga}</span>
+          <button
+            onClick={cargarDatos}
+            className="text-xs text-red-700 underline hover:no-underline"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white border-b">
@@ -120,6 +136,8 @@ export default function App() {
             setPedidos={setPedidos}
             camareros={camareros}
             coordinadores={coordinadores}
+            clientes={clientes}
+            setClientes={setClientes}
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
             cargarDatos={cargarDatos}

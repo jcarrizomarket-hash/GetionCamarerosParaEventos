@@ -110,7 +110,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       apercibidos: totalApercibidos,
       reserva: Math.max(0, enReserva),
       noDisponibles: noDisponiblesIds.size,
-      valoracion: "4.8"
+      // FIX: Calcular valoración real basada en estado del equipo (pendiente sistema de valoraciones real)
+      valoracion: totalActivos > 0 ? 'N/A' : '-'
     };
   }, [camareros, pedidos]);
 

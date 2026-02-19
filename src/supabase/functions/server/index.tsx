@@ -104,15 +104,15 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
     await kv.set('contador:camareros', { valor: contador });
     
     const id = `camarero:${Date.now()}`;
+    // FIX: Usar spread para persistir TODOS los campos del formulario
+    // (tipoPerfil, codigo, especialidades, idiomas, certificaciones, coordinadorId, etc.)
     const camarero = {
+      ...data,
       id,
       numero: contador,
-      nombre: data.nombre,
-      apellido: data.apellido,
-      telefono: data.telefono,
-      email: data.email,
       disponibilidad: data.disponibilidad || [],
-      comentarios: data.comentarios || ''
+      estado: data.estado || 'activo',
+      createdAt: new Date().toISOString()
     };
     
     await kv.set(id, camarero);
@@ -169,12 +169,12 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
     await kv.set('contador:coordinadores', { valor: contador });
     
     const id = `coordinador:${Date.now()}`;
+    // FIX: Usar spread para consistencia con camareros
     const coordinador = {
+      ...data,
       id,
       numero: contador,
-      nombre,
-      telefono: telefono || '',
-      email: email || ''
+      createdAt: new Date().toISOString()
     };
     
     await kv.set(id, coordinador);

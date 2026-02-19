@@ -1051,6 +1051,25 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+
+      {/* --- ALERTAS EN TIEMPO REAL (también visibles en vista detalle) --- */}
+      {alertas.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+          {alertas.map(alerta => (
+            <div
+              key={alerta.id}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right-4 ${
+                alerta.tipo === 'confirmado'
+                  ? 'bg-green-50 border-green-300 text-green-800'
+                  : 'bg-red-50 border-red-300 text-red-800'
+              }`}
+            >
+              <Bell className="w-4 h-4 flex-shrink-0" />
+              <span>{alerta.mensaje}</span>
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* HEADER MODO ENFOQUE */}
       <div className="flex items-center justify-between">

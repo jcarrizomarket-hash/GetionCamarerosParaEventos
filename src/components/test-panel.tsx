@@ -23,9 +23,11 @@ import {
   TestTube,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  ExternalLink
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { TestEmail } from './test-email';
 
 const TEST_PHONE = '+15558327331';
 const TEST_EMAIL = 'pruebas@sistema-camareros.com';

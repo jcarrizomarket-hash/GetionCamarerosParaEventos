@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
 
-export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], baseUrl, publicAnonKey, cargarDatos }) {
+export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -28,7 +28,10 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     
     catering: 'no',
     camisa: 'negra',
-    notas: ''
+    notas: '',
+    // NUEVO: Coordinador del evento para chats grupales
+    coordinadorId: '',
+    coordinadorNombre: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -213,7 +216,10 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       
       catering: pedido.catering,
       camisa: pedido.camisa,
-      notas: pedido.notas || ''
+      notas: pedido.notas || '',
+      // NUEVO: Coordinador del evento para chats grupales
+      coordinadorId: pedido.coordinadorId || '',
+      coordinadorNombre: pedido.coordinadorNombre || ''
     });
     setEditingId(pedido.id);
     setShowForm(true);
@@ -512,11 +518,41 @@ _Por favor confirme recepción de este mensaje._`;
                         onChange={(e) => setFormData({...formData, cliente: e.target.value})}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="">Seleccionar cliente...</option>
+                        <option key="cliente-empty" value="">Seleccionar cliente...</option>
                         {uniqueClientes.map(c => (
                           <option key={c.id} value={c.nombre}>{c.nombre}</option>
                         ))}
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Coordinador del Cliente *
+                        <span className="text-xs text-gray-500 ml-1">(Para chats grupales)</span>
+                      </label>
+                      <select
+                        required
+                        value={formData.coordinadorId}
+                        onChange={(e) => {
+                          const coordinador = coordinadores.find(c => c.id === e.target.value);
+                          setFormData({
+                            ...formData,
+                            coordinadorId: e.target.value,
+                            coordinadorNombre: coordinador ? coordinador.nombre : ''
+                          });
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option key="coordinador-empty" value="">Seleccionar coordinador...</option>
+                        {coordinadores.map(c => (
+                          <option key={c.id} value={c.id}>{c.nombre}</option>
+                        ))}
+                      </select>
+                      {coordinadores.length === 0 && (
+                        <p className="text-xs text-orange-600 mt-1">
+                          ⚠️ No hay coordinadores. Créalos en la sección "Coordinadores"
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -538,7 +574,18 @@ _Por favor confirme recepción de este mensaje._`;
                           type="text"
                           required
                           value={formData.lugar}
-                          onChange={(e) => setFormData({...formData, lugar: e.target.value})}
+                          onChange={(e) => {
+                            const nuevoLugar = e.target.value;
+                            // Generar automáticamente el link de Google Maps
+                            const googleMapsUrl = nuevoLugar.trim() 
+                              ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nuevoLugar)}`
+                              : '';
+                            setFormData({
+                              ...formData, 
+                              lugar: nuevoLugar,
+                              ubicacion: googleMapsUrl
+                            });
+                          }}
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="Nombre del lugar"
                         />
@@ -667,8 +714,8 @@ _Por favor confirme recepción de este mensaje._`;
                       onChange={(e) => setFormData({...formData, catering: e.target.value})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="no">No</option>
-                      <option value="si">Sí</option>
+                      <option key="catering-no" value="no">No</option>
+                      <option key="catering-si" value="si">Sí</option>
                     </select>
                   </div>
                   <div>
@@ -678,8 +725,8 @@ _Por favor confirme recepción de este mensaje._`;
                       onChange={(e) => setFormData({...formData, camisa: e.target.value})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="negra">Negra</option>
-                      <option value="blanca">Blanca</option>
+                      <option key="camisa-negra" value="negra">Negra</option>
+                      <option key="camisa-blanca" value="blanca">Blanca</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">

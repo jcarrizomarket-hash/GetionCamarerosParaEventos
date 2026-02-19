@@ -1,63 +1,83 @@
-import { useState, useEffect } from 'react';
-import { Send, MessageCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
-import { WhatsAppConfigStatus } from './whatsapp-config-status';
 
-export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey, setPedidos, cargarDatos }) {
-  const [pedidoSeleccionado, setPedidoSeleccionado] = useState('');
-  const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
-  const [coordinadorSeleccionado, setCoordinadorSeleccionado] = useState('');
-  const [mensaje, setMensaje] = useState('');
-  const [enlaceConfirmar, setEnlaceConfirmar] = useState('');
-  const [enlaceNoConfirmar, setEnlaceNoConfirmar] = useState('');
-  const [whatsappConfigured, setWhatsappConfigured] = useState(false);
-  const [checkingConfig, setCheckingConfig] = useState(true);
+// v2.0.0 - Interfaz tipo WhatsApp Web completa
+interface EnvioMensajeProps {
+  pedidos: any[];
+  camareros: any[];
+  coordinadores: any[];
+  baseUrl: string;
+  publicAnonKey: string;
+  setPedidos: (pedidos: any[]) => void;
+  cargarDatos: () => Promise<void>;
+}
+
+export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey, setPedidos, cargarDatos }: EnvioMensajeProps) {
+  const [periodoFiltro, setPeriodoFiltro] = useState<'diario' | 'semanal' | 'mensual'>('semanal');
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<any>(null);
+  const [camareroSeleccionado, setCamareroSeleccionado] = useState<any>(null);
+  const [mensajes, setMensajes] = useState<any[]>([]);
+  const [nuevoMensaje, setNuevoMensaje] = useState('');
+  const [coordinadorActual, setCoordinadorActual] = useState<any>(null);
+  const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos
   const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values());
   const uniqueCamareros = Array.from(new Map(camareros.map(c => [c.id, c])).values());
   const uniqueCoordinadores = Array.from(new Map(coordinadores.map(c => [c.id, c])).values());
 
-  // Verificar configuración de WhatsApp al cargar
+  // Inicializar coordinador
   useEffect(() => {
-    const verificarConfiguracion = async () => {
-      try {
-        const response = await fetch(`${baseUrl}/verificar-whatsapp-config`, {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`
-          }
-        });
-        const result = await response.json();
-        setWhatsappConfigured(result.configured);
-      } catch (error) {
-        console.log('Error al verificar configuración WhatsApp:', error);
-        setWhatsappConfigured(false);
-      } finally {
-        setCheckingConfig(false);
-      }
-    };
-    
-    verificarConfiguracion();
-  }, [baseUrl, publicAnonKey]);
+    if (uniqueCoordinadores.length > 0 && !coordinadorActual) {
+      // Priorizar coordinador con teléfono
+      const coordConTel = uniqueCoordinadores.find(c => c.telefono);
+      setCoordinadorActual(coordConTel || uniqueCoordinadores[0]);
+    }
+  }, [uniqueCoordinadores]);
 
-  const generarToken = () => {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-  };
+  // Filtrar eventos según período
+  const eventosFiltrados = uniquePedidos.filter(pedido => {
+    const fechaEvento = new Date(pedido.diaEvento);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (periodoFiltro === 'diario') {
+      return fechaEvento.toDateString() === hoy.toDateString();
+    } else if (periodoFiltro === 'semanal') {
+      const unaSemana = new Date(hoy);
+      unaSemana.setDate(hoy.getDate() + 7);
+      return fechaEvento >= hoy && fechaEvento <= unaSemana;
+    } else {
+      // mensual
+      const unMes = new Date(hoy);
+      unMes.setMonth(hoy.getMonth() + 1);
+      return fechaEvento >= hoy && fechaEvento <= unMes;
+    }
+  }).sort((a, b) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime());
 
-  const generarMensaje = async () => {
-    if (!pedidoSeleccionado || !camareroSeleccionado || !coordinadorSeleccionado) return '';
+  // Camareros del evento seleccionado
+  const camarerosEvento = eventoSeleccionado 
+    ? eventoSeleccionado.asignaciones?.map(asig => {
+        const cam = uniqueCamareros.find(c => c.id === asig.camareroId);
+        return cam ? { ...cam, estado: asig.estado } : null;
+      }).filter(Boolean) || []
+    : [];
+
+  // Scroll automático
+  useEffect(() => {
+    mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mensajes]);
+
+  // Generar mensaje predefinido
+  const generarMensaje = async (pedido: any, camarero: any) => {
+    if (!pedido || !camarero || !coordinadorActual) return '';
     
-    const pedido = uniquePedidos.find(p => p.id === pedidoSeleccionado);
-    const camarero = uniqueCamareros.find(c => c.id === camareroSeleccionado);
+    const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    if (!pedido || !camarero) return '';
-    
-    // Generar token único para confirmación
-    const token = generarToken();
-    
-    // Guardar token en el servidor usando kv.set directamente
+    // Guardar token en el servidor
     try {
-      const response = await fetch(`${baseUrl}/guardar-token`, {
+      await fetch(`${baseUrl}/guardar-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,30 +87,18 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
           token: token,
           pedidoId: pedido.id,
           camareroId: camarero.id,
-          coordinadorId: coordinadorSeleccionado
+          coordinadorId: coordinadorActual.id
         })
       });
-      
-      const result = await response.json();
-      if (!result.success) {
-        console.log('Error al guardar token:', result.error);
-      }
     } catch (error) {
       console.log('Error al guardar token:', error);
     }
     
-    // Enlaces de confirmación
     const baseUrlConfirmacion = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
     const confirmarUrl = `${baseUrlConfirmacion}/confirmar/${token}`;
     const noConfirmarUrl = `${baseUrlConfirmacion}/no-confirmar/${token}`;
     
-    setEnlaceConfirmar(confirmarUrl);
-    setEnlaceNoConfirmar(noConfirmarUrl);
-    
-    // Formato del mensaje según especificaciones
     let texto = '';
-    
-    // Encabezado con puntos (1.4 ; 1.1 ; 1.2 ; 1.5)
     texto += `${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -101,17 +109,13 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     texto += `${pedido.lugar}\n`;
     texto += `Hora de inicio: ${pedido.horaEntrada}\n\n`;
     
-    // Link de ubicación
     if (pedido.ubicacion) {
       texto += `${pedido.ubicacion}\n\n`;
     }
     
-    // Si hay catering, agregar información de encuentro
     if (pedido.catering === 'si' && pedido.tiempoViaje) {
       const tiempoViaje = parseInt(pedido.tiempoViaje) || 0;
-      const minutosAntes = tiempoViaje + 10; // tiempo de viaje + 10 minutos
-      
-      // Calcular hora de encuentro
+      const minutosAntes = tiempoViaje + 10;
       const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
       const totalMinutos = horas * 60 + minutos - minutosAntes;
       const horaEncuentro = Math.floor(totalMinutos / 60);
@@ -123,420 +127,464 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       texto += `https://maps.app.goo.gl/1VswxFT1AdT3J3d78\n\n`;
     }
     
-    // Uniforme
     texto += `Uniforme:\n`;
     texto += `ZAPATOS, PANTAÓN Y DELANTAL. DE COLOR NEGRO\n\n`;
-    
-    // Camisa
     texto += `CAMISA ${pedido.camisa.toUpperCase()}\n\n`;
-    
     texto += `UNIFORME IMPOLUTO\n\n`;
-    
     texto += `Estar con 15 minutos antes de anticipación\n\n`;
-    
-    // Agregar botones de confirmación al mensaje
     texto += `Por favor, confirma tu asistencia:\n\n`;
-    texto += `✅ CONFIRMO: ${confirmarUrl}\n\n`;
-    texto += `❌ NO CONFIRMO: ${noConfirmarUrl}\n\n`;
-    
+    texto += `✅ ACEPTAR: ${confirmarUrl}\n\n`;
+    texto += `❌ RECHAZAR: ${noConfirmarUrl}\n\n`;
     texto += `Gracias`;
     
     return texto;
   };
 
-  const handleGenerarMensaje = async () => {
-    const mensajeGenerado = await generarMensaje();
-    setMensaje(mensajeGenerado);
-  };
+  // Enviar mensaje automáticamente al seleccionar camarero
+  const enviarMensajeAutomatico = async (camarero: any) => {
+    if (!eventoSeleccionado || !coordinadorActual) return;
 
-  const enviarMensajeAutomatico = async () => {
-    if (!coordinadorSeleccionado || !camareroSeleccionado || !mensaje) {
-      alert('Por favor genera el mensaje primero');
-      return;
-    }
+    const mensajeTexto = await generarMensaje(eventoSeleccionado, camarero);
     
-    const coordinador = uniqueCoordinadores.find(c => c.id === coordinadorSeleccionado);
-    if (!coordinador || !coordinador.telefono) {
-      alert('El coordinador seleccionado no tiene teléfono configurado');
-      return;
-    }
+    // Crear mensaje local
+    const nuevoMensajeObj = {
+      id: `msg-${Date.now()}`,
+      texto: mensajeTexto,
+      remitente: 'coordinador',
+      timestamp: new Date().toISOString(),
+      estado: 'enviado'
+    };
     
-    const camarero = uniqueCamareros.find(c => c.id === camareroSeleccionado);
-    if (!camarero || !camarero.telefono) {
-      alert('El camarero seleccionado no tiene teléfono configurado');
-      return;
-    }
+    setMensajes([nuevoMensajeObj]);
+
+    // Actualizar estado a 'enviado'
+    const asignaciones = eventoSeleccionado.asignaciones.map(a => 
+      a.camareroId === camarero.id ? { ...a, estado: 'enviado' } : a
+    );
     
-    // Actualizar estado del camarero a "enviado" antes de enviar el mensaje
-    const pedido = uniquePedidos.find(p => p.id === pedidoSeleccionado);
-    if (pedido) {
-      const asignaciones = pedido.asignaciones.map(a => 
-        a.camareroId === camareroSeleccionado ? { ...a, estado: 'enviado' } : a
-      );
+    try {
+      await fetch(`${baseUrl}/pedidos/${eventoSeleccionado.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          ...eventoSeleccionado,
+          asignaciones
+        })
+      });
       
-      const updatedPedido = {
-        ...pedido,
-        asignaciones
-      };
-      
-      try {
-        const response = await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
-          },
-          body: JSON.stringify(updatedPedido)
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-          // Enviar mensaje automáticamente vía servidor
-          const envioResponse = await fetch(`${baseUrl}/enviar-whatsapp`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${publicAnonKey}`
-            },
-            body: JSON.stringify({
-              telefono: camarero.telefono,
-              mensaje: mensaje
-            })
-          });
-          
-          const envioResult = await envioResponse.json();
-          
-          if (envioResult.success) {
-            alert('✅ Mensaje enviado exitosamente por WhatsApp');
-            await cargarDatos();
-            // Limpiar formulario
-            setPedidoSeleccionado('');
-            setCamareroSeleccionado('');
-            setMensaje('');
-          } else {
-            console.error('Error al enviar WhatsApp:', envioResult);
-            
-            // Mostrar error específico según el tipo
-            if (envioResult.needsConfiguration) {
-              let mensajeError = `⚠️ ERROR DE CONFIGURACIÓN DE WHATSAPP:\n\n${envioResult.error}\n\n`;
-              
-              // Agregar información de debug si existe
-              if (envioResult.debugInfo) {
-                mensajeError += `📊 INFORMACIÓN DE DEBUG:\n`;
-                mensajeError += `- Fuente de configuración: ${envioResult.debugInfo.configSource}\n`;
-                mensajeError += `- Longitud del token: ${envioResult.debugInfo.tokenLength} caracteres\n`;
-                if (envioResult.debugInfo.tokenPrefix) {
-                  mensajeError += `- Inicio del token: ${envioResult.debugInfo.tokenPrefix}\n`;
-                }
-                if (envioResult.debugInfo.phoneId) {
-                  mensajeError += `- Phone ID: ${envioResult.debugInfo.phoneId}\n`;
-                }
-                mensajeError += `\n`;
-              }
-              
-              mensajeError += `🔧 SOLUCIÓN:\n`;
-              mensajeError += `1. Ve a la pestaña "Configuración WhatsApp" en el menú principal\n`;
-              mensajeError += `2. Haz clic en "¿Cómo obtener el token?" para ver instrucciones\n`;
-              mensajeError += `3. Ve a: https://business.facebook.com/wa/manage/home/\n`;
-              mensajeError += `4. Genera un Token de Acceso PERMANENTE (debe tener 200+ caracteres)\n`;
-              mensajeError += `5. Copia COMPLETAMENTE el token (sin espacios al inicio o final)\n`;
-              mensajeError += `6. Obtén también tu Phone Number ID\n`;
-              mensajeError += `7. Pégalos en "Configuración WhatsApp" y guarda\n\n`;
-              mensajeError += `Por ahora, se abrirá WhatsApp Web para enviar manualmente.`;
-              
-              alert(mensajeError);
-            } else {
-              alert(`⚠️ No se pudo enviar automáticamente: ${envioResult.error}\n\nSe abrirá WhatsApp Web para enviar manualmente.`);
-            }
-            
-            enviarPorWhatsApp();
-          }
-        } else {
-          console.error('Error al actualizar pedido:', result);
-          alert('Error al actualizar el estado del pedido. Intenta nuevamente.');
-        }
-      } catch (error) {
-        console.error('Error al enviar mensaje:', error);
-        alert('Error de conexión al enviar el mensaje. Verifica tu conexión e intenta nuevamente.');
-      }
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
     }
   };
 
-  const enviarPorWhatsApp = async () => {
-    if (!coordinadorSeleccionado) {
-      alert('Por favor selecciona un coordinador con teléfono configurado');
-      return;
-    }
+  // Manejar aceptación
+  const manejarAceptar = async () => {
+    if (!eventoSeleccionado || !camareroSeleccionado) return;
+
+    const asignaciones = eventoSeleccionado.asignaciones.map(a => 
+      a.camareroId === camareroSeleccionado.id 
+        ? { ...a, estado: 'confirmado', eliminacionProgramada: null } 
+        : a
+    );
     
-    const coordinador = uniqueCoordinadores.find(c => c.id === coordinadorSeleccionado);
-    if (!coordinador || !coordinador.telefono) {
-      alert('El coordinador seleccionado no tiene teléfono configurado');
-      return;
-    }
-    
-    const camarero = uniqueCamareros.find(c => c.id === camareroSeleccionado);
-    if (!camarero || !camarero.telefono) {
-      alert('El camarero seleccionado no tiene teléfono configurado');
-      return;
-    }
-    
-    // Actualizar estado del camarero a "enviado" antes de enviar el mensaje
-    const pedido = uniquePedidos.find(p => p.id === pedidoSeleccionado);
-    if (pedido) {
-      const asignaciones = pedido.asignaciones.map(a => 
-        a.camareroId === camareroSeleccionado ? { ...a, estado: 'enviado' } : a
-      );
+    try {
+      await fetch(`${baseUrl}/pedidos/${eventoSeleccionado.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          ...eventoSeleccionado,
+          asignaciones
+        })
+      });
       
-      const updatedPedido = {
-        ...pedido,
-        asignaciones
-      };
+      setMensajes(prev => [...prev, {
+        id: `msg-${Date.now()}`,
+        texto: '✅ He aceptado el servicio',
+        remitente: 'camarero',
+        timestamp: new Date().toISOString(),
+        estado: 'confirmado'
+      }]);
       
-      try {
-        const response = await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
-          },
-          body: JSON.stringify(updatedPedido)
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-          await cargarDatos();
-        }
-      } catch (error) {
-        console.log('Error al actualizar estado a enviado:', error);
-      }
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al aceptar:', error);
     }
-    
-    // Limpiar número de teléfono del camarero (eliminar espacios, guiones, etc)
-    let numeroLimpio = camarero.telefono.replace(/\D/g, '');
-    
-    // Si el número no tiene código de país, agregar 34 (España)
-    if (numeroLimpio.length === 9) {
-      numeroLimpio = '34' + numeroLimpio;
-    }
-    
-    // Codificar el mensaje para URL
-    const mensajeCodificado = encodeURIComponent(mensaje);
-    
-    // Crear enlace de WhatsApp
-    const whatsappUrl = `https://wa.me/${numeroLimpio}?text=${mensajeCodificado}`;
-    
-    // Abrir WhatsApp en una nueva ventana
-    window.open(whatsappUrl, '_blank');
   };
 
-  const pedidoActual = uniquePedidos.find(p => p.id === pedidoSeleccionado);
-  const camarerosAsignados = pedidoActual?.asignaciones || [];
-  
-  // Filtrar coordinadores que tienen teléfono
-  const coordinadoresConTelefono = uniqueCoordinadores.filter(c => c.telefono);
+  // Manejar rechazo
+  const manejarRechazar = async () => {
+    if (!eventoSeleccionado || !camareroSeleccionado) return;
+
+    const asignaciones = eventoSeleccionado.asignaciones.map(a => 
+      a.camareroId === camareroSeleccionado.id ? { 
+        ...a, 
+        estado: 'rechazado',
+        eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() // 5 horas
+      } : a
+    );
+    
+    try {
+      await fetch(`${baseUrl}/pedidos/${eventoSeleccionado.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          ...eventoSeleccionado,
+          asignaciones
+        })
+      });
+      
+      setMensajes(prev => [...prev, {
+        id: `msg-${Date.now()}`,
+        texto: '❌ He rechazado el servicio. Seré eliminado en 5 horas.',
+        remitente: 'camarero',
+        timestamp: new Date().toISOString(),
+        estado: 'rechazado'
+      }]);
+      
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al rechazar:', error);
+    }
+  };
+
+  if (!coordinadorActual) {
+    return (
+      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p className="text-yellow-800">
+          ⚠️ No hay coordinadores registrados. Registra al menos un coordinador para enviar mensajes.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-gray-900 mb-6">Envío de Mensaje a Camareros por WhatsApp</h2>
-        
-        {/* Estado de configuración de WhatsApp */}
-        <WhatsAppConfigStatus baseUrl={baseUrl} publicAnonKey={publicAnonKey} />
-        
-        <div className="space-y-4">
-          {/* Seleccionar coordinador */}
-          <div>
-            <label className="block text-gray-700 mb-2">Seleccionar Coordinador (quien envía el mensaje)</label>
-            <select
-              value={coordinadorSeleccionado}
-              onChange={(e) => setCoordinadorSeleccionado(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option key="empty-coordinador" value="">Seleccionar coordinador</option>
-              {coordinadoresConTelefono.map((coordinador) => (
-                <option key={coordinador.id} value={coordinador.id}>
-                  {coordinador.nombre} - {coordinador.telefono}
-                </option>
-              ))}
-            </select>
-            {uniqueCoordinadores.length > 0 && coordinadoresConTelefono.length === 0 && (
-              <p className="text-orange-600 text-sm mt-2">
-                ⚠️ No hay coordinadores con teléfono configurado. Agrega el teléfono en la sección de Coordinadores.
-              </p>
-            )}
-          </div>
-
-          {/* Seleccionar pedido */}
-          <div>
-            <label className="block text-gray-700 mb-2">Seleccionar Evento</label>
-            <select
-              value={pedidoSeleccionado}
-              onChange={(e) => {
-                setPedidoSeleccionado(e.target.value);
-                setCamareroSeleccionado('');
-                setMensaje('');
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option key="empty-pedido" value="">Seleccionar evento</option>
-              {uniquePedidos
-                .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento))
-                .map((pedido) => (
-                  <option key={pedido.id} value={pedido.id}>
-                    {new Date(pedido.diaEvento).toLocaleDateString('es-ES')} - {pedido.cliente} - {pedido.lugar}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* Seleccionar camarero */}
-          {pedidoSeleccionado && camarerosAsignados.length > 0 && (
+    <div className="flex h-[calc(100vh-10rem)] bg-gray-100 rounded-lg overflow-hidden shadow-lg border border-gray-300">
+      {/* COLUMNA 1 - LISTA DE EVENTOS */}
+      <div className="w-80 bg-white border-r border-gray-300 flex flex-col">
+        {/* Header con perfil del coordinador */}
+        <div className="px-4 py-3 bg-gray-100 border-b border-gray-300 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+              {coordinadorActual.nombre.charAt(0).toUpperCase()}
+            </div>
             <div>
-              <label className="block text-gray-700 mb-2">Seleccionar Camarero Asignado</label>
-              <select
-                value={camareroSeleccionado}
-                onChange={(e) => {
-                  setCamareroSeleccionado(e.target.value);
-                  setMensaje('');
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <p className="font-semibold text-gray-900 text-sm">{coordinadorActual.nombre}</p>
+              <p className="text-xs text-gray-600">Coordinador</p>
+            </div>
+          </div>
+          <MoreVertical className="w-5 h-5 text-gray-600 cursor-pointer" />
+        </div>
+
+        {/* Buscador */}
+        <div className="px-3 py-2 bg-white border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar eventos..."
+              className="w-full pl-10 pr-3 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Filtros de período */}
+        <div className="px-3 py-2 bg-white border-b border-gray-200">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            {['diario', 'semanal', 'mensual'].map((periodo) => (
+              <button
+                key={periodo}
+                onClick={() => setPeriodoFiltro(periodo as any)}
+                className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  periodoFiltro === periodo
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                <option key="empty-camarero" value="">Seleccionar camarero</option>
-                {camarerosAsignados.map((asignacion) => {
-                  const cam = uniqueCamareros.find(c => c.id === asignacion.camareroId);
-                  return (
-                    <option key={asignacion.camareroId} value={asignacion.camareroId}>
-                      #{asignacion.camareroNumero} - {asignacion.camareroNombre} ({asignacion.estado})
-                      {cam && !cam.telefono ? ' ⚠️ Sin teléfono' : ''}
-                    </option>
-                  );
-                })}
-              </select>
+                {periodo.charAt(0).toUpperCase() + periodo.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Lista de eventos */}
+        <div className="flex-1 overflow-y-auto">
+          {eventosFiltrados.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 text-sm">
+              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>No hay eventos en este período</p>
             </div>
-          )}
-
-          {pedidoSeleccionado && camarerosAsignados.length === 0 && (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800">
-                Este evento no tiene camareros asignados. Por favor, asigna camareros desde la sección de Gestión de Pedidos.
-              </p>
-            </div>
-          )}
-
-          {/* Botón para generar mensaje */}
-          {pedidoSeleccionado && camareroSeleccionado && (
-            <button
-              onClick={handleGenerarMensaje}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Send className="w-5 h-5" />
-              Generar Mensaje
-            </button>
-          )}
-
-          {/* Mensaje generado */}
-          {mensaje && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-700 mb-2">Mensaje para enviar</label>
-                <textarea
-                  value={mensaje}
-                  onChange={(e) => setMensaje(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[400px]"
-                />
-              </div>
-
-              {/* Botones de confirmación para incluir en el mensaje */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <p className="text-gray-700 mb-3">Botones de confirmación (se enviarán al camarero):</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <a
-                    href={enlaceConfirmar}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center"
-                  >
-                    ✅ CONFIRMO
-                  </a>
-                  <a
-                    href={enlaceNoConfirmar}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 text-center"
-                  >
-                    ❌ NO CONFIRMO
-                  </a>
-                </div>
-                <p className="text-gray-600 text-sm mt-3">
-                  Estos botones son solo para previsualizar. Los enlaces reales se enviarán en el mensaje de WhatsApp.
-                </p>
-              </div>
-
-              {/* Botones de envío - Adaptativos según configuración */}
-              <div className="space-y-3">
-                {whatsappConfigured ? (
-                  // Si está configurada la API, priorizar envío automático
-                  <div className="space-y-3">
-                    <button
-                      onClick={enviarMensajeAutomatico}
-                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                      🚀 Enviar Automáticamente (Recomendado)
-                    </button>
-                    
-                    <button
-                      onClick={enviarPorWhatsApp}
-                      className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-2 text-sm"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      O enviar por WhatsApp Web
-                    </button>
-                  </div>
-                ) : (
-                  // Si NO está configurada, solo WhatsApp Web
-                  <div className="space-y-3">
-                    <button
-                      onClick={enviarPorWhatsApp}
-                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                      Enviar por WhatsApp Web
-                    </button>
-                    
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                      <p className="text-amber-800 text-xs">
-                        💡 <strong>Configura WhatsApp Business API</strong> para envío automático sin abrir el navegador. 
-                        <a href="#" className="underline ml-1">Ver guía</a>
-                      </p>
+          ) : (
+            eventosFiltrados.map(evento => {
+              const totalCamareros = evento.asignaciones?.length || 0;
+              const confirmados = evento.asignaciones?.filter(a => a.estado === 'confirmado').length || 0;
+              const esSeleccionado = eventoSeleccionado?.id === evento.id;
+              
+              return (
+                <button
+                  key={evento.id}
+                  onClick={() => {
+                    setEventoSeleccionado(evento);
+                    setCamareroSeleccionado(null);
+                    setMensajes([]);
+                  }}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                    esSeleccionado ? 'bg-gray-50' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {evento.cliente.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate">{evento.cliente}</h3>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {new Date(evento.diaEvento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 truncate mb-1">{evento.lugar}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">{evento.horaEntrada}</span>
+                        <span className={`text-xs font-medium ${
+                          confirmados === totalCamareros ? 'text-green-600' : 'text-orange-600'
+                        }`}>
+                          {confirmados}/{totalCamareros} ✓
+                        </span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 text-sm mb-2">
-                  <strong>Cómo funciona:</strong>
-                </p>
-                <ol className="text-blue-800 text-sm space-y-1 list-decimal ml-4">
-                  <li>Al hacer clic en "Enviar por WhatsApp", se abrirá WhatsApp Web con el mensaje listo</li>
-                  <li>El camarero recibirá el mensaje con su información del evento</li>
-                  <li>Al final del mensaje habrá dos enlaces de botón para confirmar o no confirmar</li>
-                  <li>Cuando el camarero haga clic en "✅ CONFIRMO", su estado se actualizará automáticamente a confirmado (verde)</li>
-                  <li>Si hace clic en "❌ NO CONFIRMO", será removido automáticamente de la asignación</li>
-                  <li>Los cambios se reflejarán instantáneamente en la aplicación</li>
-                </ol>
-              </div>
-
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-sm">
-                  <strong>💡 Tip:</strong> Los enlaces de confirmación son únicos y solo funcionan una vez. No los reutilices para otros eventos.
-                </p>
-              </div>
-            </div>
+                </button>
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* COLUMNA 2 - LISTA DE CAMAREROS DEL EVENTO */}
+      {eventoSeleccionado ? (
+        <div className="w-80 bg-white border-r border-gray-300 flex flex-col">
+          {/* Header del evento */}
+          <div className="px-4 py-3 bg-gray-100 border-b border-gray-300">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold">
+                {eventoSeleccionado.cliente.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-gray-900 text-sm truncate">{eventoSeleccionado.cliente}</h2>
+                <p className="text-xs text-gray-600 truncate">{eventoSeleccionado.lugar}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de camareros */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            {camarerosEvento.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 text-sm">
+                <p>No hay camareros asignados a este evento</p>
+              </div>
+            ) : (
+              camarerosEvento.map((camarero: any) => {
+                const esSeleccionado = camareroSeleccionado?.id === camarero.id;
+                let bgColor = 'bg-white';
+                let borderColor = 'border-gray-200';
+                
+                if (camarero.estado === 'confirmado') {
+                  bgColor = 'bg-green-50';
+                  borderColor = 'border-green-300';
+                } else if (camarero.estado === 'rechazado') {
+                  bgColor = 'bg-red-50';
+                  borderColor = 'border-red-300';
+                } else if (camarero.estado === 'enviado') {
+                  bgColor = 'bg-blue-50';
+                  borderColor = 'border-blue-200';
+                }
+
+                return (
+                  <button
+                    key={`${eventoSeleccionado.id}-${camarero.id}`}
+                    onClick={() => {
+                      setCamareroSeleccionado(camarero);
+                      enviarMensajeAutomatico(camarero);
+                    }}
+                    className={`w-full text-left px-4 py-3 border-b ${borderColor} ${bgColor} hover:opacity-80 transition-all ${
+                      esSeleccionado ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold flex-shrink-0">
+                        {camarero.nombre.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-semibold text-gray-900 text-sm truncate">
+                            {camarero.nombre} {camarero.apellido}
+                          </h3>
+                          {camarero.estado === 'confirmado' && (
+                            <Check className="w-4 h-4 text-green-600" />
+                          )}
+                          {camarero.estado === 'rechazado' && (
+                            <XIcon className="w-4 h-4 text-red-600" />
+                          )}
+                          {camarero.estado === 'enviado' && (
+                            <Clock className="w-4 h-4 text-blue-600" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600">#{camarero.numero}</p>
+                        {camarero.telefono && (
+                          <p className="text-xs text-gray-500 mt-1">📱 {camarero.telefono}</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="w-80 bg-white border-r border-gray-300 flex items-center justify-center">
+          <div className="text-center text-gray-500 p-6">
+            <MessageCircle className="w-16 h-16 mx-auto mb-3 text-gray-300" />
+            <p className="text-sm">Selecciona un evento</p>
+          </div>
+        </div>
+      )}
+
+      {/* COLUMNA 3 - CHAT / CONVERSACIÓN */}
+      {camareroSeleccionado ? (
+        <div className="flex-1 flex flex-col bg-gray-50">
+          {/* Header del chat */}
+          <div className="px-6 py-3 bg-gray-100 border-b border-gray-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold">
+                {camareroSeleccionado.nombre.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900 text-sm">
+                  {camareroSeleccionado.nombre} {camareroSeleccionado.apellido}
+                </h2>
+                <p className="text-xs text-gray-600">
+                  {camareroSeleccionado.estado === 'confirmado' && '✅ Confirmado'}
+                  {camareroSeleccionado.estado === 'rechazado' && '❌ Rechazado'}
+                  {camareroSeleccionado.estado === 'enviado' && '📤 Mensaje enviado'}
+                  {!camareroSeleccionado.estado && '⏳ Pendiente'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-5 h-5 text-gray-600 cursor-pointer hover:text-blue-600" />
+              <MoreVertical className="w-5 h-5 text-gray-600 cursor-pointer" />
+            </div>
+          </div>
+
+          {/* Área de mensajes */}
+          <div 
+            className="flex-1 overflow-y-auto p-6 space-y-3"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(45deg, #f9fafb 0px, #f9fafb 10px, #f3f4f6 10px, #f3f4f6 20px)'
+            }}
+          >
+            {mensajes.map((msg, index) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.remitente === 'coordinador' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
+                    msg.remitente === 'coordinador'
+                      ? 'bg-green-100 text-gray-900'
+                      : msg.estado === 'confirmado'
+                      ? 'bg-green-200 text-gray-900 font-semibold'
+                      : msg.estado === 'rechazado'
+                      ? 'bg-red-200 text-gray-900 font-semibold'
+                      : 'bg-white text-gray-900'
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap break-words">{msg.texto}</p>
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className="text-xs text-gray-600">
+                      {new Date(msg.timestamp).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                    {msg.remitente === 'coordinador' && (
+                      <Check className="w-3 h-3 text-blue-600" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={mensajesEndRef} />
+          </div>
+
+          {/* Botones interactivos de respuesta rápida */}
+          {mensajes.length > 0 && camareroSeleccionado.estado !== 'confirmado' && camareroSeleccionado.estado !== 'rechazado' && (
+            <div className="px-6 py-3 bg-white border-t border-gray-300">
+              <div className="flex gap-3">
+                <button
+                  onClick={manejarAceptar}
+                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center gap-2 transition-colors shadow-md"
+                >
+                  <Check className="w-5 h-5" />
+                  ACEPTAR SERVICIO
+                </button>
+                <button
+                  onClick={manejarRechazar}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold flex items-center justify-center gap-2 transition-colors shadow-md"
+                >
+                  <XIcon className="w-5 h-5" />
+                  RECHAZAR SERVICIO
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Input de mensaje (opcional para mensajes personalizados) */}
+          <div className="px-4 py-3 bg-gray-100 border-t border-gray-300">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nuevoMensaje}
+                onChange={(e) => setNuevoMensaje(e.target.value)}
+                placeholder="Escribe un mensaje..."
+                className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={true}
+              />
+              <button
+                disabled={true}
+                className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-center text-gray-500 p-8">
+            <MessageCircle className="w-20 h-20 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {eventoSeleccionado ? 'Selecciona un camarero' : 'Bienvenido a Mensajes'}
+            </h3>
+            <p className="text-sm">
+              {eventoSeleccionado 
+                ? 'Haz clic en un camarero para enviar el mensaje del servicio'
+                : 'Selecciona un evento y luego un camarero para comenzar'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

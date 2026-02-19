@@ -76,18 +76,23 @@ export function WhatsAppQuickSetup() {
     },
     {
       number: 6,
-      title: 'Obtener WHATSAPP_API_KEY (Token)',
-      description: 'Necesitas un token de acceso permanente para autenticar las solicitudes.',
+      title: 'Obtener WHATSAPP_API_KEY (Token de Acceso)',
+      description: '⚠️ CRÍTICO: Necesitas un token de acceso PERMANENTE (200+ caracteres). NO uses el Phone ID aquí.',
       details: [
-        'Ve a Configuración → Básica de tu app',
-        'Ve a Configuración del negocio → Tokens de acceso del sistema',
-        'Crea un token con permisos de "WhatsApp Business Management"',
-        '⚠️ IMPORTANTE: El token solo se muestra una vez, guárdalo bien'
+        '🔑 Ve a tu aplicación en Meta for Developers',
+        '📝 Configuración → Básica',
+        '🏢 Después ve a Configuración del negocio → Tokens de acceso del sistema',
+        '➕ Haz clic en "Crear nuevo token"',
+        '✅ Selecciona los permisos: "whatsapp_business_management" y "whatsapp_business_messaging"',
+        '⏳ Marca "Token de acceso que nunca caduca" (permanente)',
+        '📋 Copia el token COMPLETO (empieza con "EAA..." y tiene 200+ caracteres)',
+        '⚠️ IMPORTANTE: El token solo se muestra UNA VEZ. Si lo pierdes, tendrás que crear uno nuevo.',
+        '🚫 DIFERENCIA: El Token es LARGO (200+ chars), el Phone ID es CORTO (15 dígitos)'
       ],
       copyField: {
         label: 'WHATSAPP_API_KEY',
-        placeholder: 'EAAxxxxxxxxxxxxxxxx...',
-        note: '⚠️ Token permanente - Guárdalo en lugar seguro'
+        placeholder: 'EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... (200+ caracteres)',
+        note: '⚠️ Token permanente - Debe tener más de 200 caracteres. NO ES el Phone ID.'
       }
     },
     {

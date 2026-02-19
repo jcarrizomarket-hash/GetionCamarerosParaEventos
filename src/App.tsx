@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, TestTube } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -7,15 +7,18 @@ import { Coordinadores } from './components/coordinadores';
 import { Informes } from './components/informes';
 import { EnvioMensaje } from './components/envio-mensaje';
 import { EnvioParte } from './components/envio-parte';
-import { WhatsAppConfig } from './components/whatsapp-config';
-import { TestPanel } from './components/test-panel';
+import { ChatGrupal } from './components/chat-grupal';
+import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
+// Aplicación de Gestión de Camareros para Eventos v2.1
+// Última actualización: Funcionalidad de edición y eliminación de coordinadores
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [camareros, setCamareros] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [coordinadores, setCoordinadores] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [selectedPedido, setSelectedPedido] = useState(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
@@ -26,7 +29,7 @@ export default function App() {
 
   const cargarDatos = async () => {
     try {
-      const [camarerosRes, pedidosRes, coordinadoresRes] = await Promise.all([
+      const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
           headers: { Authorization: `Bearer ${publicAnonKey}` }
         }),
@@ -35,16 +38,21 @@ export default function App() {
         }),
         fetch(`${baseUrl}/coordinadores`, {
           headers: { Authorization: `Bearer ${publicAnonKey}` }
+        }),
+        fetch(`${baseUrl}/clientes`, {
+          headers: { Authorization: `Bearer ${publicAnonKey}` }
         })
       ]);
 
       const camarerosData = await camarerosRes.json();
       const pedidosData = await pedidosRes.json();
       const coordinadoresData = await coordinadoresRes.json();
+      const clientesData = await clientesRes.json();
 
       if (camarerosData.success) setCamareros(camarerosData.data);
       if (pedidosData.success) setPedidos(pedidosData.data);
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
+      if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
       console.log('Error al cargar datos:', error);
     }
@@ -53,13 +61,13 @@ export default function App() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart },
-    { id: 'camareros', label: 'Camareros', icon: Users },
+    { id: 'camareros', label: 'Personal', icon: Users },
     { id: 'coordinadores', label: 'Coordinadores', icon: UserPlus },
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare },
     { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck },
-    { id: 'whatsapp-config', label: 'Configuración WhatsApp', icon: Settings },
-    { id: 'test-panel', label: 'Panel de Pruebas', icon: TestTube }
+    { id: 'chat-grupal', label: 'Chat Grupal', icon: MessagesSquare },
+    { id: 'configuracion', label: 'Configuración', icon: Settings }
   ];
 
   return (
@@ -111,6 +119,7 @@ export default function App() {
             pedidos={pedidos}
             setPedidos={setPedidos}
             camareros={camareros}
+            coordinadores={coordinadores}
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
             cargarDatos={cargarDatos}
@@ -165,23 +174,35 @@ export default function App() {
             pedidos={pedidos}
             camareros={camareros}
             coordinadores={coordinadores}
+            clientes={clientes}
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
-            setPedidos={setPedidos}
+          />
+        )}
+
+        {activeTab === 'chat-grupal' && (
+          <ChatGrupal
+            pedidos={pedidos}
+            camareros={camareros}
+            coordinadores={coordinadores}
+            baseUrl={baseUrl}
+            publicAnonKey={publicAnonKey}
             cargarDatos={cargarDatos}
           />
         )}
 
-        {activeTab === 'whatsapp-config' && (
-          <WhatsAppConfig
+        {activeTab === 'configuracion' && (
+          <Configuracion
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
+            camareros={camareros}
+            coordinadores={coordinadores}
+            pedidos={pedidos}
+            clientes={clientes}
           />
         )}
 
-        {activeTab === 'test-panel' && (
-          <TestPanel />
-        )}
+        {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
       </div>
     </div>
   );

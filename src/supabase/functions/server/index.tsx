@@ -135,6 +135,17 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   }
 });
 
+app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+  try {
+    const id = c.req.param('id');
+    await kv.del(id);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('Error al eliminar camarero:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 // ============== COORDINADORES ==============
 app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   try {
@@ -148,7 +159,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
 
 app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   try {
-    const { nombre, telefono } = await c.req.json();
+    const { nombre, telefono, email } = await c.req.json();
     
     // Obtener el contador actual
     const contadorData = await kv.get('contador:coordinadores');
@@ -162,13 +173,37 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
       id,
       numero: contador,
       nombre,
-      telefono: telefono || ''
+      telefono: telefono || '',
+      email: email || ''
     };
     
     await kv.set(id, coordinador);
     return c.json({ success: true, data: coordinador });
   } catch (error) {
     console.log('Error al crear coordinador:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    await kv.set(id, data);
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.log('Error al actualizar coordinador:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+  try {
+    const id = c.req.param('id');
+    await kv.del(id);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('Error al eliminar coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -211,6 +246,9 @@ app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
       camisa: data.camisa,
       notas: data.notas || '',
       asignaciones: data.asignaciones || [],
+      // IMPORTANTE: Guardar coordinadorId y coordinadorNombre para chats grupales
+      coordinadorId: data.coordinadorId || '',
+      coordinadorNombre: data.coordinadorNombre || '',
       createdAt: new Date().toISOString()
     };
     
@@ -427,10 +465,72 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
     
     // Actualizar estado a confirmado
     const asignaciones = pedido.asignaciones.map(a => 
-      a.camareroId === camareroId ? { ...a, estado: 'confirmado' } : a
+      a.camareroId === camareroId ? { ...a, estado: 'confirmado', eliminacionProgramada: null } : a
     );
     
     await kv.set(pedidoId, { ...pedido, asignaciones });
+    
+    console.log(`✅ CONFIRMACIÓN: Camarero ${camarero?.nombre} ${camarero?.apellido} confirmó asistencia al evento "${pedido.cliente}"`);
+    console.log(`   Estado actualizado: confirmado`);
+    console.log(`   Asignaciones totales: ${asignaciones.length}`);
+    
+    // Verificar si todos han confirmado y crear chat grupal automáticamente
+    const todosConfirmados = asignaciones.length > 0 && asignaciones.every(a => a.estado === 'confirmado');
+    
+    if (todosConfirmados) {
+      const chatId = `chat:${pedidoId}`;
+      const chatExistente = await kv.get(chatId);
+      
+      if (!chatExistente) {
+        // Calcular fecha de eliminación programada (24h después del evento)
+        const fechaEvento = new Date(pedido.diaEvento);
+        const horaFin = pedido.horaSalida || '23:59';
+        const [horaFinH, horaFinM] = horaFin.split(':');
+        fechaEvento.setHours(parseInt(horaFinH), parseInt(horaFinM), 0, 0);
+        const fechaEliminacion = new Date(fechaEvento.getTime() + 24 * 60 * 60 * 1000);
+        
+        // Construir lista de miembros
+        const miembros = [
+          {
+            user_id: coordinadorId,
+            nombre: 'Coordinador',
+            rol: 'coordinador'
+          },
+          ...asignaciones.map(a => ({
+            user_id: a.camareroId,
+            nombre: a.camareroNombre,
+            rol: 'camarero'
+          }))
+        ];
+        
+        const chat = {
+          id: chatId,
+          pedido_id: pedidoId,
+          nombre: `${pedido.cliente} - ${pedido.lugar}`,
+          descripcion: `Evento: ${pedido.cliente} en ${pedido.lugar}`,
+          fecha_evento: pedido.diaEvento,
+          hora_fin_evento: pedido.horaSalida || '23:59',
+          miembros,
+          activo: true,
+          fecha_eliminacion_programada: fechaEliminacion.toISOString(),
+          // Campos adicionales para compatibilidad
+          pedidoId,
+          coordinadorId,
+          camareroIds: asignaciones.map(a => a.camareroId),
+          fechaCreacion: new Date().toISOString(),
+          fechaEvento: pedido.diaEvento,
+          cliente: pedido.cliente,
+          lugar: pedido.lugar,
+          horaEntrada: pedido.horaEntrada,
+          estado: 'activo'
+        };
+        
+        await kv.set(chatId, chat);
+        await kv.set(`${chatId}:mensajes`, []);
+        
+        console.log(`✅ Chat grupal creado automáticamente para pedido: ${pedido.cliente} (Expira: ${fechaEliminacion.toISOString()})`);
+      }
+    }
     
     // Notificar al coordinador
     const nombreCamarero = camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero';
@@ -439,7 +539,11 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       day: 'numeric', 
       month: 'long' 
     });
-    const mensajeCoordinador = `✅ CONFIRMACIÓN RECIBIDA\n\n${nombreCamarero} ha confirmado su asistencia.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}`;
+    let mensajeCoordinador = `✅ CONFIRMACIÓN RECIBIDA\n\n${nombreCamarero} ha confirmado su asistencia.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}`;
+    
+    if (todosConfirmados) {
+      mensajeCoordinador += `\n\n🎉 ¡TODOS LOS CAMAREROS HAN CONFIRMADO!\n✅ Chat grupal creado automáticamente`;
+    }
     
     await notificarCoordinador(coordinadorId, mensajeCoordinador);
     
@@ -532,9 +636,19 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
     const camarero = await kv.get(camareroId);
     
     if (pedido) {
-      // Remover camarero de las asignaciones
-      const asignaciones = pedido.asignaciones.filter(a => a.camareroId !== camareroId);
+      // CAMBIO: En lugar de eliminar inmediatamente, marcar como rechazado con eliminación programada en 5 horas
+      const asignaciones = pedido.asignaciones.map(a => 
+        a.camareroId === camareroId ? { 
+          ...a, 
+          estado: 'rechazado',
+          eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() // 5 horas
+        } : a
+      );
       await kv.set(pedidoId, { ...pedido, asignaciones });
+      
+      console.log(`❌ RECHAZO: Camarero ${camarero?.nombre} ${camarero?.apellido} rechazó el evento "${pedido.cliente}"`);
+      console.log(`   Estado actualizado: rechazado`);
+      console.log(`   Eliminación programada: ${new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()}`);
       
       // Notificar al coordinador
       const nombreCamarero = camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero';
@@ -543,7 +657,7 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
         day: 'numeric', 
         month: 'long' 
       });
-      const mensajeCoordinador = `❌ RECHAZO DE SERVICIO\n\n${nombreCamarero} ha indicado que NO puede asistir y ha sido eliminado automáticamente.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}\n\n⚠️ ACCIÓN REQUERIDA: Asignar un camarero de reemplazo.`;
+      const mensajeCoordinador = `❌ RECHAZO DE SERVICIO\n\n${nombreCamarero} ha indicado que NO puede asistir.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}\n\n⚠️ Será eliminado automáticamente en 5 horas.\n\n💡 ACCIÓN REQUERIDA: Asignar un camarero de reemplazo.`;
       
       await notificarCoordinador(coordinadorId, mensajeCoordinador);
     }
@@ -571,8 +685,8 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
           <div class="info">✗</div>
           <h1>No Confirmado</h1>
           <p>Has indicado que no podrás asistir al evento.</p>
-          <p>Has sido eliminado automáticamente de la asignación.</p>
-          <p>El coordinador ha sido notificado.</p>
+          <p>Serás eliminado automáticamente en 5 horas si no se toma acción.</p>
+          <p>El coordinador ha sido notificado para buscar un reemplazo.</p>
           <p>Gracias por tu respuesta.</p>
         </div>
       </body>
@@ -604,212 +718,1069 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
   }
 });
 
-// ============== WHATSAPP ==============
-app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
+// ============== CHATS GRUPALES ==============
+// Crear chat grupal cuando todos confirmen
+app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
   try {
-    let whatsappApiKey = null;
-    let whatsappPhoneId = null;
-    let source = null;
+    const { pedidoId, coordinadorId } = await c.req.json();
     
-    // PRIORIDAD 1: Buscar en KV store primero
-    const kvApiKey = await kv.get('config:whatsapp_api_key');
-    const kvPhoneId = await kv.get('config:whatsapp_phone_id');
-    
-    if (kvApiKey && kvPhoneId && kvApiKey.length >= 50) {
-      whatsappApiKey = kvApiKey;
-      whatsappPhoneId = kvPhoneId;
-      source = 'configuración guardada (KV store)';
-    } else {
-      // PRIORIDAD 2: Variables de entorno (solo si son válidas)
-      const envApiKey = Deno.env.get('WHATSAPP_API_KEY');
-      const envPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
-      
-      // Validar que el token de variables de entorno sea válido
-      if (envApiKey && envPhoneId && envApiKey.length >= 50) {
-        whatsappApiKey = envApiKey;
-        whatsappPhoneId = envPhoneId;
-        source = 'variables de entorno';
-      } else if (envApiKey && envApiKey.length < 50) {
-        console.log(`⚠️ Token en variables de entorno es inválido (${envApiKey.length} chars, comienza con "${envApiKey.substring(0, 10)}..."). Ignorando.`);
-      }
+    const pedido = await kv.get(pedidoId);
+    if (!pedido) {
+      return c.json({ success: false, error: 'Pedido no encontrado' });
     }
     
-    const configured = !!(whatsappApiKey && whatsappPhoneId && whatsappApiKey.length >= 50);
+    // Verificar que todos hayan confirmado
+    const asignaciones = pedido.asignaciones || [];
+    const todosConfirmados = asignaciones.length > 0 && asignaciones.every(a => a.estado === 'confirmado');
     
-    return c.json({ 
-      success: true, 
-      configured,
-      source: configured ? source : null,
-      message: configured 
-        ? `WhatsApp Business API configurada correctamente (desde ${source})` 
-        : 'WhatsApp Business API no configurada o el token es inválido. Por favor, configura un token permanente válido desde la pestaña "Configuración WhatsApp".'
-    });
+    if (!todosConfirmados) {
+      return c.json({ success: false, error: 'No todos han confirmado aún' });
+    }
+    
+    // Verificar si ya existe un chat para este pedido
+    const chatIdExistente = `chat:${pedidoId}`;
+    const chatExistente = await kv.get(chatIdExistente);
+    
+    if (chatExistente) {
+      return c.json({ success: true, chatId: chatIdExistente, alreadyExists: true });
+    }
+    
+    // Crear el chat
+    const chatId = `chat:${pedidoId}`;
+    
+    // Calcular fecha de eliminación programada (24h después del evento)
+    const fechaEvento = new Date(pedido.diaEvento);
+    const horaFin = pedido.horaSalida || '23:59'; // Usar hora de salida o fin del día
+    const [horaFinH, horaFinM] = horaFin.split(':');
+    fechaEvento.setHours(parseInt(horaFinH), parseInt(horaFinM), 0, 0);
+    const fechaEliminacion = new Date(fechaEvento.getTime() + 24 * 60 * 60 * 1000); // +24 horas
+    
+    // Construir lista de miembros según esquema
+    const miembros = [
+      {
+        user_id: coordinadorId,
+        nombre: pedido.coordinadorNombre || 'Coordinador',
+        rol: 'coordinador'
+      },
+      ...asignaciones.map(a => ({
+        user_id: a.camareroId,
+        nombre: a.camareroNombre,
+        rol: 'camarero'
+      }))
+    ];
+    
+    const chat = {
+      id: chatId,
+      pedido_id: pedidoId,
+      nombre: `${pedido.cliente} - ${pedido.lugar}`,
+      descripcion: `Evento: ${pedido.cliente} en ${pedido.lugar}`,
+      fecha_evento: pedido.diaEvento,
+      hora_fin_evento: pedido.horaSalida || '23:59',
+      miembros,
+      activo: true,
+      fecha_eliminacion_programada: fechaEliminacion.toISOString(),
+      // Campos adicionales para compatibilidad con código existente
+      pedidoId,
+      coordinadorId,
+      camareroIds: asignaciones.map(a => a.camareroId),
+      fechaCreacion: new Date().toISOString(),
+      fechaEvento: pedido.diaEvento,
+      cliente: pedido.cliente,
+      lugar: pedido.lugar,
+      horaEntrada: pedido.horaEntrada,
+      estado: 'activo'
+    };
+    
+    await kv.set(chatId, chat);
+    
+    // Inicializar array de mensajes vacío
+    await kv.set(`${chatId}:mensajes`, []);
+    
+    return c.json({ success: true, chatId, chat });
   } catch (error) {
-    console.log('Error al verificar configuración WhatsApp:', error);
-    return c.json({ success: false, configured: false }, 500);
-  }
-});
-
-app.post('/make-server-25b11ac0/actualizar-whatsapp-config', async (c) => {
-  try {
-    const { apiKey, phoneId } = await c.req.json();
-    
-    if (!apiKey || !phoneId) {
-      return c.json({ 
-        success: false, 
-        error: 'API Key y Phone ID son requeridos' 
-      });
-    }
-    
-    // Validar formato del token
-    if (apiKey.length < 100) {
-      return c.json({
-        success: false,
-        error: 'El token parece inválido (muy corto). Debe ser un token de acceso permanente.'
-      });
-    }
-    
-    // Guardar en KV store con prefijo especial para configuración
-    await kv.set('config:whatsapp_api_key', apiKey);
-    await kv.set('config:whatsapp_phone_id', phoneId);
-    
-    console.log('✅ Configuración de WhatsApp actualizada en KV store');
-    console.log('   - API Key length:', apiKey.length, 'chars');
-    console.log('   - Phone ID:', phoneId);
-    
-    return c.json({ 
-      success: true, 
-      message: 'Configuración guardada exitosamente. Los cambios están activos inmediatamente.'
-    });
-  } catch (error) {
-    console.log('❌ Error al actualizar configuración WhatsApp:', error);
+    console.log('Error al crear chat grupal:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
+// Diagnóstico completo de chats
+app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
+  try {
+    console.log('🔍 === EJECUTANDO DIAGNÓSTICO COMPLETO DE CHATS ===');
+    
+    // Obtener todos los datos relevantes
+    const todosLosChats = await kv.getByPrefix('chat:');
+    const todosLosCoordinadores = await kv.getByPrefix('coordinador:');
+    const todosLosPedidos = await kv.getByPrefix('pedido:');
+    
+    const ahora = new Date();
+    
+    // Información de coordinadores
+    const infoCoordinadores = todosLosCoordinadores.map(coord => ({
+      id: coord.id,
+      nombre: coord.nombre,
+      numero: coord.numero,
+      telefono: coord.telefono
+    }));
+    
+    // Información de chats con cálculo de expiración
+    const infoChats = todosLosChats.map(chat => {
+      let fechaExpiracion;
+      
+      if (chat.fecha_eliminacion_programada) {
+        fechaExpiracion = new Date(chat.fecha_eliminacion_programada);
+      } else {
+        const fechaEvento = new Date(chat.fechaEvento);
+        const horaSalida = chat.hora_fin_evento || chat.horaSalida || '23:59';
+        const [hora, minutos] = horaSalida.split(':');
+        fechaEvento.setHours(parseInt(hora), parseInt(minutos), 0, 0);
+        fechaExpiracion = new Date(fechaEvento.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      const expirado = ahora >= fechaExpiracion;
+      const horasRestantes = (fechaExpiracion.getTime() - ahora.getTime()) / (1000 * 60 * 60);
+      
+      return {
+        id: chat.id,
+        coordinadorId: chat.coordinadorId,
+        pedidoId: chat.pedidoId,
+        cliente: chat.cliente,
+        lugar: chat.lugar,
+        fechaEvento: chat.fechaEvento,
+        fechaCreacion: chat.fechaCreacion,
+        fechaExpiracion: fechaExpiracion.toISOString(),
+        expirado,
+        horasRestantes: Math.round(horasRestantes * 10) / 10,
+        numeroCamareros: chat.camareroIds?.length || 0,
+        estado: chat.estado
+      };
+    });
+    
+    // Información de eventos con confirmaciones - MEJORADA
+    const infoEventos = todosLosPedidos
+      .filter(p => p.asignaciones && p.asignaciones.length > 0)
+      .map(pedido => {
+        const totalCamareros = pedido.asignaciones.length;
+        const confirmados = pedido.asignaciones.filter(a => a.estado === 'confirmado').length;
+        const todosConfirmados = confirmados === totalCamareros && totalCamareros > 0;
+        const chatId = `chat:${pedido.id}`;
+        const tieneChat = todosLosChats.some(chat => chat.id === chatId);
+        
+        // NUEVO: Información detallada de las asignaciones
+        const detalleAsignaciones = pedido.asignaciones.map(a => ({
+          camareroId: a.camareroId,
+          camareroNombre: a.camareroNombre,
+          estado: a.estado
+        }));
+        
+        return {
+          pedidoId: pedido.id,
+          cliente: pedido.cliente,
+          lugar: pedido.lugar,
+          fechaEvento: pedido.diaEvento,
+          totalCamareros,
+          confirmados,
+          todosConfirmados,
+          tieneChat,
+          chatEsperadoId: chatId,
+          // NUEVO: Campos adicionales para diagnóstico profundo
+          coordinadorId: pedido.coordinadorId,
+          tieneCoordinadorId: !!pedido.coordinadorId,
+          asignaciones: detalleAsignaciones
+        };
+      });
+    
+    // Agrupar chats por coordinador
+    const chatsPorCoordinador = {};
+    for (const chat of infoChats) {
+      if (!chatsPorCoordinador[chat.coordinadorId]) {
+        chatsPorCoordinador[chat.coordinadorId] = [];
+      }
+      chatsPorCoordinador[chat.coordinadorId].push(chat);
+    }
+    
+    const diagnostico = {
+      timestamp: ahora.toISOString(),
+      resumen: {
+        totalCoordinadores: infoCoordinadores.length,
+        totalChats: infoChats.length,
+        chatsActivos: infoChats.filter(c => !c.expirado).length,
+        chatsExpirados: infoChats.filter(c => c.expirado).length,
+        eventosConAsignaciones: infoEventos.length,
+        eventosCompletos: infoEventos.filter(e => e.todosConfirmados).length,
+        eventosConChat: infoEventos.filter(e => e.tieneChat).length,
+        // NUEVO
+        eventosCompletosSinChat: infoEventos.filter(e => e.todosConfirmados && !e.tieneChat).length,
+        eventosSinCoordinadorId: infoEventos.filter(e => !e.tieneCoordinadorId).length
+      },
+      coordinadores: infoCoordinadores,
+      chats: infoChats,
+      chatsPorCoordinador,
+      eventos: infoEventos,
+      posiblesProblemas: []
+    };
+    
+    // Detectar problemas potenciales
+    for (const evento of infoEventos) {
+      if (evento.todosConfirmados && !evento.tieneChat) {
+        const problema = {
+          tipo: 'CHAT_FALTANTE',
+          mensaje: `Evento "${evento.cliente}" tiene todos confirmados pero no tiene chat`,
+          pedidoId: evento.pedidoId,
+          cliente: evento.cliente,
+          // NUEVO: Información adicional
+          coordinadorId: evento.coordinadorId,
+          tieneCoordinadorId: evento.tieneCoordinadorId
+        };
+        
+        if (!evento.tieneCoordinadorId) {
+          problema.mensaje += ' (⚠️ NO TIENE coordinadorId - esta es la causa)';
+        }
+        
+        diagnostico.posiblesProblemas.push(problema);
+      }
+    }
+    
+    if (infoChats.length > 0 && infoCoordinadores.length > 0) {
+      for (const chat of infoChats) {
+        const coordinadorExiste = infoCoordinadores.some(c => c.id === chat.coordinadorId);
+        if (!coordinadorExiste) {
+          diagnostico.posiblesProblemas.push({
+            tipo: 'COORDINADOR_NO_EXISTE',
+            mensaje: `Chat "${chat.cliente}" tiene un coordinadorId que no existe: ${chat.coordinadorId}`,
+            chatId: chat.id,
+            coordinadorId: chat.coordinadorId
+          });
+        }
+      }
+    }
+    
+    console.log('📊 DIAGNÓSTICO COMPLETO:', JSON.stringify(diagnostico, null, 2));
+    
+    return c.json({ success: true, diagnostico });
+  } catch (error) {
+    console.log('❌ Error en diagnóstico:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Reparar chats faltantes automáticamente
+app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
+  try {
+    console.log('🔧 === INICIANDO REPARACIÓN DE CHATS ===');
+    
+    const { pedidosIds, coordinadorIdPorDefecto } = await c.req.json();
+    
+    if (!pedidosIds || !Array.isArray(pedidosIds) || pedidosIds.length === 0) {
+      return c.json({ 
+        success: false, 
+        error: 'Se requiere un array de pedidosIds' 
+      });
+    }
+    
+    const resultados = [];
+    
+    for (const pedidoId of pedidosIds) {
+      try {
+        const pedido = await kv.get(pedidoId);
+        
+        if (!pedido) {
+          resultados.push({
+            pedidoId,
+            success: false,
+            error: 'Pedido no encontrado'
+          });
+          continue;
+        }
+        
+        // Verificar que todos hayan confirmado
+        const asignaciones = pedido.asignaciones || [];
+        const todosConfirmados = asignaciones.length > 0 && asignaciones.every(a => a.estado === 'confirmado');
+        
+        if (!todosConfirmados) {
+          resultados.push({
+            pedidoId,
+            success: false,
+            error: 'No todos los camareros han confirmado'
+          });
+          continue;
+        }
+        
+        // Verificar si ya existe un chat
+        const chatId = `chat:${pedidoId}`;
+        const chatExistente = await kv.get(chatId);
+        
+        if (chatExistente) {
+          resultados.push({
+            pedidoId,
+            success: true,
+            accion: 'Ya existe',
+            chatId
+          });
+          continue;
+        }
+        
+        // Determinar coordinadorId
+        let coordinadorId = pedido.coordinadorId || coordinadorIdPorDefecto;
+        
+        if (!coordinadorId) {
+          resultados.push({
+            pedidoId,
+            success: false,
+            error: 'No se puede determinar coordinadorId (no está en el pedido ni se proporcionó uno por defecto)'
+          });
+          continue;
+        }
+        
+        // Crear el chat
+        const fechaEvento = new Date(pedido.diaEvento);
+        const horaFin = pedido.horaSalida || '23:59';
+        const [horaFinH, horaFinM] = horaFin.split(':');
+        fechaEvento.setHours(parseInt(horaFinH), parseInt(horaFinM), 0, 0);
+        const fechaEliminacion = new Date(fechaEvento.getTime() + 24 * 60 * 60 * 1000);
+        
+        const miembros = [
+          {
+            user_id: coordinadorId,
+            nombre: pedido.coordinadorNombre || 'Coordinador',
+            rol: 'coordinador'
+          },
+          ...asignaciones.map(a => ({
+            user_id: a.camareroId,
+            nombre: a.camareroNombre,
+            rol: 'camarero'
+          }))
+        ];
+        
+        const chat = {
+          id: chatId,
+          pedido_id: pedidoId,
+          nombre: `${pedido.cliente} - ${pedido.lugar}`,
+          descripcion: `Evento: ${pedido.cliente} en ${pedido.lugar}`,
+          fecha_evento: pedido.diaEvento,
+          hora_fin_evento: pedido.horaSalida || '23:59',
+          miembros,
+          activo: true,
+          fecha_eliminacion_programada: fechaEliminacion.toISOString(),
+          pedidoId,
+          coordinadorId,
+          camareroIds: asignaciones.map(a => a.camareroId),
+          fechaCreacion: new Date().toISOString(),
+          fechaEvento: pedido.diaEvento,
+          cliente: pedido.cliente,
+          lugar: pedido.lugar,
+          horaEntrada: pedido.horaEntrada,
+          estado: 'activo'
+        };
+        
+        await kv.set(chatId, chat);
+        await kv.set(`${chatId}:mensajes`, []);
+        
+        console.log(`✅ Chat creado para pedido ${pedidoId}: ${pedido.cliente}`);
+        
+        resultados.push({
+          pedidoId,
+          success: true,
+          accion: 'Creado',
+          chatId,
+          cliente: pedido.cliente,
+          coordinadorId
+        });
+        
+      } catch (error) {
+        resultados.push({
+          pedidoId,
+          success: false,
+          error: String(error)
+        });
+      }
+    }
+    
+    const resumen = {
+      total: resultados.length,
+      creados: resultados.filter(r => r.accion === 'Creado').length,
+      yaExistian: resultados.filter(r => r.accion === 'Ya existe').length,
+      fallidos: resultados.filter(r => !r.success).length
+    };
+    
+    console.log('🔧 RESUMEN DE REPARACIÓN:', resumen);
+    
+    return c.json({ 
+      success: true, 
+      resumen,
+      resultados 
+    });
+  } catch (error) {
+    console.log('❌ Error al reparar chats:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Obtener chats del coordinador (con limpieza automática de expirados)
+app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
+  try {
+    const coordinadorId = c.req.param('coordinadorId');
+    console.log(`🔍 Buscando chats para coordinadorId: ${coordinadorId}`);
+    
+    const todosLosChats = await kv.getByPrefix('chat:');
+    console.log(`🔍 Total de chats en base de datos: ${todosLosChats.length}`);
+    
+    if (todosLosChats.length > 0) {
+      console.log('🔍 IDs de coordinadores en todos los chats:', todosLosChats.map(c => ({ chatId: c.id, coordinadorId: c.coordinadorId })));
+    }
+    
+    // Filtrar por coordinador
+    let chatsDelCoordinador = todosLosChats.filter(chat => chat.coordinadorId === coordinadorId);
+    console.log(`🔍 Chats filtrados por coordinadorId: ${chatsDelCoordinador.length}`);
+    
+    // Limpiar chats expirados (24 horas después del evento + hora de salida)
+    const ahora = new Date();
+    const chatsActivos = [];
+    
+    for (const chat of chatsDelCoordinador) {
+      // Usar fecha_eliminacion_programada si existe, sino calcular desde fechaEvento + hora
+      let fechaExpiracion;
+      
+      if (chat.fecha_eliminacion_programada) {
+        fechaExpiracion = new Date(chat.fecha_eliminacion_programada);
+      } else {
+        // Fallback: calcular desde fechaEvento + hora de salida + 24h
+        const fechaEvento = new Date(chat.fechaEvento);
+        const horaSalida = chat.hora_fin_evento || chat.horaSalida || '23:59';
+        const [hora, minutos] = horaSalida.split(':');
+        fechaEvento.setHours(parseInt(hora), parseInt(minutos), 0, 0);
+        fechaExpiracion = new Date(fechaEvento.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      // Si aún no ha expirado, mantenerlo
+      if (ahora < fechaExpiracion) {
+        chatsActivos.push(chat);
+      } else {
+        // Eliminar chat y sus mensajes
+        await kv.del(chat.id);
+        await kv.del(`${chat.id}:mensajes`);
+        console.log(`🗑️ Chat eliminado por expiración: ${chat.id} - Expiró el ${fechaExpiracion.toISOString()}`);
+      }
+    }
+    
+    console.log(`📊 Chats activos para coordinador ${coordinadorId}: ${chatsActivos.length} de ${chatsDelCoordinador.length}`);
+    
+    return c.json({ success: true, data: chatsActivos });
+  } catch (error) {
+    console.log('Error al obtener chats:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Enviar mensaje al chat
+app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
+  try {
+    const { chatId, mensaje, remitente, remitenteNombre } = await c.req.json();
+    
+    const mensajesKey = `${chatId}:mensajes`;
+    const mensajes = await kv.get(mensajesKey) || [];
+    
+    const nuevoMensaje = {
+      id: `msg:${Date.now()}`,
+      remitente, // coordinadorId o camareroId
+      remitenteNombre,
+      mensaje,
+      fecha: new Date().toISOString()
+    };
+    
+    mensajes.push(nuevoMensaje);
+    await kv.set(mensajesKey, mensajes);
+    
+    return c.json({ success: true, mensaje: nuevoMensaje });
+  } catch (error) {
+    console.log('Error al enviar mensaje:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Obtener mensajes de un chat
+app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
+  try {
+    const chatId = c.req.param('chatId');
+    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
+    
+    return c.json({ success: true, data: mensajes });
+  } catch (error) {
+    console.log('Error al obtener mensajes:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== ENVÍO DE EMAIL ==============
+
+// Función para generar PDF del parte de servicio
+async function generarPDFParte(pedido: any, parteHTML: string): Promise<string> {
+  try {
+    // Usar jsPDF en lugar de PDFKit para evitar warnings de readFileSync
+    const { jsPDF } = await import('npm:jspdf@2.5.1');
+    
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    // Configuración de fuentes y estilos
+    const pageWidth = 210; // A4 width in mm
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    
+    let yPos = 20;
+    
+    // Título
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PARTE DE SERVICIO', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+    
+    // Línea separadora
+    doc.setLineWidth(0.5);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
+    
+    // Información del evento en dos columnas
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    
+    // Columna izquierda
+    doc.text('Cliente:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(pedido.cliente, margin + 30, yPos);
+    
+    // Columna derecha
+    doc.setFont('helvetica', 'bold');
+    doc.text('Lugar del evento:', pageWidth / 2 + 10, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(pedido.lugar, pageWidth / 2 + 50, yPos, { maxWidth: 70 });
+    
+    yPos += 8;
+    
+    // Segunda fila
+    doc.setFont('helvetica', 'bold');
+    doc.text('Día:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    const fechaEvento = new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.text(fechaEvento, margin + 30, yPos, { maxWidth: 70 });
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hora entrada:', pageWidth / 2 + 10, yPos);
+    doc.setFont('helvetica', 'normal');
+    const horaTexto = pedido.horaEntrada2 
+      ? `${pedido.horaEntrada} / ${pedido.horaEntrada2}` 
+      : pedido.horaEntrada;
+    doc.text(horaTexto, pageWidth / 2 + 50, yPos);
+    
+    yPos += 12;
+    
+    // Línea separadora
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    
+    // Tabla de camareros
+    doc.setFontSize(9);
+    
+    const tableStartY = yPos;
+    const colWidths = [60, 30, 30, 25, 35]; // Anchos en mm
+    const rowHeight = 8;
+    const headers = ['Camarero', 'Hora Entrada', 'Hora Salida', 'Total', 'Observaciones'];
+    
+    // Encabezados
+    doc.setFont('helvetica', 'bold');
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, yPos, contentWidth, rowHeight, 'FD');
+    
+    let xPos = margin;
+    for (let i = 0; i < headers.length; i++) {
+      doc.text(headers[i], xPos + 2, yPos + 5.5);
+      xPos += colWidths[i];
+    }
+    
+    yPos += rowHeight;
+    
+    // Filas de camareros
+    doc.setFont('helvetica', 'normal');
+    const camareros = pedido.asignaciones || [];
+    const totalFilas = Math.max(8, camareros.length);
+    
+    for (let i = 0; i < totalFilas; i++) {
+      const asignacion = camareros[i];
+      
+      // Dibujar borde de la fila
+      doc.rect(margin, yPos, contentWidth, rowHeight);
+      
+      xPos = margin;
+      
+      if (asignacion) {
+        const camareroText = `#${asignacion.camareroNumero} - ${asignacion.camareroNombre}`;
+        doc.text(camareroText, xPos + 2, yPos + 5.5, { maxWidth: colWidths[0] - 4 });
+        xPos += colWidths[0];
+        
+        doc.text(pedido.horaEntrada, xPos + 2, yPos + 5.5);
+      } else {
+        xPos += colWidths[0];
+      }
+      
+      // Líneas verticales de la tabla
+      for (let j = 1; j < colWidths.length; j++) {
+        doc.line(xPos, yPos, xPos, yPos + rowHeight);
+        xPos += colWidths[j];
+      }
+      
+      yPos += rowHeight;
+    }
+    
+    // Firma del responsable
+    yPos += 20;
+    const firmaWidth = 80;
+    const firmaHeight = 35;
+    const firmaX = pageWidth - margin - firmaWidth;
+    
+    doc.rect(firmaX, yPos, firmaWidth, firmaHeight);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Firma del Responsable', firmaX + firmaWidth / 2, yPos + 8, { align: 'center' });
+    doc.line(firmaX + 10, yPos + firmaHeight - 5, firmaX + firmaWidth - 10, yPos + firmaHeight - 5);
+    
+    // Generar el PDF como base64
+    const pdfBase64 = doc.output('datauristring').split(',')[1];
+    return pdfBase64;
+  } catch (error) {
+    console.log('⚠️ Error al generar PDF, usando fallback...', error);
+    // Retornar vacío si falla, el email se enviará sin adjunto
+    return '';
+  }
+}
+
+// Función genérica para enviar emails con detección automática de proveedor
+async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachments }: { 
+  destinatario: string; 
+  cc?: string | null; 
+  asunto: string; 
+  htmlBody: string;
+  attachments?: Array<{ filename: string; content: string; encoding: string }>;
+}) {
+  // Log para diagnóstico (sin mostrar valores completos por seguridad)
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+  const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+  const emailFrom = Deno.env.get('EMAIL_FROM') || 'onboarding@resend.dev';
+  
+  console.log('🔍 Diagnóstico de variables de entorno:');
+  console.log(`  RESEND_API_KEY: ${resendApiKey ? `configurada (${resendApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  console.log(`  SENDGRID_API_KEY: ${sendgridApiKey ? `configurada (${sendgridApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  console.log(`  MAILGUN_API_KEY: ${mailgunApiKey ? `configurada (${mailgunApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  console.log(`  EMAIL_FROM: ${emailFrom}`);
+  console.log(`  Adjuntos: ${attachments ? attachments.length : 0}`);
+  
+  // 1. Intentar con Resend (prioridad 1)
+  if (resendApiKey) {
+    try {
+      console.log('📧 Intentando enviar con Resend...');
+      const resendBody: any = {
+        from: emailFrom,
+        to: [destinatario],
+        subject: asunto,
+        html: htmlBody
+      };
+      
+      if (cc) {
+        resendBody.cc = [cc];
+      }
+      
+      // Agregar adjuntos si existen
+      if (attachments && attachments.length > 0) {
+        resendBody.attachments = attachments;
+      }
+      
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(resendBody)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('✅ Email enviado con Resend:', result);
+        return { success: true, provider: 'Resend', messageId: result.id };
+      } else {
+        console.log('❌ Error de Resend:', result);
+        throw new Error(result.message || 'Error al enviar con Resend');
+      }
+    } catch (error) {
+      console.log('⚠️ Resend falló, intentando siguiente proveedor...', error);
+    }
+  }
+  
+  // 2. Intentar con SendGrid (prioridad 2)
+  if (sendgridApiKey) {
+    try {
+      console.log('📧 Intentando enviar con SendGrid...');
+      const sendgridBody: any = {
+        personalizations: [{
+          to: [{ email: destinatario }],
+          subject: asunto
+        }],
+        from: { email: emailFrom },
+        content: [{
+          type: 'text/html',
+          value: htmlBody
+        }]
+      };
+      
+      if (cc) {
+        sendgridBody.personalizations[0].cc = [{ email: cc }];
+      }
+      
+      // Agregar adjuntos si existen
+      if (attachments && attachments.length > 0) {
+        sendgridBody.attachments = attachments.map(att => ({
+          content: att.content,
+          filename: att.filename,
+          type: 'application/pdf',
+          disposition: 'attachment'
+        }));
+      }
+      
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sendgridApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(sendgridBody)
+      });
+      
+      if (response.ok) {
+        console.log('✅ Email enviado con SendGrid');
+        return { success: true, provider: 'SendGrid' };
+      } else {
+        const errorText = await response.text();
+        console.log('❌ Error de SendGrid:', errorText);
+        throw new Error('Error al enviar con SendGrid');
+      }
+    } catch (error) {
+      console.log('⚠️ SendGrid falló, intentando siguiente proveedor...', error);
+    }
+  }
+  
+  // 3. Intentar con Mailgun (prioridad 3)
+  const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
+  
+  if (mailgunApiKey && mailgunDomain) {
+    try {
+      console.log('📧 Intentando enviar con Mailgun...');
+      
+      const formData = new FormData();
+      formData.append('from', emailFrom);
+      formData.append('to', destinatario);
+      if (cc) {
+        formData.append('cc', cc);
+      }
+      formData.append('subject', asunto);
+      formData.append('html', htmlBody);
+      
+      // Agregar adjuntos si existen
+      if (attachments && attachments.length > 0) {
+        for (const att of attachments) {
+          const buffer = Uint8Array.from(atob(att.content), c => c.charCodeAt(0));
+          const blob = new Blob([buffer], { type: 'application/pdf' });
+          formData.append('attachment', blob, att.filename);
+        }
+      }
+      
+      const response = await fetch(`https://api.mailgun.net/v3/${mailgunDomain}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`
+        },
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('✅ Email enviado con Mailgun:', result);
+        return { success: true, provider: 'Mailgun', messageId: result.id };
+      } else {
+        console.log('❌ Error de Mailgun:', result);
+        throw new Error(result.message || 'Error al enviar con Mailgun');
+      }
+    } catch (error) {
+      console.log('⚠️ Mailgun falló:', error);
+    }
+  }
+  
+  // Si ninguno funcionó
+  return { 
+    success: false, 
+    error: 'No hay ningún servicio de email configurado o todos fallaron. Por favor, configura RESEND_API_KEY, SENDGRID_API_KEY, o MAILGUN_API_KEY en las variables de entorno.' 
+  };
+}
+
+// Endpoint para verificar qué servicio de email está configurado
+app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
+  try {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
+    const emailFrom = Deno.env.get('EMAIL_FROM') || 'onboarding@resend.dev';
+    
+    // Log detallado para debugging
+    console.log('🔍 DIAGNÓSTICO COMPLETO DE EMAIL:');
+    console.log(`  RESEND_API_KEY: ${resendApiKey ? `✓ configurada (${resendApiKey.length} chars, inicia con: ${resendApiKey.substring(0, 5)}...)` : '✗ NO CONFIGURADA'}`);
+    console.log(`  SENDGRID_API_KEY: ${sendgridApiKey ? `✓ configurada (${sendgridApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
+    console.log(`  MAILGUN_API_KEY: ${mailgunApiKey ? `✓ configurada (${mailgunApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
+    console.log(`  MAILGUN_DOMAIN: ${mailgunDomain ? `✓ configurado: ${mailgunDomain}` : '✗ NO CONFIGURADO'}`);
+    console.log(`  EMAIL_FROM: ${emailFrom}`);
+    
+    const servicios = {
+      resend: !!resendApiKey,
+      sendgrid: !!sendgridApiKey,
+      mailgun: !!(mailgunApiKey && mailgunDomain)
+    };
+    
+    console.log(`📊 Servicios detectados:`, servicios);
+    
+    let servicioActivo = null;
+    if (servicios.resend) servicioActivo = 'Resend';
+    else if (servicios.sendgrid) servicioActivo = 'SendGrid';
+    else if (servicios.mailgun) servicioActivo = 'Mailgun';
+    
+    console.log(`🎯 Servicio activo seleccionado: ${servicioActivo}`);
+    
+    const configured = servicioActivo !== null;
+    
+    // Construir lista de servicios disponibles con capitalización correcta
+    const serviciosDisponiblesList = [];
+    if (servicios.resend) serviciosDisponiblesList.push('Resend');
+    if (servicios.sendgrid) serviciosDisponiblesList.push('SendGrid');
+    if (servicios.mailgun) serviciosDisponiblesList.push('Mailgun');
+    
+    console.log(`✅ Configurado: ${configured}, Servicios disponibles:`, serviciosDisponiblesList);
+    
+    return c.json({
+      configured,
+      servicioActivo,
+      serviciosDisponibles: serviciosDisponiblesList,
+      emailFrom,
+      debug: {
+        hasResend: !!resendApiKey,
+        hasSendgrid: !!sendgridApiKey,
+        hasMailgun: !!mailgunApiKey,
+        hasMailgunDomain: !!mailgunDomain,
+        resendKeyLength: resendApiKey?.length || 0
+      },
+      message: configured 
+        ? `Email configurado correctamente con ${servicioActivo}` 
+        : '⚠️ No hay ningún servicio de email configurado. Si acabas de configurar las variables, espera 1-2 minutos y recarga la página para que el servidor actualice la configuración.'
+    });
+  } catch (error) {
+    console.log('Error al verificar configuración de email:', error);
+    return c.json({
+      configured: false,
+      error: String(error),
+      message: 'Error al verificar la configuración'
+    }, 500);
+  }
+});
+
+// Endpoint para enviar parte por email
+app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
+  try {
+    const { destinatario, cc, asunto, mensaje, parteHTML, pedido } = await c.req.json();
+    
+    if (!destinatario || !asunto || !parteHTML) {
+      return c.json({ 
+        success: false, 
+        error: 'Faltan campos requeridos: destinatario, asunto, parteHTML' 
+      });
+    }
+    
+    console.log('📧 Procesando envío de parte de servicio...');
+    console.log(`   Cliente: ${pedido?.cliente}`);
+    console.log(`   Fecha: ${pedido?.fecha}`);
+    
+    // Construir el cuerpo del email
+    const emailBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        ${mensaje ? `
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #374151; margin: 0; white-space: pre-line;">${mensaje}</p>
+          </div>
+        ` : ''}
+        
+        <div style="margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+          <p style="color: #374151; font-size: 14px; text-align: center;">
+            📎 El parte de servicio se encuentra adjunto en formato PDF para su descarga.
+          </p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 14px;">
+          <p><strong>Sistema de Gestión de Camareros</strong></p>
+          <p>Parte de servicio para: ${pedido.cliente}</p>
+          <p>Fecha: ${pedido.fecha} | Lugar: ${pedido.lugar}</p>
+          <p>Email generado automáticamente - No responder</p>
+        </div>
+      </div>
+    `;
+    
+    // Generar PDF del parte de servicio
+    console.log('📄 Generando PDF del parte de servicio...');
+    const pdfBase64 = await generarPDFParte(pedido, parteHTML);
+    
+    // Preparar adjuntos si hay PDF
+    const attachments: Array<{ filename: string; content: string; encoding: string }> = [];
+    if (pdfBase64) {
+      const nombreArchivo = `Parte_Servicio_${pedido.cliente.replace(/\s+/g, '_')}_${pedido.fecha.replace(/\//g, '-')}.pdf`;
+      attachments.push({
+        filename: nombreArchivo,
+        content: pdfBase64,
+        encoding: 'base64'
+      });
+      console.log(`✅ PDF generado exitosamente: ${nombreArchivo} (${Math.round(pdfBase64.length / 1024)} KB)`);
+    } else {
+      console.log('⚠️ No se pudo generar el PDF, el email se enviará sin adjunto');
+    }
+    
+    // Enviar usando la función genérica
+    console.log('📤 Enviando email...');
+    const result = await enviarEmailGenerico({
+      destinatario,
+      cc,
+      asunto,
+      htmlBody: emailBody,
+      attachments
+    });
+    
+    if (result.success) {
+      console.log(`✅ Email enviado exitosamente con ${attachments.length} adjunto(s)`);
+    }
+    
+    return c.json(result);
+  } catch (error) {
+    console.log('❌ Error al enviar email:', error);
+    return c.json({ 
+      success: false, 
+      error: String(error) 
+    }, 500);
+  }
+});
+
+// ============== VERIFICAR CONFIGURACIÓN DE WHATSAPP ==============
+app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
+  try {
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    
+    if (!whatsappApiKey || !whatsappPhoneId) {
+      return c.json({
+        configured: false,
+        hasToken: !!whatsappApiKey,
+        phoneId: !!whatsappPhoneId,
+        message: 'WhatsApp Business API no está configurado. Necesitas configurar WHATSAPP_API_KEY y WHATSAPP_PHONE_ID en las variables de entorno.',
+        configSource: 'environment'
+      });
+    }
+    
+    // 🚨 VALIDACIÓN CRÍTICA: Detectar si el token es sospechosamente corto
+    if (whatsappApiKey.length < 100) {
+      return c.json({
+        configured: false,
+        hasToken: true,
+        phoneId: true,
+        tokenLength: whatsappApiKey.length,
+        suspiciousToken: true,
+        message: '⚠️ ERROR: El WHATSAPP_API_KEY es demasiado corto. Un token válido debe tener más de 200 caracteres. Es posible que hayas usado el Phone ID como token.',
+        detail: `Token actual: ${whatsappApiKey.length} caracteres. Token válido: 200+ caracteres. El Phone ID es DIFERENTE del API Key.`,
+        configSource: 'environment'
+      });
+    }
+    
+    // Verificar si el token y phone ID son iguales (error común)
+    if (whatsappApiKey === whatsappPhoneId) {
+      return c.json({
+        configured: false,
+        hasToken: true,
+        phoneId: true,
+        duplicateValues: true,
+        message: '⚠️ ERROR: WHATSAPP_API_KEY y WHATSAPP_PHONE_ID tienen el mismo valor. Son dos credenciales DIFERENTES.',
+        detail: 'El Phone ID es un número corto (15 dígitos). El API Key es un token largo (200+ caracteres que empieza con "EAA...").',
+        configSource: 'environment'
+      });
+    }
+    
+    return c.json({
+      configured: true,
+      hasToken: true,
+      phoneId: whatsappPhoneId,
+      tokenLength: whatsappApiKey.length,
+      message: 'WhatsApp Business API configurado correctamente',
+      configSource: 'environment'
+    });
+  } catch (error) {
+    console.log('Error al verificar configuración WhatsApp:', error);
+    return c.json({
+      configured: false,
+      error: String(error),
+      message: 'Error al verificar la configuración'
+    }, 500);
+  }
+});
+
+// ============== ENVIAR WHATSAPP ==============
 app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
   try {
     const { telefono, mensaje } = await c.req.json();
     
-    console.log('📱 Intentando enviar WhatsApp a:', telefono);
-    
-    // Estrategia de obtención de configuración:
-    // 1. Primero intentar KV store (configuración guardada por el usuario)
-    // 2. Luego variables de entorno (solo si son válidas)
-    // 3. Validar que los tokens sean de longitud adecuada
-    
-    let whatsappApiKey = null;
-    let whatsappPhoneId = null;
-    let configSource = null;
-    
-    // PRIORIDAD 1: Buscar en KV store primero
-    const kvApiKey = await kv.get('config:whatsapp_api_key');
-    const kvPhoneId = await kv.get('config:whatsapp_phone_id');
-    
-    if (kvApiKey && kvPhoneId && kvApiKey.length >= 50) {
-      whatsappApiKey = kvApiKey;
-      whatsappPhoneId = kvPhoneId;
-      configSource = 'KV store (configuración guardada desde la pestaña)';
-      console.log('🔑 Usando configuración de WhatsApp desde KV store');
-    } else {
-      // PRIORIDAD 2: Variables de entorno (solo si son válidas)
-      const envApiKey = Deno.env.get('WHATSAPP_API_KEY');
-      const envPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
-      
-      // Validar que el token de variables de entorno sea válido (mínimo 50 caracteres)
-      if (envApiKey && envPhoneId && envApiKey.length >= 50) {
-        whatsappApiKey = envApiKey;
-        whatsappPhoneId = envPhoneId;
-        configSource = 'variables de entorno';
-        console.log('🔑 Usando configuración de WhatsApp desde variables de entorno');
-      } else if (envApiKey && envApiKey.length < 50) {
-        console.log(`⚠️ Token en variables de entorno es inválido (${envApiKey.length} chars). Ignorando.`);
-      }
+    if (!telefono || !mensaje) {
+      return c.json({
+        success: false,
+        error: 'Faltan campos requeridos: telefono y mensaje'
+      }, 400);
     }
+    
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
     
     if (!whatsappApiKey || !whatsappPhoneId) {
-      console.log('❌ WhatsApp API no configurada correctamente');
-      return c.json({ 
-        success: false, 
-        error: 'WhatsApp API no configurada. Por favor, ve a la pestaña "Configuración WhatsApp" y configura tus credenciales de Meta Business Suite con un token permanente válido.',
-        needsConfiguration: true,
-        helpMessage: '💡 El token debe ser un Token de Acceso PERMANENTE de WhatsApp Business API con 200+ caracteres. Los tokens temporales NO funcionan.'
-      });
-    }
-    
-    // VALIDACIÓN CRÍTICA: El Phone Number ID NO debe ser un número de teléfono
-    // Un Phone Number ID válido es un número largo como "123456789012345"
-    // NO debe contener + ni espacios
-    if (whatsappPhoneId.includes('+') || whatsappPhoneId.includes(' ') || whatsappPhoneId.length < 10) {
-      console.log('❌ Phone Number ID inválido:', whatsappPhoneId);
       return c.json({
         success: false,
-        error: `❌ PHONE NUMBER ID INCORRECTO\n\n` +
-               `Has configurado: "${whatsappPhoneId}"\n\n` +
-               `❗ IMPORTANTE: El "Phone Number ID" NO es un número de teléfono.\n\n` +
-               `🔧 CÓMO OBTENER EL PHONE NUMBER ID CORRECTO:\n\n` +
-               `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
-               `2. Selecciona tu cuenta de WhatsApp Business\n` +
-               `3. En la sección "API Setup" o "Configuración de API"\n` +
-               `4. Busca "Phone Number ID" (es un número largo como "123456789012345")\n` +
-               `5. Cópialo EXACTAMENTE (sin el + ni espacios)\n` +
-               `6. Actualízalo en la pestaña "Configuración WhatsApp"\n\n` +
-               `💡 Ejemplo:\n` +
-               `   ✅ Correcto: "106540852500791" (Phone Number ID)\n` +
-               `   ❌ Incorrecto: "+34628904614" (número de teléfono)\n\n` +
-               `El Phone Number ID es diferente al número de teléfono y lo encuentras en la configuración de tu cuenta de WhatsApp Business API.`,
         needsConfiguration: true,
-        helpUrl: 'https://business.facebook.com/wa/manage/home/',
+        error: 'WhatsApp Business API no está configurado',
         debugInfo: {
-          phoneIdRecibido: whatsappPhoneId,
-          problema: 'El valor contiene caracteres de número de teléfono (+, espacios) o es muy corto',
-          solucion: 'Debes usar el Phone Number ID, no el número de teléfono'
+          configSource: 'environment',
+          tokenLength: whatsappApiKey ? whatsappApiKey.length : 0,
+          phoneId: whatsappPhoneId || null
         }
       });
     }
     
-    // Información de debug (sin mostrar el token completo por seguridad)
-    console.log('🔍 Debug Info:');
-    console.log('   - Config source:', configSource);
-    console.log('   - API Key length:', whatsappApiKey.length, 'chars');
-    console.log('   - API Key prefix:', whatsappApiKey.substring(0, 20) + '...');
-    console.log('   - Phone Number ID:', whatsappPhoneId);
-    
-    // Validar formato del token - Los tokens válidos suelen tener 200+ caracteres
-    if (whatsappApiKey.length < 50) {
-      console.log('⚠️ El token parece ser inválido (muy corto)');
-      return c.json({
-        success: false,
-        error: `El token actual tiene solo ${whatsappApiKey.length} caracteres y no es válido.\n\n` +
-               `Un token válido de WhatsApp Business API debe tener 200+ caracteres.\n\n` +
-               `🔧 SOLUCIÓN:\n` +
-               `1. Ve a la pestaña "Configuración WhatsApp"\n` +
-               `2. Genera un nuevo Token de Acceso PERMANENTE desde Meta Business Suite\n` +
-               `3. Guárdalo en la aplicación\n\n` +
-               `El token guardado sobrescribirá automáticamente cualquier configuración incorrecta.`,
-        needsConfiguration: true,
-        helpUrl: 'https://developers.facebook.com/docs/whatsapp/business-management-api/get-started',
-        debugInfo: {
-          tokenLength: whatsappApiKey.length,
-          configSource: configSource,
-          tokenPrefix: whatsappApiKey.substring(0, 10) + '...'
-        }
-      });
-    }
-
-    // Limpiar número de teléfono destinatario
+    // Limpiar número de teléfono (remover espacios, guiones, etc.)
     let numeroLimpio = telefono.replace(/\D/g, '');
+    
+    // Si el número tiene 9 dígitos, agregar prefijo de España (34)
     if (numeroLimpio.length === 9) {
       numeroLimpio = '34' + numeroLimpio;
     }
     
-    console.log('📱 Número destinatario limpio:', numeroLimpio);
-
-    // Enviar mensaje usando WhatsApp Business API
-    const whatsappApiUrl = `https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`;
-    console.log('🌐 URL de API:', whatsappApiUrl);
+    console.log(`📱 Enviando WhatsApp a ${numeroLimpio}`);
     
-    const response = await fetch(whatsappApiUrl, {
+    // Enviar mensaje usando WhatsApp Business API
+    const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappApiKey}`,
@@ -824,346 +1795,84 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
         }
       })
     });
-
+    
     const result = await response.json();
     
-    if (response.ok) {
-      console.log('✅ WhatsApp enviado exitosamente:', result);
-      return c.json({ success: true, data: result });
-    } else {
-      console.log('❌ Error al enviar WhatsApp:', result);
-      
-      // Detectar errores específicos
-      let errorMessage = result.error?.message || 'Error al enviar mensaje';
-      let needsConfiguration = false;
-      
-      if (errorMessage.includes('access token') || errorMessage.includes('OAuth') || errorMessage.includes('Invalid OAuth')) {
-        errorMessage = `Token de WhatsApp inválido o expirado: "${result.error?.message}".\n\n` +
-                      `🔧 SOLUCIÓN:\n` +
-                      `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
-                      `2. Genera un nuevo Token de Acceso PERMANENTE (no temporal)\n` +
-                      `3. Ve a la pestaña "Configuración WhatsApp" en la aplicación\n` +
-                      `4. Pega el nuevo token y guarda\n\n` +
-                      `El token debe ser permanente y tener permisos de whatsapp_business_messaging.`;
-        needsConfiguration = true;
-      } else if (errorMessage.includes('does not exist') || errorMessage.includes('cannot be loaded') || result.error?.code === 100) {
-        errorMessage = `❌ PHONE NUMBER ID INCORRECTO\n\n` +
-                      `El Phone Number ID "${whatsappPhoneId}" no existe o no tienes permisos.\n\n` +
-                      `❗ IMPORTANTE: El "Phone Number ID" NO es tu número de teléfono.\n\n` +
-                      `🔧 CÓMO OBTENER EL PHONE NUMBER ID CORRECTO:\n\n` +
-                      `1. Ve a: https://business.facebook.com/wa/manage/home/\n` +
-                      `2. Selecciona tu cuenta de WhatsApp Business\n` +
-                      `3. En "API Setup", busca "Phone Number ID"\n` +
-                      `4. Es un número largo (ej: "106540852500791")\n` +
-                      `5. Cópialo y actualízalo en "Configuración WhatsApp"\n\n` +
-                      `💡 NO uses tu número de teléfono (+34...), usa el ID que te proporciona Meta.`;
-        needsConfiguration = true;
-      }
-      
-      return c.json({ 
-        success: false, 
-        error: errorMessage,
-        needsConfiguration,
-        details: result,
-        helpUrl: 'https://business.facebook.com/wa/manage/home/',
+    if (!response.ok) {
+      console.log('❌ Error de WhatsApp API:', result);
+      return c.json({
+        success: false,
+        error: result.error?.message || 'Error al enviar mensaje por WhatsApp',
+        needsConfiguration: result.error?.code === 190, // Token inválido
         debugInfo: {
-          configSource: configSource,
+          httpStatus: response.status,
+          whatsappError: result.error,
           phoneId: whatsappPhoneId,
-          tokenLength: whatsappApiKey.length
+          tokenLength: whatsappApiKey.length,
+          tokenPrefix: whatsappApiKey.substring(0, 20) + '...'
         }
       });
     }
+    
+    console.log('✅ WhatsApp enviado exitosamente:', result);
+    return c.json({
+      success: true,
+      messageId: result.messages?.[0]?.id,
+      data: result
+    });
+    
   } catch (error) {
-    console.log('❌ Error general al enviar WhatsApp:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    console.log('❌ Error al enviar WhatsApp:', error);
+    return c.json({
+      success: false,
+      error: String(error)
+    }, 500);
   }
 });
 
-// ============== ENVÍO DE EMAIL ==============
-
-// Función genérica para enviar emails con detección automática del proveedor
-async function enviarEmailGenerico(params: {
-  destinatario: string;
-  cc?: string | null;
-  asunto: string;
-  htmlBody: string;
-}) {
-  const { destinatario, cc, asunto, htmlBody } = params;
-  
-  // Detectar qué servicio está configurado
-  const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
-  const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
-  const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
-  
-  // Email remitente configurable
-  const emailFrom = Deno.env.get('EMAIL_FROM') || 'no-reply@sistema.com';
-  
-  // PRIORIDAD 1: Resend
-  if (resendApiKey) {
-    console.log('🚀 Usando Resend para enviar email');
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: emailFrom,
-          to: [destinatario],
-          cc: cc ? [cc] : undefined,
-          subject: asunto,
-          html: htmlBody
-        })
-      });
-
-      const result = await response.json();
-      
-      if (response.ok) {
-        console.log('✅ Email enviado exitosamente con Resend:', result);
-        return { success: true, provider: 'Resend', data: result };
-      } else {
-        console.log('❌ Error al enviar con Resend:', result);
-        return { 
-          success: false, 
-          provider: 'Resend',
-          error: result.message || 'Error al enviar email' 
-        };
-      }
-    } catch (error) {
-      console.log('❌ Error de conexión con Resend:', error);
-      return { success: false, provider: 'Resend', error: String(error) };
-    }
-  }
-  
-  // PRIORIDAD 2: SendGrid
-  if (sendgridApiKey) {
-    console.log('🚀 Usando SendGrid para enviar email');
-    try {
-      const emailData: any = {
-        personalizations: [{
-          to: [{ email: destinatario }],
-          subject: asunto
-        }],
-        from: { email: emailFrom },
-        content: [{
-          type: 'text/html',
-          value: htmlBody
-        }]
-      };
-      
-      // Agregar CC si existe
-      if (cc) {
-        emailData.personalizations[0].cc = [{ email: cc }];
-      }
-      
-      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sendgridApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(emailData)
-      });
-
-      if (response.ok) {
-        console.log('✅ Email enviado exitosamente con SendGrid');
-        return { success: true, provider: 'SendGrid', data: { id: response.headers.get('x-message-id') } };
-      } else {
-        const errorText = await response.text();
-        console.log('❌ Error al enviar con SendGrid:', errorText);
-        return { 
-          success: false, 
-          provider: 'SendGrid',
-          error: errorText || 'Error al enviar email' 
-        };
-      }
-    } catch (error) {
-      console.log('❌ Error de conexión con SendGrid:', error);
-      return { success: false, provider: 'SendGrid', error: String(error) };
-    }
-  }
-  
-  // PRIORIDAD 3: Mailgun
-  if (mailgunApiKey && mailgunDomain) {
-    console.log('🚀 Usando Mailgun para enviar email');
-    try {
-      const formData = new FormData();
-      formData.append('from', emailFrom);
-      formData.append('to', destinatario);
-      if (cc) formData.append('cc', cc);
-      formData.append('subject', asunto);
-      formData.append('html', htmlBody);
-      
-      const response = await fetch(
-        `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`
-          },
-          body: formData
-        }
-      );
-
-      const result = await response.json();
-      
-      if (response.ok) {
-        console.log('✅ Email enviado exitosamente con Mailgun:', result);
-        return { success: true, provider: 'Mailgun', data: result };
-      } else {
-        console.log('❌ Error al enviar con Mailgun:', result);
-        return { 
-          success: false, 
-          provider: 'Mailgun',
-          error: result.message || 'Error al enviar email' 
-        };
-      }
-    } catch (error) {
-      console.log('❌ Error de conexión con Mailgun:', error);
-      return { success: false, provider: 'Mailgun', error: String(error) };
-    }
-  }
-  
-  // Si no hay ningún servicio configurado
-  console.log('⚠️ No hay ningún servicio de email configurado');
-  return { 
-    success: false, 
-    provider: 'Ninguno',
-    error: 'No hay ningún servicio de email configurado. Por favor, configura al menos uno: RESEND_API_KEY, SENDGRID_API_KEY, o MAILGUN_API_KEY + MAILGUN_DOMAIN' 
-  };
-}
-
-// Endpoint para verificar configuración de email
-app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
+// ============== CHAT GRUPAL ==============
+// Obtener mensajes de un chat grupal
+app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
-    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
-    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
-    const emailFrom = Deno.env.get('EMAIL_FROM');
+    const chatId = c.req.param('chatId');
+    const mensajes = await kv.getByPrefix(`chat-mensaje:${chatId}:`);
     
-    const serviciosDisponibles = [];
-    let servicioActivo = null;
+    // Ordenar por timestamp
+    const mensajesOrdenados = mensajes.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
     
-    if (resendApiKey) {
-      serviciosDisponibles.push('Resend');
-      servicioActivo = servicioActivo || 'Resend';
-    }
-    if (sendgridApiKey) {
-      serviciosDisponibles.push('SendGrid');
-      servicioActivo = servicioActivo || 'SendGrid';
-    }
-    if (mailgunApiKey && mailgunDomain) {
-      serviciosDisponibles.push('Mailgun');
-      servicioActivo = servicioActivo || 'Mailgun';
-    }
-    
-    const configured = serviciosDisponibles.length > 0;
-    
-    return c.json({ 
-      success: true, 
-      configured,
-      servicioActivo,
-      serviciosDisponibles,
-      emailFrom: emailFrom || 'no-reply@sistema.com',
-      message: configured 
-        ? `Servicio de email configurado: ${servicioActivo} (Disponibles: ${serviciosDisponibles.join(', ')})` 
-        : 'No hay ningún servicio de email configurado. Configura al menos uno: Resend, SendGrid o Mailgun.'
+    return c.json({
+      success: true,
+      mensajes: mensajesOrdenados
     });
   } catch (error) {
-    console.log('Error al verificar configuración de email:', error);
-    return c.json({ success: false, configured: false }, 500);
+    console.log('Error al obtener mensajes del chat:', error);
+    return c.json({
+      success: false,
+      error: String(error)
+    }, 500);
   }
 });
 
-app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
+// Crear mensaje en chat grupal
+app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
   try {
-    const { destinatario, cc, asunto, mensaje, parteHTML, pedido } = await c.req.json();
+    const mensaje = await c.req.json();
+    const key = `chat-mensaje:${mensaje.chatId}:${mensaje.id}`;
     
-    console.log('📧 Solicitud de envío de email recibida');
-    console.log('   Destinatario:', destinatario);
-    console.log('   CC:', cc || 'No');
-    console.log('   Asunto:', asunto);
-    console.log('   Pedido:', pedido.cliente, '-', pedido.fecha);
+    await kv.set(key, mensaje);
     
-    // Construir el cuerpo del email con diseño profesional
-    const emailBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5; }
-          .wrapper { max-width: 800px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-          .header h2 { color: white; margin: 0; font-size: 24px; }
-          .message-box { background: #f9fafb; padding: 25px; border-left: 4px solid #10b981; border-right: 1px solid #e5e7eb; }
-          .message-box p { color: #374151; line-height: 1.8; white-space: pre-line; margin: 0; }
-          .parte-container { background: white; border: 1px solid #e5e7eb; overflow: hidden; }
-          .footer { margin-top: 20px; padding: 20px; background: #f3f4f6; border-radius: 8px; text-align: center; }
-          .footer p { color: #6b7280; font-size: 13px; margin: 5px 0; }
-          .footer a { color: #10b981; text-decoration: none; }
-          .badge { display: inline-block; padding: 4px 12px; background: #10b981; color: white; border-radius: 12px; font-size: 12px; font-weight: 600; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <div class="wrapper">
-          <div class="header">
-            <h2>📋 Parte de Servicio</h2>
-            <span class="badge">Sistema de Gestión de Camareros</span>
-          </div>
-          
-          <div class="message-box">
-            <p>${mensaje}</p>
-          </div>
-          
-          <div class="parte-container">
-            ${parteHTML}
-          </div>
-          
-          <div class="footer">
-            <p><strong>Este email fue generado automáticamente</strong></p>
-            <p>Sistema de Gestión de Camareros</p>
-            <p style="margin-top: 15px; font-size: 11px;">
-              Si tienes alguna pregunta sobre este parte, contacta directamente con el coordinador.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    // Enviar email usando la función genérica
-    const result = await enviarEmailGenerico({
-      destinatario,
-      cc,
-      asunto,
-      htmlBody: emailBody
+    return c.json({
+      success: true,
+      mensaje
     });
-    
-    if (result.success) {
-      console.log(`✅ Email enviado exitosamente usando ${result.provider}`);
-      return c.json({ 
-        success: true, 
-        provider: result.provider,
-        data: result.data,
-        message: `Email enviado correctamente usando ${result.provider}` 
-      });
-    } else {
-      console.log(`❌ Error al enviar email con ${result.provider}:`, result.error);
-      return c.json({ 
-        success: false, 
-        provider: result.provider,
-        error: result.error 
-      }, 400);
-    }
-    
   } catch (error) {
-    console.log('❌ Error general al procesar envío de email:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    console.log('Error al crear mensaje en chat:', error);
+    return c.json({
+      success: false,
+      error: String(error)
+    }, 500);
   }
 });
 

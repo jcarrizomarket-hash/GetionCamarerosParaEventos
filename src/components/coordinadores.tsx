@@ -1,10 +1,20 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
-export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, publicAnonKey, cargarDatos }) {
+interface CoordinadoresProps {
+  coordinadores: any[];
+  setCoordinadores: (coordinadores: any[]) => void;
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
+export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, publicAnonKey, cargarDatos }: CoordinadoresProps) {
   const [showForm, setShowForm] = useState(false);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
+  const [editingCoordinador, setEditingCoordinador] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,25 +25,92 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
     }
     
     try {
-      const response = await fetch(`${baseUrl}/coordinadores`, {
-        method: 'POST',
+      if (editingCoordinador) {
+        // Actualizar coordinador existente
+        const response = await fetch(`${baseUrl}/coordinadores/${editingCoordinador.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify({
+            ...editingCoordinador,
+            nombre,
+            telefono,
+            email
+          })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          await cargarDatos();
+          setNombre('');
+          setTelefono('');
+          setEmail('');
+          setEditingCoordinador(null);
+          setShowForm(false);
+        }
+      } else {
+        // Crear nuevo coordinador
+        const response = await fetch(`${baseUrl}/coordinadores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify({ nombre, telefono, email })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          await cargarDatos();
+          setNombre('');
+          setTelefono('');
+          setEmail('');
+          setShowForm(false);
+        }
+      }
+    } catch (error) {
+      console.log('Error al guardar coordinador:', error);
+    }
+  };
+
+  const handleEdit = (coordinador) => {
+    setEditingCoordinador(coordinador);
+    setNombre(coordinador.nombre);
+    setTelefono(coordinador.telefono || '');
+    setEmail(coordinador.email || '');
+    setShowForm(true);
+  };
+
+  const handleDelete = async (coordinador) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${baseUrl}/coordinadores/${coordinador.id}`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ nombre, telefono })
+        }
       });
       
       const result = await response.json();
       if (result.success) {
         await cargarDatos();
-        setNombre('');
-        setTelefono('');
-        setShowForm(false);
       }
     } catch (error) {
-      console.log('Error al crear coordinador:', error);
+      console.log('Error al eliminar coordinador:', error);
     }
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setNombre('');
+    setTelefono('');
+    setEmail('');
+    setEditingCoordinador(null);
   };
 
   return (
@@ -52,7 +129,9 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
       {/* Formulario */}
       {showForm && (
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h3 className="text-gray-900 mb-4">Nuevo Coordinador</h3>
+          <h3 className="text-gray-900 mb-4">
+            {editingCoordinador ? 'Editar Coordinador' : 'Nuevo Coordinador'}
+          </h3>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -77,20 +156,27 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
               />
             </div>
 
+            <div>
+              <label className="block text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ej: coordinador@example.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="submit"
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Crear
+                {editingCoordinador ? 'Actualizar' : 'Crear'}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setNombre('');
-                  setTelefono('');
-                }}
+                onClick={handleCancel}
                 className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >
                 Cancelar
@@ -111,18 +197,41 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
             {coordinadores.sort((a, b) => a.numero - b.numero).map((coordinador) => (
               <div
                 key={coordinador.id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                className="p-4 border border-gray-200 rounded-lg"
               >
-                <div>
+                <div className="flex items-center mb-2">
                   <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded text-sm mr-3">
                     #{coordinador.numero}
                   </span>
-                  <span className="text-gray-900">{coordinador.nombre}</span>
+                  <span className="text-gray-900 font-medium">{coordinador.nombre}</span>
+                </div>
+                <div className="ml-2 space-y-1">
                   {coordinador.telefono && (
-                    <span className="text-gray-600 text-sm ml-3">
-                      Tel: {coordinador.telefono}
-                    </span>
+                    <div className="text-gray-600 text-sm">
+                      📱 Tel: {coordinador.telefono}
+                    </div>
                   )}
+                  {coordinador.email && (
+                    <div className="text-gray-600 text-sm">
+                      📧 Email: {coordinador.email}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => handleEdit(coordinador)}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(coordinador)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
+                  </button>
                 </div>
               </div>
             ))}

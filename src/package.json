@@ -30,6 +30,7 @@
     "recharts": "latest",
     "html2canvas": "^1.4.1",
     "jspdf": "latest",
+    "jspdf-autotable": "latest",
     "react-slick": "latest",
     "slick-carousel": "latest"
   },

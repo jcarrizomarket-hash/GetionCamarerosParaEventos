@@ -4,8 +4,24 @@ import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTria
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
 const ESPECIALIDADES = ['Coctelería', 'Banquetes', 'Restaurant', 'Buffet', 'VIP'];
+const TIPOS_PERFIL = [
+  { codigo: 'CAM', label: 'Camarero' },
+  { codigo: 'COC', label: 'Cocina' },
+  { codigo: 'PIC', label: 'Pica' },
+  { codigo: 'AZA', label: 'Azafata' }
+];
 
-export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
+interface CamarerosProps {
+  camareros: any[];
+  setCamareros: (camareros: any[]) => void;
+  pedidos?: any[];
+  coordinadores?: any[];
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
+export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingCamarero, setEditingCamarero] = useState(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
@@ -26,6 +42,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
   const initialFormState = {
     codigo: '',
+    tipoPerfil: 'CAM', // Nuevo campo
     nombre: '',
     apellido: '',
     telefono: '',
@@ -45,22 +62,24 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [formData, setFormData] = useState(initialFormState);
 
   // --- Generación de Código Automático ---
-  const generarCodigo = () => {
+  const generarCodigo = (tipoPerfil = formData.tipoPerfil) => {
     if (editingCamarero) return;
+    
     const maxNum = camareros.reduce((max, c) => {
-      if (c.codigo && c.codigo.startsWith('CAM')) {
-        const num = parseInt(c.codigo.replace('CAM', ''));
+      if (c.codigo && c.codigo.startsWith(tipoPerfil)) {
+        const num = parseInt(c.codigo.replace(tipoPerfil, ''));
         return !isNaN(num) && num > max ? num : max;
       }
       return max;
     }, 0);
-    const nextCode = `CAM${String(maxNum + 1).padStart(3, '0')}`;
-    setFormData(prev => ({ ...prev, codigo: nextCode }));
+    
+    const nextCode = `${tipoPerfil}${String(maxNum + 1).padStart(3, '0')}`;
+    setFormData(prev => ({ ...prev, codigo: nextCode, tipoPerfil }));
   };
 
   useEffect(() => {
-    if (showForm && !editingCamarero) generarCodigo();
-  }, [showForm, camareros]);
+    if (showForm && !editingCamarero) generarCodigo(formData.tipoPerfil);
+  }, [showForm, camareros, formData.tipoPerfil]);
 
   // --- Métricas ---
   const metricas = useMemo(() => {
@@ -243,6 +262,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const editarCamarero = (camarero) => {
     setFormData({
       codigo: camarero.codigo || '',
+      tipoPerfil: camarero.tipoPerfil || 'CAM', // Nuevo campo
       nombre: camarero.nombre,
       apellido: camarero.apellido,
       telefono: camarero.telefono,
@@ -325,7 +345,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              Nuevo Camarero
+              Nuevo Perfil
             </button>
           )}
         </div>
@@ -416,7 +436,27 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
             {/* TAB GENERAL */}
             {activeFormTab === 'general' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Perfil *</label>
+                    <select
+                      value={formData.tipoPerfil}
+                      onChange={(e) => {
+                        const nuevoTipo = e.target.value;
+                        setFormData({ ...formData, tipoPerfil: nuevoTipo });
+                        if (!editingCamarero) {
+                          generarCodigo(nuevoTipo);
+                        }
+                      }}
+                      disabled={!!editingCamarero}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${editingCamarero ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      required
+                    >
+                      {TIPOS_PERFIL.map(tipo => (
+                        <option key={tipo.codigo} value={tipo.codigo}>{tipo.label}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
                     <input type="text" value={formData.codigo} readOnly className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed" />
@@ -428,7 +468,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                       onChange={(e) => setFormData({ ...formData, coordinadorId: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Seleccionar...</option>
+                      <option key="coord-empty" value="">Seleccionar...</option>
                       {coordinadores.map(coord => (
                         <option key={coord.id} value={coord.id}>{coord.nombre}</option>
                       ))}
@@ -658,8 +698,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                            <div>
                              <label className="block text-xs font-bold text-gray-600 mb-1">Estado</label>
                              <select value={tipoDisponibilidad} onChange={(e) => setTipoDisponibilidad(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
-                               <option value="disponible">Disponible</option>
-                               <option value="no-disponible">No Disponible</option>
+                               <option key="disp-disponible" value="disponible">Disponible</option>
+                               <option key="disp-no-disponible" value="no-disponible">No Disponible</option>
                              </select>
                            </div>
 
@@ -703,7 +743,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                                      {disp.horario ? (
                                        <>
                                          <Clock className="w-3 h-3" />
-                                         {disp.horario}
+                                         <span>{disp.horario}</span>
                                        </>
                                      ) : (
                                        <span className="italic opacity-50">Todo el día</span>

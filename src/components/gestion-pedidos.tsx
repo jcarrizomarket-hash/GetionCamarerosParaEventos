@@ -1,7 +1,17 @@
-import { useState, useMemo } from 'react';
-import { X, Calendar, ChevronLeft, ChevronRight, Check, AlertCircle, UserCheck, Clock, Users, ArrowLeft, Search, Filter, Download } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
 
-export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }) {
+// v1.0.3 - Verificación completa de React keys
+interface GestionPedidosProps {
+  pedidos: any[];
+  setPedidos: (pedidos: any[]) => void;
+  camareros: any[];
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
+export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
@@ -10,10 +20,69 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   
   // Estado para filtros de resumen
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual'); // diario, semanal, mensual
+  
+  // Estado temporal para horas de salida (permite edición inmediata)
+  const [horaSalidaTemporal, setHoraSalidaTemporal] = useState({});
+  const [debounceTimers, setDebounceTimers] = useState({});
 
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
   const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+
+  // --- Efecto para eliminar asignaciones rechazadas después de 5 horas ---
+  useEffect(() => {
+    const verificarEliminaciones = async () => {
+      const ahora = new Date();
+      let hayActualizaciones = false;
+
+      for (const pedido of uniquePedidos) {
+        const asignaciones = pedido.asignaciones || [];
+        const asignacionesFiltradas = asignaciones.filter(a => {
+          // Si tiene eliminación programada y ya pasó el tiempo
+          if (a.estado === 'rechazado' && a.eliminacionProgramada) {
+            const fechaEliminacion = new Date(a.eliminacionProgramada);
+            if (ahora >= fechaEliminacion) {
+              hayActualizaciones = true;
+              return false; // Eliminar esta asignación
+            }
+          }
+          return true; // Mantener esta asignación
+        });
+
+        // Si hubo cambios, actualizar el pedido
+        if (asignacionesFiltradas.length !== asignaciones.length) {
+          try {
+            await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${publicAnonKey}`
+              },
+              body: JSON.stringify({
+                ...pedido,
+                asignaciones: asignacionesFiltradas
+              })
+            });
+          } catch (error) {
+            console.error('Error al eliminar asignación rechazada:', error);
+          }
+        }
+      }
+
+      // Recargar datos si hubo actualizaciones
+      if (hayActualizaciones) {
+        await cargarDatos();
+      }
+    };
+
+    // Verificar cada minuto
+    const intervalo = setInterval(verificarEliminaciones, 60000);
+    
+    // Verificar inmediatamente al montar
+    verificarEliminaciones();
+
+    return () => clearInterval(intervalo);
+  }, [uniquePedidos, baseUrl, publicAnonKey, cargarDatos]);
 
   // --- Lógica del Calendario ---
   const getDaysInMonth = (date) => {
@@ -140,11 +209,19 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     
     setProcesando(true);
 
+    // Determinar turno y hora de entrada/salida predeterminadas
+    const cant1 = parseInt(selectedPedido.cantidadCamareros || 0);
+    const asignadosTurno1 = asignaciones.filter((a, idx) => idx < cant1).length;
+    const turno = asignadosTurno1 < cant1 ? 1 : 2;
+    
     const nuevaAsignacion = {
       camareroId: camarero.id,
       camareroNombre: `${camarero.nombre} ${camarero.apellido}`,
       camareroNumero: camarero.numero,
-      estado: '' // Estado inicial vacío
+      estado: '', // Estado inicial vacío
+      turno: turno,
+      horaEntrada: turno === 1 ? selectedPedido.horaEntrada : selectedPedido.horaEntrada2,
+      horaSalida: turno === 1 ? selectedPedido.horaSalida : selectedPedido.horaSalida2
     };
     
     const updatedPedido = {
@@ -179,9 +256,25 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const cambiarEstado = async (camareroId, nuevoEstado) => {
     if (!selectedPedido) return;
     
-    const asignaciones = selectedPedido.asignaciones.map(a => 
-      a.camareroId === camareroId ? { ...a, estado: nuevoEstado } : a
-    );
+    const asignaciones = selectedPedido.asignaciones.map(a => {
+      if (a.camareroId === camareroId) {
+        // Si rechaza, programar eliminación en 5 horas
+        if (nuevoEstado === 'rechazado') {
+          return {
+            ...a,
+            estado: nuevoEstado,
+            eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
+          };
+        }
+        // Si cambia de rechazado a otro estado, cancelar eliminación
+        return {
+          ...a,
+          estado: nuevoEstado,
+          eliminacionProgramada: null
+        };
+      }
+      return a;
+    });
     
     const updatedPedido = {
       ...selectedPedido,
@@ -276,16 +369,16 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         const cant1 = parseInt(pedido.cantidadCamareros || 0);
         const cant2 = parseInt(pedido.cantidadCamareros2 || 0);
 
-        // Crear slots virtuales
+        // Crear slots virtuales con IDs únicos
         const slots = [];
-        for(let i=0; i<cant1; i++) slots.push({ hora: pedido.horaEntrada, turno: 1 });
-        for(let i=0; i<cant2; i++) slots.push({ hora: pedido.horaEntrada2, turno: 2 });
+        for(let i=0; i<cant1; i++) slots.push({ hora: pedido.horaEntrada, turno: 1, slotId: `t1-${i}` });
+        for(let i=0; i<cant2; i++) slots.push({ hora: pedido.horaEntrada2, turno: 2, slotId: `t2-${i}` });
 
         // Copia de asignaciones para ir consumiendo
         const asignaciones = [...(pedido.asignaciones || [])];
         
         // Llenar slots
-        slots.forEach((slot) => {
+        slots.forEach((slot, slotIdx) => {
             const asignacion = asignaciones.shift(); // Tomar el siguiente camarero asignado
             
             if (asignacion) {
@@ -295,7 +388,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                     data: asignacion,
                     hora: slot.hora,
                     turno: slot.turno,
-                    bgClase: bgEvento // Hereda color del evento
+                    bgClase: bgEvento, // Hereda color del evento
+                    uniqueId: `${pedido.id}-asig-${asignacion.camareroId}-${slot.slotId}`
                 });
             } else {
                 filas.push({
@@ -303,13 +397,14 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                     pedido,
                     hora: slot.hora,
                     turno: slot.turno,
-                    bgClase: 'bg-white' // Faltantes siempre en blanco
+                    bgClase: 'bg-white', // Faltantes siempre en blanco
+                    uniqueId: `${pedido.id}-faltante-${slot.slotId}`
                 });
             }
         });
 
         // Si sobran asignaciones (más de lo requerido), agregarlas también
-        asignaciones.forEach(asig => {
+        asignaciones.forEach((asig, extraIdx) => {
              filas.push({
                 type: 'asignado',
                 pedido,
@@ -317,7 +412,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                 hora: pedido.horaEntrada, // Default
                 turno: 1,
                 bgClase: bgEvento,
-                extra: true
+                extra: true,
+                uniqueId: `${pedido.id}-extra-${asig.camareroId}-${extraIdx}`
             });
         });
     });
@@ -439,6 +535,108 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     document.body.removeChild(link);
   };
 
+  // --- FUNCIÓN PARA CALCULAR DIFERENCIA DE HORAS ---
+  const calcularHoras = (horaEntrada, horaSalida) => {
+    if (!horaEntrada || !horaSalida) return '-';
+    
+    try {
+      const [horaE, minE] = horaEntrada.split(':').map(Number);
+      const [horaS, minS] = horaSalida.split(':').map(Number);
+      
+      let totalMinutos = (horaS * 60 + minS) - (horaE * 60 + minE);
+      
+      // Si la hora de salida es menor, asumir que es al día siguiente
+      if (totalMinutos < 0) {
+        totalMinutos += 24 * 60;
+      }
+      
+      const horas = Math.floor(totalMinutos / 60);
+      const minutos = totalMinutos % 60;
+      
+      return `${horas}h ${minutos}m`;
+    } catch (error) {
+      return '-';
+    }
+  };
+
+  // --- FUNCIÓN PARA ACTUALIZAR HORA DE SALIDA INDIVIDUAL ---
+  const actualizarHoraSalidaIndividual = async (pedidoId, camareroId, nuevaHoraSalida) => {
+    // Actualizar estado temporal inmediatamente
+    const key = `${pedidoId}-${camareroId}`;
+    setHoraSalidaTemporal(prev => ({
+      ...prev,
+      [key]: nuevaHoraSalida
+    }));
+
+    // Cancelar timer anterior si existe
+    if (debounceTimers[key]) {
+      clearTimeout(debounceTimers[key]);
+    }
+
+    // Crear nuevo timer para guardar después de 1 segundo sin cambios
+    const newTimer = setTimeout(async () => {
+      const pedido = uniquePedidos.find(p => p.id === pedidoId);
+      if (!pedido) return;
+      
+      // Actualizar la hora de salida en la asignación específica del camarero
+      const asignaciones = pedido.asignaciones.map(a =>
+        a.camareroId === camareroId 
+          ? { ...a, horaSalida: nuevaHoraSalida }
+          : a
+      );
+      
+      const updatedPedido = {
+        ...pedido,
+        asignaciones
+      };
+      
+      try {
+        const response = await fetch(`${baseUrl}/pedidos/${pedidoId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify(updatedPedido)
+        });
+        
+        if (response.ok) {
+          await cargarDatos();
+          // Limpiar estado temporal después de guardar
+          setHoraSalidaTemporal(prev => {
+            const newState = { ...prev };
+            delete newState[key];
+            return newState;
+          });
+        }
+      } catch (error) {
+        console.error('Error al actualizar hora de salida:', error);
+      }
+    }, 1000);
+
+    setDebounceTimers(prev => ({
+      ...prev,
+      [key]: newTimer
+    }));
+  };
+  
+  // Función para obtener el valor actual de hora de salida individual (temporal o del servidor)
+  const getHoraSalidaIndividual = (pedidoId, camareroId) => {
+    const key = `${pedidoId}-${camareroId}`;
+    
+    // Si hay valor temporal, usarlo
+    if (horaSalidaTemporal[key] !== undefined) {
+      return horaSalidaTemporal[key];
+    }
+    
+    // Si no, obtener del servidor
+    const pedido = uniquePedidos.find(p => p.id === pedidoId);
+    if (!pedido) return '';
+    
+    const asignacion = pedido.asignaciones?.find(a => a.camareroId === camareroId);
+    return asignacion?.horaSalida || '';
+  };
+  
   // --- VISTA PRINCIPAL (SIN SELECCIÓN) ---
   if (!selectedPedido) {
     return (
@@ -470,15 +668,15 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
             </button>
             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 hidden group-hover:block z-50">
                 <div className="p-1">
-                    <button onClick={() => exportarDatos('dia')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Día (Hoy)</button>
-                    <button onClick={() => exportarDatos('semana')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Semana (Actual)</button>
-                    <button onClick={() => exportarDatos('cliente')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Cliente</button>
+                    <button key="export-dia" onClick={() => exportarDatos('dia')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Día (Hoy)</button>
+                    <button key="export-semana" onClick={() => exportarDatos('semana')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Semana (Actual)</button>
+                    <button key="export-cliente" onClick={() => exportarDatos('cliente')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">Por Cliente</button>
                 </div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+            <div key="metric-eventos" className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
               <div className="p-2 bg-blue-100 rounded-full text-blue-600">
                 <Calendar className="w-4 h-4" />
               </div>
@@ -488,7 +686,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
+            <div key="metric-necesarios" className="flex items-center gap-3 px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
               <div className="p-2 bg-purple-100 rounded-full text-purple-600">
                 <Users className="w-4 h-4" />
               </div>
@@ -498,7 +696,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div key="metric-disponibles" className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
               <div className="p-2 bg-gray-100 rounded-full text-gray-600">
                 <UserCheck className="w-4 h-4" />
               </div>
@@ -508,7 +706,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-lg border border-amber-100">
+            <div key="metric-enviados" className="flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-lg border border-amber-100">
               <div className="p-2 bg-amber-100 rounded-full text-amber-600">
                 <Clock className="w-4 h-4" />
               </div>
@@ -518,7 +716,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-green-50 rounded-lg border border-green-100">
+            <div key="metric-confirmados" className="flex items-center gap-3 px-4 py-2 bg-green-50 rounded-lg border border-green-100">
               <div className="p-2 bg-green-100 rounded-full text-green-600">
                 <Check className="w-4 h-4" />
               </div>
@@ -528,7 +726,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-red-50 rounded-lg border border-red-100">
+            <div key="metric-faltantes" className="flex items-center gap-3 px-4 py-2 bg-red-50 rounded-lg border border-red-100">
               <div className="p-2 bg-red-100 rounded-full text-red-600">
                 <AlertCircle className="w-4 h-4" />
               </div>
@@ -641,19 +839,19 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {pedido.horaEntrada}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-                       <span className="text-gray-500" title="Total Pedida">
+                       <span key="pedida" className="text-gray-500" title="Total Pedida">
                          Pedida: {totalReq}
                        </span>
-                       <span className="text-gray-300">|</span>
-                       <span className="text-amber-700" title="Enviados">
+                       <span key="sep1" className="text-gray-300">|</span>
+                       <span key="enviados" className="text-amber-700" title="Enviados">
                          Enviados: {enviados}
                        </span>
-                       <span className="text-gray-300">|</span>
-                       <span className="text-green-700" title="Confirmados">
+                       <span key="sep2" className="text-gray-300">|</span>
+                       <span key="confirmados" className="text-green-700" title="Confirmados">
                          Confirmados: {confirmados}
                        </span>
-                       <span className="text-gray-300">|</span>
-                       <span className="text-red-600" title="Faltantes por asignar">
+                       <span key="sep3" className="text-gray-300">|</span>
+                       <span key="faltantes" className="text-red-600" title="Faltantes por asignar">
                          Faltantes: {faltantes}
                        </span>
                     </div>
@@ -680,6 +878,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Lugar</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Hora Entrada</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Hora Salida</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Horas</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Camarero</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Situación</th>
                 </tr>
@@ -687,12 +887,12 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               <tbody className="divide-y divide-gray-200">
                 {filasTabla.length === 0 ? (
                    <tr>
-                     <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                     <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                        No hay eventos o camareros asignados en el periodo seleccionado.
                      </td>
                    </tr>
                 ) : (
-                  filasTabla.map((item, idx) => {
+                  filasTabla.map((item) => {
                      // Determinar el color de la situación
                      let situationClass = 'bg-gray-100 text-gray-800'; // Default / Sin enviar
                      let situationLabel = 'Pendiente';
@@ -707,6 +907,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                          } else if (item.data.estado === 'confirmado') {
                            situationClass = 'bg-green-100 text-green-800';
                            situationLabel = 'Confirmado';
+                         } else if (item.data.estado === 'rechazado') {
+                           situationClass = 'bg-red-100 text-red-800 font-bold';
+                           situationLabel = 'Rechazado';
                          } else {
                            situationLabel = 'Mensaje sin enviar';
                          }
@@ -718,13 +921,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                          camareroLabel = <span className="text-red-400 italic font-normal">-- Vacante --</span>;
                      }
                      
-                     // Generar key única basada en múltiples factores
-                     const uniqueKey = item.type === 'asignado' 
-                       ? `${item.pedido.id}-${item.data.camareroId}-${idx}`
-                       : `${item.pedido.id}-faltante-${item.turno}-${idx}`;
-                     
                      return (
-                      <tr key={uniqueKey} className={`${item.bgClase} hover:opacity-90 transition-opacity`}>
+                      <tr key={item.uniqueId} className={`${item.bgClase} hover:opacity-90 transition-opacity`}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                           {new Date(item.pedido.diaEvento).toLocaleDateString('es-ES')}
                         </td>
@@ -735,8 +933,34 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                           {item.pedido.lugar}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {item.hora}
+                          {item.hora || (item.type === 'asignado' ? item.data.horaEntrada : '-')}
                           {item.turno === 2 && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">2º Turno</span>}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {item.type === 'asignado' ? (
+                            <input
+                              type="time"
+                              value={getHoraSalidaIndividual(item.pedido.id, item.data.camareroId)}
+                              onChange={(e) => actualizarHoraSalidaIndividual(item.pedido.id, item.data.camareroId, e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          ) : (
+                            <span className="text-gray-400 italic text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {item.type === 'asignado' && item.data.horaEntrada ? (() => {
+                            const horaSalida = getHoraSalidaIndividual(item.pedido.id, item.data.camareroId);
+                            return horaSalida ? (
+                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded font-mono text-sm font-semibold">
+                                {calcularHoras(item.data.horaEntrada, horaSalida)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            );
+                          })() : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
                           {camareroLabel}
@@ -911,6 +1135,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                     className={`p-4 rounded-lg flex items-center justify-between border-l-4 shadow-sm transition-all ${
                       asignacion.estado === 'confirmado' ? 'bg-green-50 border-green-500 border-t border-r border-b border-gray-100' :
                       asignacion.estado === 'enviado' ? 'bg-orange-50 border-orange-500 border-t border-r border-b border-gray-100' :
+                      asignacion.estado === 'rechazado' ? 'bg-red-50 border-red-500 border-t border-r border-b border-red-100' :
                       'bg-white border-gray-300 border-t border-r border-b border-gray-200'
                     }`}
                   >
@@ -921,6 +1146,11 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Estado: {asignacion.estado ? asignacion.estado.toUpperCase() : 'PENDIENTE'}
+                        {asignacion.estado === 'rechazado' && asignacion.eliminacionProgramada && (
+                          <span className="ml-2 text-red-600 font-bold">
+                            (Se eliminará en {Math.ceil((new Date(asignacion.eliminacionProgramada) - new Date()) / (1000 * 60))} min)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -930,12 +1160,14 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                         className={`text-xs px-2 py-1.5 rounded border font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer ${
                           asignacion.estado === 'confirmado' ? 'text-green-700 border-green-200 bg-white' :
                           asignacion.estado === 'enviado' ? 'text-orange-700 border-orange-200 bg-white' :
+                          asignacion.estado === 'rechazado' ? 'text-red-700 border-red-200 bg-white' :
                           'text-gray-700 border-gray-200 bg-gray-50'
                         }`}
                       >
-                        <option value="">Pendiente</option>
-                        <option value="enviado">Enviado</option>
-                        <option value="confirmado">Confirmado</option>
+                        <option key="estado-pendiente" value="">Pendiente</option>
+                        <option key="estado-enviado" value="enviado">Enviado</option>
+                        <option key="estado-confirmado" value="confirmado">Confirmado</option>
+                        <option key="estado-rechazado" value="rechazado">Rechazado</option>
                       </select>
                       <button
                         onClick={() => removerCamarero(asignacion.camareroId)}
@@ -984,10 +1216,12 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         item.estado === 'confirmado' ? 'bg-green-100 text-green-800' :
                         item.estado === 'enviado' ? 'bg-orange-100 text-orange-800' :
+                        item.estado === 'rechazado' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {item.estado === 'confirmado' ? 'Confirmado' :
-                         item.estado === 'enviado' ? 'Enviado' : 'Pendiente'}
+                         item.estado === 'enviado' ? 'Enviado' :
+                         item.estado === 'rechazado' ? 'Rechazado' : 'Pendiente'}
                       </span>
                     </td>
                   </tr>

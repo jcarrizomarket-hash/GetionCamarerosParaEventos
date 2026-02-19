@@ -4,14 +4,25 @@ import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
 import { GestionPedidos } from './gestion-pedidos';
 
+interface PedidosProps {
+  pedidos: any[];
+  setPedidos: (pedidos: any[]) => void;
+  camareros: any[];
+  coordinadores: any[];
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
 export function Pedidos({ 
   pedidos, 
   setPedidos, 
   camareros,
+  coordinadores,
   baseUrl, 
   publicAnonKey, 
   cargarDatos 
-}) {
+}: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
   const [clientes, setClientes] = useState([]);
 
@@ -80,6 +91,7 @@ export function Pedidos({
               pedidos={pedidos}
               setPedidos={setPedidos}
               camareros={camareros}
+              coordinadores={coordinadores}
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}

@@ -3,7 +3,7 @@ import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCir
 import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
 
-export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey }) {
+export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [showPrintView, setShowPrintView] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -28,7 +28,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
     const camareros = pedido.asignaciones || [];
     const filasVacias = Math.max(0, 8 - camareros.length);
     
-    const filasVaciasHTML = Array.from({ length: filasVacias }).map(() => `
+    const filasVaciasHTML = Array.from({ length: filasVacias }, (_, i) => `
       <tr>
         <td>&nbsp;</td>
         <td>&nbsp;</td>
@@ -130,6 +130,28 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
           {/* Estado de configuración de Email */}
           <EmailConfigStatus baseUrl={baseUrl} publicAnonKey={publicAnonKey} />
           
+          {/* Botón de diagnóstico adicional */}
+          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch(`${baseUrl}/verificar-email-config`, {
+                    headers: { Authorization: `Bearer ${publicAnonKey}` }
+                  });
+                  const data = await response.json();
+                  console.log('🔍 DIAGNÓSTICO COMPLETO:', data);
+                  alert(`Diagnóstico:\n\nConfigurado: ${data.configured ? 'SÍ' : 'NO'}\nServicio: ${data.servicioActivo || 'Ninguno'}\nEmail From: ${data.emailFrom}\n\nDebug Info:\n${JSON.stringify(data.debug, null, 2)}\n\nMira la consola para más detalles.`);
+                } catch (error) {
+                  console.error('Error en diagnóstico:', error);
+                  alert('Error al verificar configuración. Revisa la consola.');
+                }
+              }}
+              className="text-sm px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md font-medium"
+            >
+              🔍 Diagnóstico Completo de Email
+            </button>
+          </div>
+          
           <div className="mb-6">
             <label className="block text-gray-700 mb-2">Seleccionar Pedido</label>
             <select
@@ -137,7 +159,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
               onChange={(e) => setSelectedPedido(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Seleccione un pedido</option>
+              <option key="pedido-empty" value="">Seleccione un pedido</option>
               {uniquePedidos
                 .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento))
                 .map((pedido) => (
@@ -155,15 +177,24 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
                 <Printer className="w-5 h-5" />
-                Ver Parte para Imprimir
+                <span>Ver Parte para Imprimir</span>
               </button>
               <button
                 onClick={() => {
+                  // Buscar emails del cliente
+                  const clienteData = clientes.find(c => c.nombre === pedidoSeleccionado.cliente);
+                  const emailsCliente = [];
+                  
+                  if (clienteData?.mail1) emailsCliente.push(clienteData.mail1);
+                  if (clienteData?.mail2) emailsCliente.push(clienteData.mail2);
+                  
+                  const destinatarioEmail = emailsCliente.join(', ');
+                  
                   // Pre-rellenar datos del email
                   setEmailData({
-                    destinatario: '',
+                    destinatario: destinatarioEmail,
                     asunto: `Parte de Servicio - ${pedidoSeleccionado.cliente} - ${new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES')}`,
-                    mensaje: `Adjunto el parte de servicio para el evento:\n\nCliente: ${pedidoSeleccionado.cliente}\nFecha: ${new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\nLugar: ${pedidoSeleccionado.lugar}\nHora de entrada: ${pedidoSeleccionado.horaEntrada}\n\nSaludos cordiales.`,
+                    mensaje: `Adjunto el parte de servicio para el evento en formato PDF.\\\\n\\\\nCliente: ${pedidoSeleccionado.cliente}\\\\nFecha: ${new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\\\\nLugar: ${pedidoSeleccionado.lugar}\\\\nHora de entrada: ${pedidoSeleccionado.horaEntrada}\\\\n\\\\nSaludos cordiales.`,
                     copiaCoordinador: false,
                     emailCoordinador: ''
                   });
@@ -172,13 +203,13 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
               >
                 <Mail className="w-5 h-5" />
-                Enviar por Email
+                <span>Enviar por Email</span>
               </button>
             </div>
           )}
         </div>
       ) : (
-        <>
+        <div>
           {/* Vista de impresión */}
           <div className="print-only-show">
             <style>{`
@@ -200,13 +231,13 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
               >
                 <Printer className="w-5 h-5" />
-                Imprimir
+                <span>Imprimir</span>
               </button>
               <button
                 onClick={() => setShowPrintView(false)}
                 className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
-                Volver
+                <span>Volver</span>
               </button>
             </div>
 
@@ -217,7 +248,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 <h1 className="text-center mb-6">PARTE DE SERVICIO</h1>
                 
                 <div className="grid grid-cols-2 gap-6">
-                  <div>
+                  <div key="col-izquierda">
                     <p className="mb-2">
                       <span className="inline-block w-32">Cliente:</span>
                       <span className="border-b border-gray-800 inline-block min-w-[200px] px-2">
@@ -236,7 +267,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                       </span>
                     </p>
                   </div>
-                  <div>
+                  <div key="col-derecha">
                     <p className="mb-2">
                       <span className="inline-block w-40">Lugar del evento:</span>
                       <span className="border-b border-gray-800 inline-block min-w-[200px] px-2">
@@ -247,7 +278,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                       <span className="inline-block w-40">Hora entrada:</span>
                       <span className="border-b border-gray-800 inline-block min-w-[200px] px-2">
                         {pedidoSeleccionado.horaEntrada}
-                        {pedidoSeleccionado.horaEntrada2 && ` / ${pedidoSeleccionado.horaEntrada2}`}
+                        {pedidoSeleccionado.horaEntrada2 && <span> / {pedidoSeleccionado.horaEntrada2}</span>}
                       </span>
                     </p>
                   </div>
@@ -268,36 +299,35 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                   </thead>
                   <tbody>
                     {pedidoSeleccionado.asignaciones && pedidoSeleccionado.asignaciones.length > 0 ? (
-                      pedidoSeleccionado.asignaciones.map((asignacion, index) => (
-                        <tr key={asignacion.camareroId} className="border-2 border-gray-800">
-                          <td className="border-r-2 border-gray-800 p-3">
-                            #{asignacion.camareroNumero} - {asignacion.camareroNombre}
-                          </td>
-                          <td className="border-r-2 border-gray-800 p-3">
-                            {pedidoSeleccionado.horaEntrada}
-                          </td>
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-gray-800 p-3">&nbsp;</td>
-                        </tr>
-                      ))
+                      <>
+                        {pedidoSeleccionado.asignaciones.map((asignacion, index) => (
+                          <tr key={`asig-${pedidoSeleccionado.id}-${asignacion.camareroId}-${index}`} className="border-2 border-gray-800">
+                            <td className="border-r-2 border-gray-800 p-3">
+                              #{asignacion.camareroNumero} - {asignacion.camareroNombre}
+                            </td>
+                            <td className="border-r-2 border-gray-800 p-3">
+                              {pedidoSeleccionado.horaEntrada}
+                            </td>
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-gray-800 p-3">&nbsp;</td>
+                          </tr>
+                        ))}
+                        {/* Filas adicionales para completar */}
+                        {Array.from({ length: Math.max(0, 8 - pedidoSeleccionado.asignaciones.length) }).map((_, index) => (
+                          <tr key={`extra-${pedidoSeleccionado.id}-${pedidoSeleccionado.asignaciones.length}-${index}`} className="border-2 border-gray-800">
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
+                            <td className="border-gray-800 p-3">&nbsp;</td>
+                          </tr>
+                        ))}
+                      </>
                     ) : (
                       // Filas vacías si no hay camareros asignados
                       Array.from({ length: 8 }).map((_, index) => (
-                        <tr key={index} className="border-2 border-gray-800">
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
-                          <td className="border-gray-800 p-3">&nbsp;</td>
-                        </tr>
-                      ))
-                    )}
-                    {/* Filas adicionales para completar */}
-                    {pedidoSeleccionado.asignaciones && pedidoSeleccionado.asignaciones.length > 0 && 
-                     pedidoSeleccionado.asignaciones.length < 8 && (
-                      Array.from({ length: 8 - pedidoSeleccionado.asignaciones.length }).map((_, index) => (
-                        <tr key={`extra-${index}`} className="border-2 border-gray-800">
+                        <tr key={`empty-${pedidoSeleccionado.id}-${index}`} className="border-2 border-gray-800">
                           <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
                           <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
                           <td className="border-r-2 border-gray-800 p-3">&nbsp;</td>
@@ -319,7 +349,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Modal de envío por email - Mejorado */}
@@ -349,11 +379,11 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 <div className="flex-1">
                   <h4 className="font-semibold text-blue-900 mb-2">Parte a enviar:</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
-                    <div><span className="font-medium">Cliente:</span> {pedidoSeleccionado.cliente}</div>
-                    <div><span className="font-medium">Lugar:</span> {pedidoSeleccionado.lugar}</div>
-                    <div><span className="font-medium">Fecha:</span> {new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                    <div><span className="font-medium">Hora:</span> {pedidoSeleccionado.horaEntrada}</div>
-                    <div className="col-span-2"><span className="font-medium">Camareros:</span> {pedidoSeleccionado.asignaciones?.length || 0} asignados</div>
+                    <div key="info-cliente"><span className="font-medium">Cliente:</span> {pedidoSeleccionado.cliente}</div>
+                    <div key="info-lugar"><span className="font-medium">Lugar:</span> {pedidoSeleccionado.lugar}</div>
+                    <div key="info-fecha"><span className="font-medium">Fecha:</span> {new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                    <div key="info-hora"><span className="font-medium">Hora:</span> {pedidoSeleccionado.horaEntrada}</div>
+                    <div key="info-camareros" className="col-span-2"><span className="font-medium">Camareros:</span> {pedidoSeleccionado.asignaciones?.length || 0} asignados</div>
                   </div>
                 </div>
               </div>
@@ -366,6 +396,12 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                 
                 if (!emailData.destinatario) {
                   alert('Por favor, ingresa un destinatario');
+                  return;
+                }
+                
+                // Validar que si copiaCoordinador está marcado, el email no esté vacío
+                if (emailData.copiaCoordinador && !emailData.emailCoordinador.trim()) {
+                  alert('Por favor, ingresa el email del coordinador o desmarca la opción de copia');
                   return;
                 }
                 
@@ -383,14 +419,18 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                     },
                     body: JSON.stringify({
                       destinatario: emailData.destinatario,
-                      cc: emailData.copiaCoordinador ? emailData.emailCoordinador : null,
+                      cc: emailData.copiaCoordinador && emailData.emailCoordinador.trim() ? emailData.emailCoordinador.trim() : null,
                       asunto: emailData.asunto,
                       mensaje: emailData.mensaje,
                       parteHTML,
                       pedido: {
                         cliente: pedidoSeleccionado.cliente,
                         fecha: new Date(pedidoSeleccionado.diaEvento).toLocaleDateString('es-ES'),
-                        lugar: pedidoSeleccionado.lugar
+                        diaEvento: pedidoSeleccionado.diaEvento,
+                        lugar: pedidoSeleccionado.lugar,
+                        horaEntrada: pedidoSeleccionado.horaEntrada,
+                        horaEntrada2: pedidoSeleccionado.horaEntrada2,
+                        asignaciones: pedidoSeleccionado.asignaciones || []
                       }
                     })
                   });
@@ -399,7 +439,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                   
                   if (result.success) {
                     setShowEmailModal(false);
-                    alert('✅ Email enviado correctamente');
+                    alert('✅ Email enviado correctamente con parte de servicio adjunto en PDF');
                   } else {
                     alert(`❌ Error al enviar email: ${result.error || 'Error desconocido'}`);
                   }
@@ -416,7 +456,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-medium mb-2">
                   <AtSign className="w-4 h-4 text-gray-500" />
-                  Destinatario *
+                  <span>Destinatario *</span>
                 </label>
                 <input
                   type="email"
@@ -426,13 +466,25 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   required
                 />
+                {emailData.destinatario && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Emails del cliente agregados automáticamente
+                  </p>
+                )}
+                {!emailData.destinatario && (
+                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    El cliente no tiene emails registrados
+                  </p>
+                )}
               </div>
 
               {/* Asunto */}
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-medium mb-2">
                   <FileText className="w-4 h-4 text-gray-500" />
-                  Asunto *
+                  <span>Asunto *</span>
                 </label>
                 <input
                   type="text"
@@ -448,7 +500,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, baseUrl, publicA
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-medium mb-2">
                   <MessageSquare className="w-4 h-4 text-gray-500" />
-                  Mensaje
+                  <span>Mensaje</span>
                 </label>
                 <textarea
                   value={emailData.mensaje}

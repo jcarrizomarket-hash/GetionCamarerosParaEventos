@@ -23,7 +23,15 @@ import {
 } from 'lucide-react';
 import { WhatsAppConfigStatus } from './whatsapp-config-status';
 
-export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }) {
+interface DashboardProps {
+  camareros: any[];
+  pedidos: any[];
+  setActiveTab: (tab: string) => void;
+  baseUrl: string;
+  publicAnonKey: string;
+}
+
+export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
   const [clientes, setClientes] = useState([]);
 
   useEffect(() => {

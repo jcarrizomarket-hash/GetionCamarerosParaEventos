@@ -406,7 +406,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                         onChange={(e) => setClienteSeleccionado(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                        <option value="">-- Seleccione --</option>
+                        <option key="cliente-empty" value="">-- Seleccione --</option>
                         {clientes.map(c => (
                             <option key={c.id} value={c.nombre}>{c.nombre}</option>
                         ))}
@@ -420,7 +420,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                         onChange={(e) => setCamareroSeleccionado(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                        <option value="">-- Seleccione --</option>
+                        <option key="camarero-empty" value="">-- Seleccione --</option>
                         {camareros.map(c => (
                             <option key={c.id} value={c.id}>#{c.numero} - {c.nombre} {c.apellido}</option>
                         ))}

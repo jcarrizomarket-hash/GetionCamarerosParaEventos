@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search, Bell } from 'lucide-react';
 
-// v1.0.3 - Verificación completa de React keys
+// v1.1.0 - Polling automático + notificaciones de estado en tiempo real
 interface GestionPedidosProps {
   pedidos: any[];
   setPedidos: (pedidos: any[]) => void;
@@ -17,6 +17,10 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [showCalendar, setShowCalendar] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
+  const [alertas, setAlertas] = useState([]);
+
+  // Ref para trackear estados anteriores y detectar cambios
+  const estadosAnteriores = useRef({});
   
   // Estado para filtros de resumen
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual'); // diario, semanal, mensual
@@ -28,6 +32,44 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
   const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+
+  // --- Mostrar alerta temporal ---
+  const mostrarAlerta = useCallback((mensaje, tipo) => {
+    const id = `alerta-${Date.now()}`;
+    setAlertas(prev => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setAlertas(prev => prev.filter(a => a.id !== id));
+    }, 6000);
+  }, []);
+
+  // --- Detectar cambios de estado automáticamente ---
+  useEffect(() => {
+    uniquePedidos.forEach(pedido => {
+      const asignaciones = pedido.asignaciones || [];
+      asignaciones.forEach(asig => {
+        const key = `${pedido.id}-${asig.camareroId}`;
+        const estadoAnterior = estadosAnteriores.current[key];
+        const estadoActual = asig.estado;
+        if (estadoAnterior && estadoAnterior !== estadoActual) {
+          const nombre = asig.camareroNombre || `#${asig.camareroNumero}`;
+          if (estadoActual === 'confirmado') {
+            mostrarAlerta(`✅ ${nombre} confirmó su asistencia a "${pedido.cliente}"`, 'confirmado');
+          } else if (estadoActual === 'rechazado') {
+            mostrarAlerta(`❌ ${nombre} rechazó el servicio en "${pedido.cliente}"`, 'rechazado');
+          }
+        }
+        estadosAnteriores.current[key] = estadoActual;
+      });
+    });
+  }, [uniquePedidos, mostrarAlerta]);
+
+  // --- Polling automático cada 15 segundos ---
+  useEffect(() => {
+    const polling = setInterval(() => {
+      cargarDatos();
+    }, 15000);
+    return () => clearInterval(polling);
+  }, [cargarDatos]);
 
   // --- Efecto para eliminar asignaciones rechazadas después de 5 horas ---
   useEffect(() => {
@@ -641,6 +683,25 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   if (!selectedPedido) {
     return (
       <div className="space-y-6">
+        {/* --- ALERTAS DE ESTADO EN TIEMPO REAL --- */}
+        {alertas.length > 0 && (
+          <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+            {alertas.map(alerta => (
+              <div
+                key={alerta.id}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right-4 ${
+                  alerta.tipo === 'confirmado'
+                    ? 'bg-green-50 border-green-300 text-green-800'
+                    : 'bg-red-50 border-red-300 text-red-800'
+                }`}
+              >
+                <Bell className="w-4 h-4 flex-shrink-0" />
+                <span>{alerta.mensaje}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* --- BOTONES INFORMATIVOS (RESUMEN) --- */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-2">

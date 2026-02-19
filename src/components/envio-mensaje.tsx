@@ -183,7 +183,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
 
   // Manejar aceptación
   const manejarAceptar = async () => {
-    if (!eventoSeleccionado || !camareroSeleccionado) return;
+    if (!eventoSeleccionado || !camareroSeleccionado || !coordinadorActual) return;
 
     const asignaciones = eventoSeleccionado.asignaciones.map(a => 
       a.camareroId === camareroSeleccionado.id 
@@ -198,10 +198,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
           'Content-Type': 'application/json',
           Authorization: `Bearer ${publicAnonKey}`
         },
-        body: JSON.stringify({
-          ...eventoSeleccionado,
-          asignaciones
-        })
+        body: JSON.stringify({ ...eventoSeleccionado, asignaciones })
       });
       
       setMensajes(prev => [...prev, {
@@ -211,6 +208,23 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         timestamp: new Date().toISOString(),
         estado: 'confirmado'
       }]);
+
+      // Notificar al coordinador por WhatsApp
+      if (coordinadorActual.telefono) {
+        const fechaEvento = new Date(eventoSeleccionado.diaEvento).toLocaleDateString('es-ES', {
+          weekday: 'long', day: 'numeric', month: 'long'
+        });
+        const nombre = `${camareroSeleccionado.nombre} ${camareroSeleccionado.apellido}`;
+        const totalConfirmados = asignaciones.filter(a => a.estado === 'confirmado').length;
+        const totalAsignados = asignaciones.length;
+        const mensajeCoord = `✅ CONFIRMACIÓN\n\n${nombre} ha confirmado su asistencia.\n\nEvento: ${eventoSeleccionado.cliente}\nFecha: ${fechaEvento}\nLugar: ${eventoSeleccionado.lugar}\n\n👥 Confirmados: ${totalConfirmados}/${totalAsignados}`;
+        
+        await fetch(`${baseUrl}/enviar-whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+          body: JSON.stringify({ telefono: coordinadorActual.telefono, mensaje: mensajeCoord })
+        }).catch(() => {}); // No bloquear si WhatsApp falla
+      }
       
       await cargarDatos();
     } catch (error) {
@@ -220,14 +234,11 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
 
   // Manejar rechazo
   const manejarRechazar = async () => {
-    if (!eventoSeleccionado || !camareroSeleccionado) return;
+    if (!eventoSeleccionado || !camareroSeleccionado || !coordinadorActual) return;
 
-    const asignaciones = eventoSeleccionado.asignaciones.map(a => 
-      a.camareroId === camareroSeleccionado.id ? { 
-        ...a, 
-        estado: 'rechazado',
-        eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() // 5 horas
-      } : a
+    // Eliminar inmediatamente de la lista de asignaciones
+    const asignacionesFiltradas = eventoSeleccionado.asignaciones.filter(
+      a => a.camareroId !== camareroSeleccionado.id
     );
     
     try {
@@ -237,20 +248,35 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
           'Content-Type': 'application/json',
           Authorization: `Bearer ${publicAnonKey}`
         },
-        body: JSON.stringify({
-          ...eventoSeleccionado,
-          asignaciones
-        })
+        body: JSON.stringify({ ...eventoSeleccionado, asignaciones: asignacionesFiltradas })
       });
       
       setMensajes(prev => [...prev, {
         id: `msg-${Date.now()}`,
-        texto: '❌ He rechazado el servicio. Seré eliminado en 5 horas.',
+        texto: '❌ He rechazado el servicio.',
         remitente: 'camarero',
         timestamp: new Date().toISOString(),
         estado: 'rechazado'
       }]);
-      
+
+      // Notificar al coordinador por WhatsApp
+      if (coordinadorActual.telefono) {
+        const fechaEvento = new Date(eventoSeleccionado.diaEvento).toLocaleDateString('es-ES', {
+          weekday: 'long', day: 'numeric', month: 'long'
+        });
+        const nombre = `${camareroSeleccionado.nombre} ${camareroSeleccionado.apellido}`;
+        const mensajeCoord = `❌ RECHAZO DE SERVICIO\n\n${nombre} NO puede asistir.\n\nEvento: ${eventoSeleccionado.cliente}\nFecha: ${fechaEvento}\nLugar: ${eventoSeleccionado.lugar}\n\n⚠️ ACCIÓN REQUERIDA: Asignar un camarero de reemplazo.`;
+        
+        await fetch(`${baseUrl}/enviar-whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+          body: JSON.stringify({ telefono: coordinadorActual.telefono, mensaje: mensajeCoord })
+        }).catch(() => {}); // No bloquear si WhatsApp falla
+      }
+
+      // Limpiar selección y recargar
+      setCamareroSeleccionado(null);
+      setMensajes([]);
       await cargarDatos();
     } catch (error) {
       console.error('Error al rechazar:', error);
@@ -473,10 +499,15 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                 <h2 className="font-semibold text-gray-900 text-sm">
                   {camareroSeleccionado.nombre} {camareroSeleccionado.apellido}
                 </h2>
-                <p className="text-xs text-gray-600">
+                <p className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  camareroSeleccionado.estado === 'confirmado' ? 'bg-green-100 text-green-700' :
+                  camareroSeleccionado.estado === 'rechazado' ? 'bg-red-100 text-red-700' :
+                  camareroSeleccionado.estado === 'enviado' ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
                   {camareroSeleccionado.estado === 'confirmado' && '✅ Confirmado'}
                   {camareroSeleccionado.estado === 'rechazado' && '❌ Rechazado'}
-                  {camareroSeleccionado.estado === 'enviado' && '📤 Mensaje enviado'}
+                  {camareroSeleccionado.estado === 'enviado' && '📤 Enviado — esperando respuesta'}
                   {!camareroSeleccionado.estado && '⏳ Pendiente'}
                 </p>
               </div>

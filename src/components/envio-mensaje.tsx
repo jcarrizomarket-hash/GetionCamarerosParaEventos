@@ -149,51 +149,47 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       }
     }
 
+    const diaCapitalizado = diaStr.charAt(0).toUpperCase() + diaStr.slice(1);
+
     let texto = '';
 
-    // --- CABECERA ---
-    texto += `📅 ${fechaStr} - ${diaStr.charAt(0).toUpperCase() + diaStr.slice(1)}\n`;
-    texto += `👤 Cliente: ${pedido.cliente}\n`;
-    texto += `📍 Lugar: ${pedido.lugar}\n`;
-    texto += `🕐 Hora entrada: ${pedido.horaEntrada}\n`;
+    // --- CABECERA: Fecha · Día · Cliente · Hora ---
+    texto += `*${fechaStr} · ${diaCapitalizado}*\n`;
+    texto += `*${pedido.cliente}*\n`;
+    texto += `🕐 *${pedido.horaEntrada}*\n`;
 
-    // --- SECCIÓN CATERING ---
-    if (esCatering && horaEncuentroStr) {
-      texto += `\n`;
-      texto += `🚌 *HORA DE ENCUENTRO: ${horaEncuentroStr}*\n`;
-      texto += `📌 *PUNTO DE ENCUENTRO:* https://maps.app.goo.gl/nofiiyVsnx5XLkES8\n`;
+    // --- UBICACIÓN / ENCUENTRO ---
+    texto += `\n`;
+    if (!esCatering) {
+      // Sin catering: link directo al lugar del evento
+      if (pedido.ubicacion) {
+        texto += `📍 ${pedido.ubicacion}\n`;
+      } else {
+        texto += `📍 ${pedido.lugar}\n`;
+      }
+    } else {
+      // Catering: hora y punto de encuentro (transporte)
+      if (horaEncuentroStr) {
+        texto += `🚌 *Hora de encuentro: ${horaEncuentroStr}*\n`;
+      }
+      texto += `📌 Punto de encuentro: https://maps.app.goo.gl/nofiiyVsnx5XLkES8\n`;
     }
-
-    // --- LINK DE UBICACIÓN DEL EVENTO ---
-    if (pedido.ubicacion) {
-      texto += `\n`;
-      texto += `🗺 ${pedido.ubicacion}\n`;
-    }
-
-    // --- UNIFORME ---
-    texto += `\n`;
-    texto += `👔 *Uniforme:*\n`;
-    texto += `Zapatos, pantalón, delantal francés largo.\n`;
-    texto += `*TODO DE COLOR NEGRO*\n`;
-    texto += `\n`;
-    texto += `*CAMISA: ${(pedido.camisa || '').toUpperCase()}*\n`;
-    texto += `\n`;
-    texto += `*⏰ ESTAR 15 MINUTOS ANTES PARA ESTAR A PUNTO EN SERVICIO*\n`;
 
     // --- QR FICHAJE ---
     if (qrUrl) {
       texto += `\n`;
-      texto += `📲 *FICHAJE DE ENTRADA Y SALIDA:*\n`;
-      texto += `Escaneá este QR al entrar y al salir del evento:\n`;
       texto += `${qrUrl}\n`;
     }
 
+    // --- CIERRE ---
+    texto += `\n`;
+    texto += `Presentarse 15 minutos antes.\n`;
+    texto += `\n`;
+    texto += `Gracias por tu puntualidad 🙏\n`;
+
     // --- CONFIRMACIÓN ---
     texto += `\n`;
-    texto += `Por favor confirma tu asistencia:\n`;
-    texto += `\n`;
     texto += `✅ *CONFIRMO:* ${confirmarUrl}\n`;
-    texto += `\n`;
     texto += `❌ *RECHAZO:* ${noConfirmarUrl}`;
     
     return texto;

@@ -13,10 +13,11 @@ import { LoginScreen } from './components/login-screen';
 import { SetupWizard } from './components/setup-wizard';
 import { GestionUsuarios } from './components/gestion-usuarios';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CambiarPasswordModal } from './components/cambiar-password-modal';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
 function AppShell() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, requirePasswordChange } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [camareros, setCamareros] = useState([]);
   const [pedidos, setPedidos] = useState([]);
@@ -72,6 +73,8 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Modal de cambio de contraseña obligatorio (login con password temporal) */}
+      {requirePasswordChange && <CambiarPasswordModal />}
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-4 flex items-center justify-between">
           <h1 className="text-gray-900 font-semibold">Gestión de Camareros para Eventos</h1>

@@ -2024,7 +2024,7 @@ app.post('/make-server-25b11ac0/auth/setup', async (c) => {
   }
 });
 
-// Login
+// Login — soporta contraseña definitiva y contraseña temporal (24h)
 app.post('/make-server-25b11ac0/auth/login', async (c) => {
   try {
     const { email, password } = await c.req.json();
@@ -2032,7 +2032,8 @@ app.post('/make-server-25b11ac0/auth/login', async (c) => {
       return c.json({ success: false, error: 'Email y contraseña requeridos' }, 400);
     }
 
-    const userId = await kv.get(`user-email:${email.toLowerCase().trim()}`);
+    const emailNorm = email.toLowerCase().trim();
+    const userId = await kv.get(`user-email:${emailNorm}`);
     if (!userId) {
       return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
     }
@@ -2042,8 +2043,32 @@ app.post('/make-server-25b11ac0/auth/login', async (c) => {
       return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
     }
 
-    const hash = await hashPassword(password, usuario.salt);
-    if (hash !== usuario.passwordHash) {
+    // 1. Intentar con contraseña definitiva
+    const hashDefinitivo = await hashPassword(password, usuario.salt);
+    let autenticado = hashDefinitivo === usuario.passwordHash;
+    let usandoPasswordTemporal = false;
+
+    // 2. Si no coincide, intentar con contraseña temporal
+    if (!autenticado) {
+      const tempData = await kv.get(`temp-password:${userId}`);
+      if (tempData && !tempData.used) {
+        // Verificar que no expiró
+        if (new Date(tempData.expiresAt) > new Date()) {
+          const hashTemp = await hashPassword(password, tempData.salt);
+          if (hashTemp === tempData.hash) {
+            autenticado = true;
+            usandoPasswordTemporal = true;
+            // Marcar como usada para que no se reutilice indefinidamente
+            await kv.set(`temp-password:${userId}`, { ...tempData, used: true });
+          }
+        } else {
+          // Limpiar token expirado
+          await kv.del(`temp-password:${userId}`);
+        }
+      }
+    }
+
+    if (!autenticado) {
       return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
     }
 
@@ -2057,9 +2082,60 @@ app.post('/make-server-25b11ac0/auth/login', async (c) => {
     });
 
     const { passwordHash: _, salt: __, ...publicUser } = usuario;
-    return c.json({ success: true, user: publicUser, token });
+    return c.json({
+      success: true,
+      user: publicUser,
+      token,
+      // Avisa al frontend que debe cambiar la contraseña
+      requirePasswordChange: usandoPasswordTemporal,
+    });
   } catch (error) {
     console.error('Error en login:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Cambiar contraseña (usuario autenticado con password temporal)
+app.post('/make-server-25b11ac0/auth/cambiar-password', async (c) => {
+  try {
+    const sessionToken = c.req.header('x-session-token');
+    if (!sessionToken) {
+      return c.json({ success: false, error: 'No autenticado' }, 401);
+    }
+
+    // Verificar sesión
+    const session = await kv.get(`session:${sessionToken}`);
+    if (!session || new Date(session.expiresAt) < new Date()) {
+      return c.json({ success: false, error: 'Sesión expirada' }, 401);
+    }
+
+    const { passwordNueva } = await c.req.json();
+    if (!passwordNueva || passwordNueva.length < 8) {
+      return c.json({ success: false, error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
+    }
+
+    const usuario = await kv.get(session.userId);
+    if (!usuario) {
+      return c.json({ success: false, error: 'Usuario no encontrado' }, 404);
+    }
+
+    // Actualizar contraseña definitiva
+    const nuevoSalt = generateSalt();
+    const nuevoHash = await hashPassword(passwordNueva, nuevoSalt);
+
+    await kv.set(session.userId, {
+      ...usuario,
+      passwordHash: nuevoHash,
+      salt: nuevoSalt,
+    });
+
+    // Limpiar contraseña temporal si existe
+    await kv.del(`temp-password:${session.userId}`);
+
+    console.error(`✅ Contraseña actualizada para usuario ${usuario.email}`);
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2154,6 +2230,142 @@ app.delete('/make-server-25b11ac0/auth/usuarios/:id', requireSecret, async (c) =
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al eliminar usuario:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== RECUPERACIÓN DE CONTRASEÑA ==============
+
+// Genera una contraseña temporal legible (sin caracteres confusos)
+const generarPasswordTemporal = (): string => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const array = new Uint8Array(10);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => chars[b % chars.length]).join('');
+};
+
+// Solicitar recuperación — envía email con contraseña temporal
+app.post('/make-server-25b11ac0/auth/recuperar-password', async (c) => {
+  try {
+    const { email } = await c.req.json();
+    if (!email) {
+      return c.json({ success: false, error: 'Email requerido' }, 400);
+    }
+
+    const emailNorm = email.toLowerCase().trim();
+    const userId = await kv.get(`user-email:${emailNorm}`);
+
+    // Respuesta genérica independientemente de si el email existe (seguridad)
+    if (!userId) {
+      return c.json({ success: true, message: 'Si el email está registrado, recibirás las instrucciones.' });
+    }
+
+    const usuario = await kv.get(userId);
+    if (!usuario) {
+      return c.json({ success: true, message: 'Si el email está registrado, recibirás las instrucciones.' });
+    }
+
+    // Generar contraseña temporal
+    const passwordTemporal = generarPasswordTemporal();
+    const salt = generateSalt();
+    const hash = await hashPassword(passwordTemporal, salt);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
+
+    // Guardar en KV: contraseña temporal con expiración
+    await kv.set(`temp-password:${userId}`, {
+      hash,
+      salt,
+      expiresAt,
+      used: false,
+    });
+
+    // Construir email HTML
+    const emailFrom = Deno.env.get('EMAIL_FROM') || 'onboarding@resend.dev';
+    const appName = 'Gestión de Camareros para Eventos';
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperación de contraseña</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:36px 40px;text-align:center;">
+              <div style="width:52px;height:52px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:24px;">🔐</span>
+              </div>
+              <h1 style="color:#f1f5f9;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em;">${appName}</h1>
+              <p style="color:#64748b;font-size:14px;margin:8px 0 0;">Recuperación de acceso</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+              <p style="color:#374151;font-size:16px;margin:0 0 8px;">Hola, <strong>${usuario.nombre}</strong></p>
+              <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 32px;">
+                Recibimos una solicitud para restablecer tu contraseña. Tu contraseña temporal es:
+              </p>
+
+              <!-- Contraseña temporal destacada -->
+              <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;margin-bottom:32px;">
+                <p style="color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin:0 0 10px;">Contraseña temporal</p>
+                <p style="color:#0f172a;font-size:28px;font-weight:700;letter-spacing:0.12em;font-family:'Courier New',monospace;margin:0;">${passwordTemporal}</p>
+              </div>
+
+              <!-- Alerta expiración -->
+              <div style="background:#fef9c3;border-left:4px solid #eab308;border-radius:8px;padding:14px 16px;margin-bottom:28px;">
+                <p style="color:#713f12;font-size:13px;margin:0;line-height:1.5;">
+                  ⏱ <strong>Esta contraseña expira en 24 horas.</strong><br>
+                  Después de ingresar, deberás cambiarla por una contraseña definitiva desde tu perfil.
+                </p>
+              </div>
+
+              <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0 0 4px;">
+                Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual permanece sin cambios.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
+              <p style="color:#94a3b8;font-size:12px;margin:0;">${appName} · Mensaje automático, no responder</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const resultado = await enviarEmailGenerico({
+      destinatario: emailNorm,
+      asunto: `🔐 Tu contraseña temporal — ${appName}`,
+      htmlBody,
+    });
+
+    if (!resultado.success) {
+      console.error('Error al enviar email de recuperación:', resultado);
+      return c.json({ success: false, error: 'No se pudo enviar el email. Contacta al administrador.' }, 500);
+    }
+
+    console.error(`✅ Email de recuperación enviado a ${emailNorm}`);
+    return c.json({ success: true, message: 'Si el email está registrado, recibirás las instrucciones.' });
+
+  } catch (error) {
+    console.error('Error en recuperar-password:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

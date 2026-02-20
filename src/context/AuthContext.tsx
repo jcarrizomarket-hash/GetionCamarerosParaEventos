@@ -18,6 +18,10 @@ interface AuthContextType {
   logout: () => void;
   isAdmin: boolean;
   isCoordinador: boolean;
+  requirePasswordChange: boolean;
+  sessionToken: string | null;
+  cambiarPassword: (passwordNueva: string) => Promise<{ error?: string }>;
+  solicitarRecuperacion: (email: string) => Promise<{ error?: string; success?: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,6 +33,8 @@ const SESSION_KEY = 'gce_session';
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // Restaurar sesión desde localStorage al montar
   useEffect(() => {
@@ -40,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifySession(parsed.token, parsed.user).then((valid) => {
           if (valid) {
             setUser(parsed.user);
+            setSessionToken(parsed.token);
           } else {
             localStorage.removeItem(SESSION_KEY);
           }
@@ -84,8 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: data.error || 'Credenciales incorrectas' };
       }
 
-      const { user: userData, token } = data;
+      const { user: userData, token, requirePasswordChange: reqChange } = data;
       setUser(userData);
+      setSessionToken(token);
+      setRequirePasswordChange(!!reqChange);
       localStorage.setItem(SESSION_KEY, JSON.stringify({ user: userData, token }));
       return {};
     } catch (e) {
@@ -98,6 +107,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(SESSION_KEY);
   }, []);
 
+  const cambiarPassword = useCallback(async (passwordNueva: string): Promise<{ error?: string }> => {
+    if (!sessionToken) return { error: 'No autenticado' };
+    try {
+      const res = await fetch(`${baseUrl}/auth/cambiar-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`,
+          'x-session-token': sessionToken,
+        },
+        body: JSON.stringify({ passwordNueva }),
+      });
+      const data = await res.json();
+      if (!data.success) return { error: data.error || 'Error al cambiar contraseña' };
+      setRequirePasswordChange(false);
+      return {};
+    } catch {
+      return { error: 'Error de conexión' };
+    }
+  }, [sessionToken]);
+
+  const solicitarRecuperacion = useCallback(async (email: string): Promise<{ error?: string; success?: boolean }> => {
+    try {
+      const res = await fetch(`${baseUrl}/auth/recuperar-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!data.success) return { error: data.error || 'Error al enviar email' };
+      return { success: true };
+    } catch {
+      return { error: 'Error de conexión' };
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -107,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         isAdmin: user?.role === 'admin',
         isCoordinador: user?.role === 'coordinador',
+        requirePasswordChange,
+        sessionToken,
+        cambiarPassword,
+        solicitarRecuperacion,
       }}
     >
       {children}

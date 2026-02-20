@@ -181,6 +181,13 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       texto += `${qrUrl}\n`;
     }
 
+    // --- UNIFORME ---
+    texto += `\n`;
+    texto += `👔 *Uniforme:*\n`;
+    texto += `Zapatos, pantalón, delantal francés largo.\n`;
+    texto += `*TODO DE COLOR NEGRO*\n`;
+    texto += `*CAMISA: ${(pedido.camisa || '').toUpperCase()}*\n`;
+
     // --- CIERRE ---
     texto += `\n`;
     texto += `Presentarse 15 minutos antes.\n`;

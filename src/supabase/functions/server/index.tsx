@@ -2499,7 +2499,7 @@ app.get('/make-server-25b11ac0/fichajes/:pedidoId', async (c) => {
 });
 
 // PUT /fichajes/:pedidoId/:camareroId — Edición manual por coordinador
-app.put('/make-server-25b11ac0/fichajes/:pedidoId/:camareroId', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/fichajes/:pedidoId/:camareroId', async (c) => {
   try {
     const pedidoId = c.req.param('pedidoId');
     const camareroId = c.req.param('camareroId');

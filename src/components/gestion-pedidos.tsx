@@ -9,9 +9,12 @@ interface GestionPedidosProps {
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
+  coordinadorIdPropio?: string;
 }
 
-export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
+export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos, coordinadorIdPropio }: GestionPedidosProps) {
+  // Si coordinadorIdPropio está definido, el usuario es coordinador y solo puede editar sus pedidos
+  const esSoloLectura = (pedido: any) => coordinadorIdPropio !== undefined && pedido?.coordinadorId !== coordinadorIdPropio;
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
@@ -1071,6 +1074,14 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         </div>
       )}
       
+      {/* BANNER SOLO LECTURA — visible cuando coordinador ve pedido ajeno */}
+      {esSoloLectura(selectedPedido) && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+          <span><strong>Solo lectura</strong> — Este pedido pertenece a otro coordinador. Podés consultarlo pero no modificarlo.</span>
+        </div>
+      )}
+
       {/* HEADER MODO ENFOQUE */}
       <div className="flex items-center justify-between">
         <button 
@@ -1178,9 +1189,10 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                     </div>
                     <button
                       onClick={() => agregarCamarero(camarero)}
-                      disabled={procesando}
+                      disabled={procesando || esSoloLectura(selectedPedido)}
+                      title={esSoloLectura(selectedPedido) ? 'No tienes permiso para modificar este pedido' : undefined}
                       className={`px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-xs font-bold uppercase tracking-wide transition-all transform active:scale-95 ${
-                        procesando ? 'opacity-50 cursor-not-allowed' : 'opacity-100 shadow-sm hover:shadow'
+                        procesando || esSoloLectura(selectedPedido) ? 'opacity-40 cursor-not-allowed' : 'opacity-100 shadow-sm hover:shadow'
                       }`}
                     >
                       {procesando ? '...' : 'Asignar'}
@@ -1237,7 +1249,10 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       <select
                         value={asignacion.estado || ''}
                         onChange={(e) => cambiarEstado(asignacion.camareroId, e.target.value)}
-                        className={`text-xs px-2 py-1.5 rounded border font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer ${
+                        disabled={esSoloLectura(selectedPedido)}
+                        className={`text-xs px-2 py-1.5 rounded border font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                          esSoloLectura(selectedPedido) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        } ${
                           asignacion.estado === 'confirmado' ? 'text-green-700 border-green-200 bg-white' :
                           asignacion.estado === 'enviado' ? 'text-orange-700 border-orange-200 bg-white' :
                           asignacion.estado === 'rechazado' ? 'text-red-700 border-red-200 bg-white' :
@@ -1251,8 +1266,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       </select>
                       <button
                         onClick={() => removerCamarero(asignacion.camareroId)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Remover del evento"
+                        disabled={esSoloLectura(selectedPedido)}
+                        className={`p-1.5 rounded transition-colors ${esSoloLectura(selectedPedido) ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                        title={esSoloLectura(selectedPedido) ? 'No tienes permiso para modificar este pedido' : 'Remover del evento'}
                       >
                         <X className="w-5 h-5" />
                       </button>

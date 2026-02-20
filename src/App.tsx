@@ -41,16 +41,7 @@ function AppShell() {
         camarerosRes.json(), pedidosRes.json(), coordinadoresRes.json(), clientesRes.json(),
       ]);
       if (camarerosData.success) setCamareros(camarerosData.data);
-      if (pedidosData.success) {
-        if (isAdmin) {
-          setPedidos(pedidosData.data);
-        } else {
-          const misPedidos = pedidosData.data.filter(
-            (p: any) => p.coordinadorId === user?.coordinadorId
-          );
-          setPedidos(misPedidos);
-        }
-      }
+      if (pedidosData.success) setPedidos(pedidosData.data);
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
@@ -134,7 +125,7 @@ function AppShell() {
 
       <div className="p-6">
         {activeTab === 'dashboard' && <Dashboard camareros={camareros} pedidos={pedidos} setActiveTab={setActiveTab} baseUrl={baseUrl} publicAnonKey={publicAnonKey} />}
-        {activeTab === 'pedidos' && <Pedidos pedidos={pedidos} setPedidos={setPedidos} camareros={camareros} coordinadores={coordinadores} clientes={clientes} setClientes={setClientes} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} />}
+        {activeTab === 'pedidos' && <Pedidos pedidos={pedidos} setPedidos={setPedidos} camareros={camareros} coordinadores={coordinadores} clientes={clientes} setClientes={setClientes} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} coordinadorIdPropio={user?.coordinadorId} />}
         {activeTab === 'camareros' && <Camareros camareros={camareros} setCamareros={setCamareros} pedidos={pedidos} coordinadores={coordinadores} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} />}
         {activeTab === 'coordinadores' && isAdmin && <Coordinadores coordinadores={coordinadores} setCoordinadores={setCoordinadores} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} />}
         {activeTab === 'informes' && isAdmin && <Informes camareros={camareros} pedidos={pedidos} baseUrl={baseUrl} publicAnonKey={publicAnonKey} />}

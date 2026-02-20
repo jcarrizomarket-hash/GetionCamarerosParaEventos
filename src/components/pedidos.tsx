@@ -14,6 +14,7 @@ interface PedidosProps {
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
+  coordinadorIdPropio?: string; // undefined = admin (ve todo con acceso total)
 }
 
 export function Pedidos({ 
@@ -25,7 +26,8 @@ export function Pedidos({
   setClientes,
   baseUrl, 
   publicAnonKey, 
-  cargarDatos 
+  cargarDatos,
+  coordinadorIdPropio
 }: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
 
@@ -84,6 +86,7 @@ export function Pedidos({
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
+              coordinadorIdPropio={coordinadorIdPropio}
             />
           )}
 
@@ -95,6 +98,7 @@ export function Pedidos({
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
+              coordinadorIdPropio={coordinadorIdPropio}
             />
           )}
         </div>

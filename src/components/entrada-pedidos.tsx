@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
 
-export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
+export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos, coordinadorIdPropio = undefined }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -532,8 +532,10 @@ _Por favor confirme recepción de este mensaje._`;
                       </label>
                       <select
                         required
-                        value={formData.coordinadorId}
+                        value={coordinadorIdPropio || formData.coordinadorId}
+                        disabled={!!coordinadorIdPropio}
                         onChange={(e) => {
+                          if (coordinadorIdPropio) return; // coordinador no puede cambiar el coordinador asignado
                           const coordinador = coordinadores.find(c => c.id === e.target.value);
                           setFormData({
                             ...formData,
@@ -541,13 +543,16 @@ _Por favor confirme recepción de este mensaje._`;
                             coordinadorNombre: coordinador ? coordinador.nombre : ''
                           });
                         }}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${coordinadorIdPropio ? 'bg-gray-50 cursor-not-allowed opacity-75' : ''}`}
                       >
                         <option key="coordinador-empty" value="">Seleccionar coordinador...</option>
                         {coordinadores.map(c => (
                           <option key={c.id} value={c.id}>{c.nombre}</option>
                         ))}
                       </select>
+                      {coordinadorIdPropio && (
+                        <p className="text-xs text-blue-600 mt-1">✓ Asignado automáticamente a tu perfil de coordinador</p>
+                      )}
                       {coordinadores.length === 0 && (
                         <p className="text-xs text-orange-600 mt-1">
                           ⚠️ No hay coordinadores. Créalos en la sección "Coordinadores"

@@ -1949,4 +1949,213 @@ app.get('/make-server-25b11ac0/partes-enviados', async (c) => {
   }
 });
 
+// ============== AUTH ==============
+
+// Hash simple con SHA-256 para contraseñas (sin bcrypt en Deno Edge)
+const hashPassword = async (password: string, salt: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + salt);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+const generateToken = (): string => {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+const generateSalt = (): string => {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// Verificar si el sistema ya tiene un Admin creado
+app.get('/make-server-25b11ac0/auth/status', async (c) => {
+  try {
+    const adminExists = await kv.get('system:admin-created');
+    return c.json({ success: true, needsSetup: !adminExists });
+  } catch (error) {
+    console.error('Error al verificar estado del sistema:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Setup inicial: crear el primer Admin (solo funciona si no existe ninguno)
+app.post('/make-server-25b11ac0/auth/setup', async (c) => {
+  try {
+    const adminExists = await kv.get('system:admin-created');
+    if (adminExists) {
+      return c.json({ success: false, error: 'El sistema ya fue configurado' }, 403);
+    }
+
+    const { nombre, email, password } = await c.req.json();
+    if (!nombre || !email || !password) {
+      return c.json({ success: false, error: 'Faltan campos requeridos' }, 400);
+    }
+    if (password.length < 8) {
+      return c.json({ success: false, error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
+    }
+
+    const salt = generateSalt();
+    const hash = await hashPassword(password, salt);
+    const id = `user:${Date.now()}`;
+
+    const usuario = {
+      id,
+      email: email.toLowerCase().trim(),
+      nombre,
+      role: 'admin',
+      passwordHash: hash,
+      salt,
+      creadoEn: new Date().toISOString(),
+    };
+
+    await kv.set(id, usuario);
+    await kv.set(`user-email:${email.toLowerCase().trim()}`, id);
+    await kv.set('system:admin-created', true);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error en setup:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Login
+app.post('/make-server-25b11ac0/auth/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+    if (!email || !password) {
+      return c.json({ success: false, error: 'Email y contraseña requeridos' }, 400);
+    }
+
+    const userId = await kv.get(`user-email:${email.toLowerCase().trim()}`);
+    if (!userId) {
+      return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
+    }
+
+    const usuario = await kv.get(userId);
+    if (!usuario) {
+      return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
+    }
+
+    const hash = await hashPassword(password, usuario.salt);
+    if (hash !== usuario.passwordHash) {
+      return c.json({ success: false, error: 'Credenciales incorrectas' }, 401);
+    }
+
+    // Generar token de sesión (expira en 8h)
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+    await kv.set(`session:${token}`, {
+      token,
+      userId: usuario.id,
+      expiresAt,
+    });
+
+    const { passwordHash: _, salt: __, ...publicUser } = usuario;
+    return c.json({ success: true, user: publicUser, token });
+  } catch (error) {
+    console.error('Error en login:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Verificar token de sesión activo
+app.get('/make-server-25b11ac0/auth/verify', async (c) => {
+  try {
+    const token = c.req.header('x-session-token');
+    if (!token) return c.json({ success: false }, 401);
+
+    const session = await kv.get(`session:${token}`);
+    if (!session) return c.json({ success: false }, 401);
+
+    if (new Date(session.expiresAt) < new Date()) {
+      await kv.del(`session:${token}`);
+      return c.json({ success: false }, 401);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ success: false }, 500);
+  }
+});
+
+// Listar usuarios (solo Admin)
+app.get('/make-server-25b11ac0/auth/usuarios', async (c) => {
+  try {
+    const usuarios = await kv.getByPrefix('user:');
+    const publicos = usuarios.map(({ passwordHash, salt, ...u }) => u);
+    return c.json({ success: true, data: publicos });
+  } catch (error) {
+    console.error('Error al listar usuarios:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Crear usuario (solo Admin)
+app.post('/make-server-25b11ac0/auth/usuarios', requireSecret, async (c) => {
+  try {
+    const { nombre, email, password, role, coordinadorId } = await c.req.json();
+    if (!nombre || !email || !password || !role) {
+      return c.json({ success: false, error: 'Faltan campos requeridos' }, 400);
+    }
+    if (password.length < 8) {
+      return c.json({ success: false, error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
+    }
+
+    // Verificar que el email no esté en uso
+    const existing = await kv.get(`user-email:${email.toLowerCase().trim()}`);
+    if (existing) {
+      return c.json({ success: false, error: 'Ya existe un usuario con ese email' }, 409);
+    }
+
+    const salt = generateSalt();
+    const hash = await hashPassword(password, salt);
+    const id = `user:${Date.now()}`;
+
+    const usuario = {
+      id,
+      email: email.toLowerCase().trim(),
+      nombre,
+      role,
+      coordinadorId: role === 'coordinador' ? coordinadorId : undefined,
+      passwordHash: hash,
+      salt,
+      creadoEn: new Date().toISOString(),
+    };
+
+    await kv.set(id, usuario);
+    await kv.set(`user-email:${email.toLowerCase().trim()}`, id);
+
+    const { passwordHash: _, salt: __, ...publicUser } = usuario;
+    return c.json({ success: true, data: publicUser });
+  } catch (error) {
+    console.error('Error al crear usuario:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Eliminar usuario (solo Admin)
+app.delete('/make-server-25b11ac0/auth/usuarios/:id', requireSecret, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const usuario = await kv.get(id);
+    if (!usuario) {
+      return c.json({ success: false, error: 'Usuario no encontrado' }, 404);
+    }
+
+    await kv.del(id);
+    await kv.del(`user-email:${usuario.email}`);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

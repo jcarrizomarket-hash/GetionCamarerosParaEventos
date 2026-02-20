@@ -75,23 +75,25 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     
     const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Guardar token en el servidor
+    // Guardar token de confirmación y generar QR de fichaje en paralelo
+    let qrUrl = '';
     try {
-      await fetch(`${baseUrl}/guardar-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({
-          token: token,
-          pedidoId: pedido.id,
-          camareroId: camarero.id,
-          coordinadorId: coordinadorActual.id
+      const [, qrRes] = await Promise.all([
+        fetch(`${baseUrl}/guardar-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+          body: JSON.stringify({ token, pedidoId: pedido.id, camareroId: camarero.id, coordinadorId: coordinadorActual.id })
+        }),
+        fetch(`${baseUrl}/qr-tokens`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+          body: JSON.stringify({ pedidoId: pedido.id, camareroId: camarero.id })
         })
-      });
+      ]);
+      const qrData = await qrRes.json();
+      if (qrData.success) qrUrl = qrData.qrUrl;
     } catch (error) {
-      console.log('Error al guardar token:', error);
+      console.log('Error al guardar tokens:', error);
     }
     
     const baseUrlConfirmacion = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
@@ -177,6 +179,14 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     texto += `*CAMISA: ${(pedido.camisa || '').toUpperCase()}*\n`;
     texto += `\n`;
     texto += `*⏰ ESTAR 15 MINUTOS ANTES PARA ESTAR A PUNTO EN SERVICIO*\n`;
+
+    // --- QR FICHAJE ---
+    if (qrUrl) {
+      texto += `\n`;
+      texto += `📲 *FICHAJE DE ENTRADA Y SALIDA:*\n`;
+      texto += `Escaneá este QR al entrar y al salir del evento:\n`;
+      texto += `${qrUrl}\n`;
+    }
 
     // --- CONFIRMACIÓN ---
     texto += `\n`;

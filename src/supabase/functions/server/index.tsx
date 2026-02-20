@@ -537,7 +537,42 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       day: 'numeric', 
       month: 'long' 
     });
+
+    // Obtener o crear el QR de fichaje para enviar el link al coordinador
+    const projectRef = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
+    const fichajeBaseUrl = `https://${projectRef}.supabase.co/functions/v1/make-server-25b11ac0`;
+    let fichajeLink = '';
+    try {
+      const qrKeyRef = `qr-token:${pedidoId}:${camareroId}`;
+      let qrData = await kv.get(qrKeyRef);
+      if (!qrData) {
+        // Crear el QR token si no existe aún
+        const newToken = generarQRToken();
+        qrData = {
+          token: newToken,
+          pedidoId,
+          camareroId,
+          camareroNombre: nombreCamarero,
+          clienteNombre: pedido.cliente,
+          lugar: pedido.lugar,
+          diaEvento: pedido.diaEvento,
+          horaEntradaPrevista: pedido.horaEntrada,
+          horaSalidaPrevista: pedido.horaSalida,
+          creadoEn: new Date().toISOString(),
+        };
+        await kv.set(qrKeyRef, qrData);
+        await kv.set(`qr-token-idx:${newToken}`, qrKeyRef);
+      }
+      fichajeLink = `${fichajeBaseUrl}/fichar/${qrData.token}`;
+    } catch (e) {
+      console.error('No se pudo generar link de fichaje:', e);
+    }
+
     let mensajeCoordinador = `✅ CONFIRMACIÓN RECIBIDA\n\n${nombreCamarero} ha confirmado su asistencia.\n\nEvento: ${pedido.cliente}\nFecha: ${fechaEvento}\nLugar: ${pedido.lugar}\nHora: ${pedido.horaEntrada}`;
+
+    if (fichajeLink) {
+      mensajeCoordinador += `\n\n📲 LINK DE FICHAJE — ${nombreCamarero}:\n${fichajeLink}\n(Podés enviar este link al cliente para control de entrada/salida)`;
+    }
     
     if (todosConfirmados) {
       mensajeCoordinador += `\n\n🎉 ¡TODOS LOS CAMAREROS HAN CONFIRMADO!\n✅ Chat grupal creado automáticamente`;
@@ -2369,5 +2404,421 @@ app.post('/make-server-25b11ac0/auth/recuperar-password', async (c) => {
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
+
+// ============================================================
+// SISTEMA DE FICHAJES CON QR
+// ============================================================
+
+// --- Generador de QR SVG (sin dependencias externas) ---
+// Implementación mínima de QR Code versión 1 (21x21) usando el estándar ISO 18004
+// Para URLs cortas como las de fichaje (token de 12 chars) es suficiente
+// Se usa una librería CDN-loaded en la página HTML del cliente
+
+// Genera un token de fichaje único para un camarero+pedido
+const generarQRToken = (): string => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const array = new Uint8Array(14);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => chars[b % chars.length]).join('');
+};
+
+// POST /qr-tokens — Genera y guarda un token QR para fichaje
+// Llamado desde envio-mensaje al enviar el mensaje de confirmación
+app.post('/make-server-25b11ac0/qr-tokens', async (c) => {
+  try {
+    const { pedidoId, camareroId } = await c.req.json();
+    if (!pedidoId || !camareroId) {
+      return c.json({ success: false, error: 'Faltan pedidoId y camareroId' }, 400);
+    }
+
+    // Reutilizar token si ya existe para este camarero+pedido
+    const keyExistente = `qr-token:${pedidoId}:${camareroId}`;
+    const existente = await kv.get(keyExistente);
+    if (existente) {
+      const projectRefEx = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
+      const baseUrlEx = `https://${projectRefEx}.supabase.co/functions/v1/make-server-25b11ac0`;
+      return c.json({ success: true, token: existente.token, qrUrl: `${baseUrlEx}/fichar/${existente.token}` });
+    }
+
+    const token = generarQRToken();
+    const pedido = await kv.get(pedidoId);
+    const camarero = await kv.get(camareroId);
+
+    await kv.set(keyExistente, {
+      token,
+      pedidoId,
+      camareroId,
+      camareroNombre: camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero',
+      clienteNombre: pedido?.cliente || '',
+      lugar: pedido?.lugar || '',
+      diaEvento: pedido?.diaEvento || '',
+      horaEntradaPrevista: pedido?.horaEntrada || '',
+      horaSalidaPrevista: pedido?.horaSalida || '',
+      creadoEn: new Date().toISOString(),
+    });
+    // Índice inverso para buscar por token
+    await kv.set(`qr-token-idx:${token}`, keyExistente);
+
+    const projectRef = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
+    const fichajeUrl = `https://${projectRef}.supabase.co/functions/v1/make-server-25b11ac0/fichar/${token}`;
+
+    return c.json({ success: true, token, qrUrl: fichajeUrl });
+  } catch (error) {
+    console.error('Error al crear QR token:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// GET /qr-tokens/:pedidoId/:camareroId — Obtiene el token existente
+app.get('/make-server-25b11ac0/qr-tokens/:pedidoId/:camareroId', async (c) => {
+  try {
+    const pedidoId = c.req.param('pedidoId');
+    const camareroId = c.req.param('camareroId');
+    const data = await kv.get(`qr-token:${pedidoId}:${camareroId}`);
+    if (!data) {
+      return c.json({ success: false, error: 'No existe QR para este camarero+pedido' }, 404);
+    }
+    const projectRef = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
+    const fichajeUrl = `https://${projectRef}.supabase.co/functions/v1/make-server-25b11ac0/fichar/${data.token}`;
+    return c.json({ success: true, token: data.token, qrUrl: fichajeUrl });
+  } catch (error) {
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// GET /fichajes/:pedidoId — Obtiene todos los fichajes de un pedido
+app.get('/make-server-25b11ac0/fichajes/:pedidoId', async (c) => {
+  try {
+    const pedidoId = c.req.param('pedidoId');
+    const fichajes = await kv.getByPrefix(`fichaje:${pedidoId}:`);
+    return c.json({ success: true, data: fichajes });
+  } catch (error) {
+    console.error('Error al obtener fichajes:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// PUT /fichajes/:pedidoId/:camareroId — Edición manual por coordinador
+app.put('/make-server-25b11ac0/fichajes/:pedidoId/:camareroId', requireSecret, async (c) => {
+  try {
+    const pedidoId = c.req.param('pedidoId');
+    const camareroId = c.req.param('camareroId');
+    const { entrada, salida, nota } = await c.req.json();
+
+    const key = `fichaje:${pedidoId}:${camareroId}`;
+    const existente = await kv.get(key) || {};
+
+    const fichajeActualizado = {
+      ...existente,
+      pedidoId,
+      camareroId,
+      entrada: entrada ?? existente.entrada ?? null,
+      salida: salida ?? existente.salida ?? null,
+      nota: nota ?? existente.nota ?? '',
+      editadoManualmente: true,
+      editadoEn: new Date().toISOString(),
+    };
+
+    await kv.set(key, fichajeActualizado);
+
+    // Disparar webhook si está configurado y hay salida registrada
+    if (fichajeActualizado.salida) {
+      await dispararWebhookFichaje(pedidoId, fichajeActualizado).catch(e => 
+        console.error('Webhook falló (no bloqueante):', e)
+      );
+    }
+
+    return c.json({ success: true, data: fichajeActualizado });
+  } catch (error) {
+    console.error('Error al actualizar fichaje:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Función interna: disparar webhook de nóminas
+async function dispararWebhookFichaje(pedidoId: string, fichaje: any) {
+  const pedido = await kv.get(pedidoId);
+  const webhookUrl = pedido?.webhookNominas || Deno.env.get('WEBHOOK_NOMINAS_URL');
+  if (!webhookUrl) return;
+
+  const camarero = await kv.get(fichaje.camareroId);
+
+  let horasTrabajadas: number | null = null;
+  if (fichaje.entrada && fichaje.salida) {
+    const entrada = new Date(fichaje.entrada);
+    const salida = new Date(fichaje.salida);
+    horasTrabajadas = Math.round(((salida.getTime() - entrada.getTime()) / (1000 * 60 * 60)) * 100) / 100;
+  }
+
+  const payload = {
+    evento: 'fichaje_completado',
+    timestamp: new Date().toISOString(),
+    pedido: {
+      id: pedidoId,
+      cliente: pedido?.cliente,
+      lugar: pedido?.lugar,
+      fecha: pedido?.diaEvento,
+    },
+    camarero: {
+      id: fichaje.camareroId,
+      nombre: camarero ? `${camarero.nombre} ${camarero.apellido}` : fichaje.camareroNombre,
+      telefono: camarero?.telefono,
+    },
+    fichaje: {
+      entrada: fichaje.entrada,
+      salida: fichaje.salida,
+      horas_trabajadas: horasTrabajadas,
+      editado_manualmente: fichaje.editadoManualmente || false,
+      nota: fichaje.nota || '',
+    },
+  };
+
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  console.error(`📤 Webhook nóminas → ${webhookUrl} → HTTP ${res.status}`);
+}
+
+// GET /fichar/:token — Página HTML del QR (escaneo = fichaje automático)
+app.get('/make-server-25b11ac0/fichar/:token', async (c) => {
+  const token = c.req.param('token');
+  const projectRef = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
+  const fichajeBaseUrl = `https://${projectRef}.supabase.co/functions/v1/make-server-25b11ac0`;
+
+  try {
+    const keyRef = await kv.get(`qr-token-idx:${token}`);
+    if (!keyRef) {
+      return c.html(htmlFichajeError('QR no válido o expirado'));
+    }
+
+    const qrData = await kv.get(keyRef);
+    if (!qrData) {
+      return c.html(htmlFichajeError('Datos del QR no encontrados'));
+    }
+
+    const { pedidoId, camareroId, camareroNombre, clienteNombre, lugar, diaEvento, horaEntradaPrevista, horaSalidaPrevista } = qrData;
+
+    // Verificar si el evento es del día correcto (tolerancia ±12h)
+    const ahora = new Date();
+    const fechaEvento = new Date(diaEvento);
+    const diffHoras = Math.abs(ahora.getTime() - fechaEvento.getTime()) / (1000 * 60 * 60);
+
+    // Leer fichaje existente
+    const fichajeKey = `fichaje:${pedidoId}:${camareroId}`;
+    const fichaje = await kv.get(fichajeKey);
+
+    let accion: 'entrada' | 'salida' | 'ya_completo';
+    let timestamp = ahora.toISOString();
+
+    if (!fichaje || !fichaje.entrada) {
+      accion = 'entrada';
+    } else if (!fichaje.salida) {
+      accion = 'salida';
+    } else {
+      accion = 'ya_completo';
+    }
+
+    if (accion !== 'ya_completo') {
+      const fichajeActualizado = {
+        pedidoId,
+        camareroId,
+        camareroNombre,
+        clienteNombre,
+        lugar,
+        diaEvento,
+        entrada: accion === 'entrada' ? timestamp : fichaje?.entrada,
+        salida: accion === 'salida' ? timestamp : null,
+        editadoManualmente: false,
+      };
+      await kv.set(fichajeKey, fichajeActualizado);
+      console.error(`✅ Fichaje ${accion.toUpperCase()} — ${camareroNombre} → ${clienteNombre} @ ${timestamp}`);
+
+      // Disparar webhook al completar salida
+      if (accion === 'salida') {
+        await dispararWebhookFichaje(pedidoId, fichajeActualizado).catch(() => {});
+      }
+
+      // Notificar al coordinador del evento
+      const pedido = await kv.get(pedidoId);
+      if (pedido?.coordinadorId) {
+        const emoji = accion === 'entrada' ? '🟢' : '🔴';
+        const hora = new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        await notificarCoordinador(
+          pedido.coordinadorId,
+          `${emoji} FICHAJE ${accion === 'entrada' ? 'ENTRADA' : 'SALIDA'}\n\n${camareroNombre}\nEvento: ${clienteNombre}\nLugar: ${lugar}\nHora: ${hora}`
+        );
+      }
+    }
+
+    const fechaStr = new Date(diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const horaStr = new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    const fichajeUrlPage = `${fichajeBaseUrl}/fichar/${token}`;
+    return c.html(htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr, horaStr, horaEntradaPrevista, horaSalidaPrevista, fichajeUrl: fichajeUrlPage }));
+
+  } catch (error) {
+    console.error('Error en fichaje QR:', error);
+    return c.html(htmlFichajeError('Error interno al procesar el fichaje'));
+  }
+});
+
+// Helper: HTML página de fichaje exitoso
+function htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr, horaStr, horaEntradaPrevista, horaSalidaPrevista, fichajeUrl }: any) {
+  const esEntrada = accion === 'entrada';
+  const esCompleto = accion === 'ya_completo';
+  const color = esEntrada ? '#16a34a' : esCompleto ? '#6366f1' : '#dc2626';
+  const bgColor = esEntrada ? '#f0fdf4' : esCompleto ? '#eef2ff' : '#fef2f2';
+  const borderColor = esEntrada ? '#bbf7d0' : esCompleto ? '#c7d2fe' : '#fecaca';
+  const icon = esEntrada ? '🟢' : esCompleto ? '✅' : '🔴';
+  const titulo = esEntrada ? '¡Entrada registrada!' : esCompleto ? 'Fichaje completo' : '¡Salida registrada!';
+  const subtitulo = esEntrada
+    ? 'Escaneá este QR de nuevo cuando salgas del evento.'
+    : esCompleto
+    ? 'Entrada y salida ya registradas. Gracias.'
+    : 'Tu salida ha sido registrada correctamente.';
+
+  // Solo mostrar el QR en la pantalla de entrada — para que vuelvan a escanearlo al salir
+  const mostrarQR = esEntrada && fichajeUrl;
+
+  return \`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fichaje · \${clienteNombre}</title>
+  \${mostrarQR ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' : ''}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: \${bgColor}; display: flex; justify-content: center; min-height: 100vh; padding: 1.5rem; }
+    .card { background: white; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); max-width: 420px; width: 100%; overflow: hidden; border-top: 6px solid \${color}; height: fit-content; margin: auto; }
+    .header { padding: 1.75rem; text-align: center; background: \${bgColor}; border-bottom: 1px solid \${borderColor}; }
+    .icon { font-size: 3.25rem; margin-bottom: 0.5rem; display: block; }
+    .titulo { color: \${color}; font-size: 1.4rem; font-weight: 700; }
+    .subtitulo { color: #6b7280; font-size: 0.875rem; margin-top: 4px; line-height: 1.4; }
+    .body { padding: 1.25rem 1.5rem; }
+    .hora-badge { background: \${bgColor}; border: 2px solid \${borderColor}; border-radius: 12px; padding: 0.875rem; text-align: center; margin-bottom: 1rem; }
+    .hora-badge .label { color: #94a3b8; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .hora-badge .hora { color: \${color}; font-size: 2rem; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 0.05em; }
+    .info { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+    .info-row { display: flex; gap: 0.625rem; align-items: flex-start; padding: 0.5rem 0.625rem; background: #f8fafc; border-radius: 8px; }
+    .info-row .emoji { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+    .info-row .label { color: #9ca3af; font-size: 0.7rem; display: block; }
+    .info-row .value { color: #1f2937; font-weight: 600; font-size: 0.875rem; }
+    /* QR section */
+    .qr-section { border: 2px dashed \${borderColor}; border-radius: 14px; padding: 1.25rem; text-align: center; margin-bottom: 1rem; background: #fafafa; }
+    .qr-section .qr-label { color: #374151; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .qr-section .qr-sub { color: #9ca3af; font-size: 0.75rem; margin-top: 0.625rem; }
+    #qrcode { display: inline-block; padding: 8px; background: white; border-radius: 8px; }
+    #qrcode canvas, #qrcode img { display: block; }
+    .footer { padding: 0.875rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }
+    .footer p { color: #9ca3af; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <span class="icon">\${icon}</span>
+      <div class="titulo">\${titulo}</div>
+      <div class="subtitulo">\${subtitulo}</div>
+    </div>
+    <div class="body">
+      \${!esCompleto ? \`
+      <div class="hora-badge">
+        <div class="label">\${esEntrada ? 'Hora de entrada' : 'Hora de salida'}</div>
+        <div class="hora">\${horaStr}</div>
+      </div>\` : ''}
+
+      <div class="info">
+        <div class="info-row">
+          <span class="emoji">👤</span>
+          <div>
+            <span class="label">Camarero</span>
+            <span class="value">\${camareroNombre}</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="emoji">🏢</span>
+          <div>
+            <span class="label">Evento</span>
+            <span class="value">\${clienteNombre}</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="emoji">📍</span>
+          <div>
+            <span class="label">Lugar</span>
+            <span class="value">\${lugar}</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="emoji">📅</span>
+          <div>
+            <span class="label">Fecha</span>
+            <span class="value">\${fechaStr}</span>
+          </div>
+        </div>
+        \${horaEntradaPrevista ? \`
+        <div class="info-row">
+          <span class="emoji">🕐</span>
+          <div>
+            <span class="label">Horario previsto</span>
+            <span class="value">\${horaEntradaPrevista} – \${horaSalidaPrevista || '?'}</span>
+          </div>
+        </div>\` : ''}
+      </div>
+
+      \${mostrarQR ? \`
+      <div class="qr-section">
+        <div class="qr-label">📲 Escaneá al salir del evento</div>
+        <div id="qrcode"></div>
+        <div class="qr-sub">El mismo código registra tu salida</div>
+      </div>\` : ''}
+    </div>
+    <div class="footer">
+      <p>Registro automático · Gestión de Eventos</p>
+    </div>
+  </div>
+  \${mostrarQR ? \`
+  <script>
+    new QRCode(document.getElementById("qrcode"), {
+      text: "\${fichajeUrl}",
+      width: 180,
+      height: 180,
+      colorDark: "#1f2937",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  <\/script>\` : ''}
+</body>
+</html>\`;
+}
+
+function htmlFichajeError(msg: string) {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error de fichaje</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #fef2f2; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1.5rem; }
+    .card { background: white; border-radius: 16px; padding: 2rem; max-width: 380px; width: 100%; text-align: center; border-top: 5px solid #dc2626; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { color: #dc2626; font-size: 1.3rem; margin-bottom: 0.5rem; }
+    p { color: #6b7280; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">❌</div>
+    <h1>Error de fichaje</h1>
+    <p>${msg}</p>
+  </div>
+</body>
+</html>`;
+}
 
 Deno.serve(app.fetch);

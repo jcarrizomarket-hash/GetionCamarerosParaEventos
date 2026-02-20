@@ -31,7 +31,8 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     notas: '',
     // NUEVO: Coordinador del evento para chats grupales
     coordinadorId: '',
-    coordinadorNombre: ''
+    coordinadorNombre: '',
+    webhookNominas: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -217,6 +218,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       catering: pedido.catering,
       camisa: pedido.camisa,
       notas: pedido.notas || '',
+      webhookNominas: pedido.webhookNominas || '',
       // NUEVO: Coordinador del evento para chats grupales
       coordinadorId: pedido.coordinadorId || '',
       coordinadorNombre: pedido.coordinadorNombre || ''
@@ -743,6 +745,22 @@ _Por favor confirme recepción de este mensaje._`;
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Información adicional..."
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Webhook Nóminas
+                      <span className="ml-2 text-xs text-gray-400 font-normal">(opcional — URL para enviar fichajes automáticamente a tu sistema de nóminas)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.webhookNominas}
+                      onChange={(e) => setFormData({...formData, webhookNominas: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      placeholder="https://tusistema.com/api/webhooks/fichajes"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Al registrar la salida del camarero por QR, se enviará un POST con los datos de fichaje a esta URL.
+                    </p>
                   </div>
                 </div>
 

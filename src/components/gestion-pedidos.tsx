@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search, Bell } from 'lucide-react';
+import { PanelFichajes } from './panel-fichajes';
 
 // v1.1.0 - Polling automático + notificaciones de estado en tiempo real
 interface GestionPedidosProps {
@@ -1280,6 +1281,17 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
           </div>
         </div>
 
+      </div>
+
+      {/* --- FICHAJES DEL EVENTO --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mt-6">
+        <PanelFichajes
+          pedido={selectedPedido}
+          camareros={camareros}
+          baseUrl={baseUrl}
+          publicAnonKey={publicAnonKey}
+          soloLectura={esSoloLectura(selectedPedido)}
+        />
       </div>
 
       {/* --- TABLA DETALLE (FILTRADA PARA EL EVENTO) --- */}

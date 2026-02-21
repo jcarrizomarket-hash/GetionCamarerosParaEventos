@@ -2825,17 +2825,24 @@ Deno.serve(app.fetch);
 // ================================================================
 // CHATBOT WHATSAPP — COMUNICACIÓN CON CLIENTES
 // ================================================================
+// Menú principal:
+//   1 → Solicitud de pedido (wizard por pasos)
+//   2 → Contactar coordinador (derivación directa por teléfono)
+//   3 → Comentario sobre evento (lista eventos pasados/futuros)
+//   0 / "menu" / "hola" → reiniciar siempre
+// ================================================================
 
 const MENU_PRINCIPAL = `👋 ¡Hola! Soy el asistente de *Gestión de Eventos*.
 
 ¿En qué puedo ayudarte?
 
-*1️⃣* — Solicitar presupuesto / nuevo pedido
-*2️⃣* — Contactar con tu coordinador
-*3️⃣* — Dejar un comentario sobre un evento
+*1* — Solicitar un nuevo pedido
+*2* — Contactar con tu coordinador
+*3* — Dejar un comentario sobre un evento
 
 Responde con el número de la opción.`;
 
+// ── Enviar mensaje WhatsApp (texto libre) ──
 async function enviarWA(telefono: string, texto: string) {
   const apiKey  = Deno.env.get('WHATSAPP_API_KEY');
   const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
@@ -2845,12 +2852,38 @@ async function enviarWA(telefono: string, texto: string) {
   const res = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', to: num, type: 'text', text: { body: texto, preview_url: false } })
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', to: num, type: 'text',
+      text: { body: texto, preview_url: false }
+    })
   });
-  if (!res.ok) console.error('WA error:', await res.text());
+  if (!res.ok) console.error('WA send error:', await res.text());
+  else console.error(`✅ WA → ${num}`);
 }
 
-// Verificación Meta
+// ── Buscar cliente por teléfono ──
+async function buscarClientePorTel(telefono: string): Promise<any | null> {
+  const clientes = await kv.getByPrefix('cliente:');
+  const num = telefono.replace(/\D/g, '');
+  return clientes.find((c: any) => {
+    const t1 = (c.telefono1 || '').replace(/\D/g, '');
+    const t2 = (c.telefono2 || '').replace(/\D/g, '');
+    return t1 === num || t2 === num || t1.slice(-9) === num.slice(-9) || t2.slice(-9) === num.slice(-9);
+  }) || null;
+}
+
+// ── Buscar coordinador del cliente (pedido más reciente) ──
+async function buscarCoordinadorCliente(clienteNombre: string): Promise<{ coordinadorId: string; coordinador: any; pedido: any } | null> {
+  const pedidos = await kv.getByPrefix('pedido:');
+  const pedido = pedidos
+    .filter((p: any) => p.cliente === clienteNombre && p.coordinadorId)
+    .sort((a: any, b: any) => new Date(b.diaEvento).getTime() - new Date(a.diaEvento).getTime())[0];
+  if (!pedido) return null;
+  const coordinador = await kv.get(pedido.coordinadorId);
+  return coordinador ? { coordinadorId: pedido.coordinadorId, coordinador, pedido } : null;
+}
+
+// ── Verificación del webhook Meta ──
 app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
   const mode      = c.req.query('hub.mode');
   const token     = c.req.query('hub.verify_token');
@@ -2863,7 +2896,7 @@ app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
   return c.text('Forbidden', 403);
 });
 
-// Recepción de mensajes
+// ── Recepción de mensajes entrantes ──
 app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
   try {
     const body     = await c.req.json();
@@ -2872,14 +2905,14 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
 
     const telefono = msg.from;
     const textoRaw = (msg.text?.body || '').trim();
-    const texto    = textoRaw.toLowerCase();
+    const texto    = textoRaw.toLowerCase().trim();
     console.error(`📥 WA de ${telefono}: "${textoRaw}"`);
 
     const sesionKey = `chatbot-sesion:${telefono}`;
     const sesion    = await kv.get(sesionKey) || { paso: 'menu' };
     const save      = async (datos: any) => kv.set(sesionKey, { ...datos, ts: Date.now() });
 
-    // Comandos globales → menú
+    // Comandos globales → volver al menú siempre
     if (['0','menu','hola','hi','inicio','start','ayuda','help'].includes(texto)) {
       await save({ paso: 'menu' });
       await enviarWA(telefono, MENU_PRINCIPAL);
@@ -2887,17 +2920,31 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     }
 
     switch (sesion.paso) {
+
+      // ══════════════════════════════════════════
+      // MENÚ PRINCIPAL
+      // ══════════════════════════════════════════
       case 'menu':
       default: {
         if (texto === '1') {
-          await save({ paso: 'pedido_tipo' });
-          await enviarWA(telefono, `📋 *Solicitud de presupuesto*\n\n¿Para qué tipo de evento necesitás el servicio?\n_(Ej: boda, cena corporativa, cóctel...)_`);
+          await save({ paso: 'pedido_cliente' });
+          await enviarWA(telefono,
+            `📋 *Nuevo pedido*\n\n` +
+            `Vamos a registrar tu solicitud paso a paso.\n\n` +
+            `¿Cuál es el *nombre de tu empresa o cliente*?`
+          );
         } else if (texto === '2') {
-          await save({ paso: 'coordinador_buscando' });
-          await chatbotContactarCoordinador(telefono, sesionKey);
+          await save({ paso: 'coordinador_derivando' });
+          await chatbotDerivacionCoordinador(telefono, sesionKey);
         } else if (texto === '3') {
-          await save({ paso: 'comentario_evento' });
-          await enviarWA(telefono, `💬 *Comentarios sobre un evento*\n\n¿A qué empresa o evento querés referirte?`);
+          await save({ paso: 'comentario_tipo' });
+          await enviarWA(telefono,
+            `💬 *Comentario sobre un evento*\n\n` +
+            `¿El evento es pasado o futuro?\n\n` +
+            `*1* — Evento pasado\n` +
+            `*2* — Evento futuro\n\n` +
+            `_(Escribe 0 para volver al menú)_`
+          );
         } else {
           await save({ paso: 'menu' });
           await enviarWA(telefono, `No entendí tu respuesta. 😊\n\n${MENU_PRINCIPAL}`);
@@ -2905,138 +2952,351 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
         break;
       }
 
-      // Flujo 1: Pedido
-      case 'pedido_tipo': {
-        await save({ paso: 'pedido_fecha', tipoEvento: textoRaw });
-        await enviarWA(telefono, `📅 ¿Cuál es la *fecha del evento*?\n_(Ej: 15 de marzo de 2025)_`);
-        break;
-      }
-      case 'pedido_fecha': {
-        await save({ ...sesion, paso: 'pedido_lugar', fechaEvento: textoRaw });
-        await enviarWA(telefono, `📍 ¿Cuál es el *lugar / dirección* del evento?`);
+      // ══════════════════════════════════════════
+      // FLUJO 1: PEDIDO (campos exactos solicitados)
+      // ══════════════════════════════════════════
+
+      case 'pedido_cliente': {
+        await save({ paso: 'pedido_lugar', cliente: textoRaw });
+        await enviarWA(telefono, `📍 ¿Cuál es el *lugar del evento*?\n_(Nombre del local o espacio)_`);
         break;
       }
       case 'pedido_lugar': {
-        await save({ ...sesion, paso: 'pedido_cantidad', lugarEvento: textoRaw });
-        await enviarWA(telefono, `👥 ¿Cuántos *camareros* necesitás aproximadamente?`);
+        await save({ ...sesion, paso: 'pedido_ubicacion', lugarEvento: textoRaw });
+        await enviarWA(telefono,
+          `🗺 ¿Cuál es la *ubicación del evento*?\n\n` +
+          `Por favor pegá el link de Google Maps.\n` +
+          `_(Abrí Google Maps, buscá la dirección y copiá el enlace)_`
+        );
         break;
       }
-      case 'pedido_cantidad': {
-        await save({ ...sesion, paso: 'pedido_horario', cantidadCamareros: textoRaw });
-        await enviarWA(telefono, `🕐 ¿Cuál es el *horario del servicio*?\n_(Ej: 19:00 a 01:00)_`);
+      case 'pedido_ubicacion': {
+        await save({ ...sesion, paso: 'pedido_dia', ubicacion: textoRaw });
+        await enviarWA(telefono,
+          `📅 ¿Cuál es el *día del evento*?\n\n` +
+          `_(Ej: 15 de marzo de 2025 o 15/03/2025)_`
+        );
         break;
       }
-      case 'pedido_horario': {
-        await save({ ...sesion, paso: 'pedido_contacto', horario: textoRaw });
-        await enviarWA(telefono, `📞 ¿Cuál es tu *nombre* y *email* para enviarte el presupuesto?`);
+      case 'pedido_dia': {
+        await save({ ...sesion, paso: 'pedido_hora_entrada1', diaEvento: textoRaw });
+        await enviarWA(telefono,
+          `🕐 ¿Cuál es la *hora de entrada del primer turno*?\n_(Ej: 19:00)_`
+        );
         break;
       }
-      case 'pedido_contacto': {
+      case 'pedido_hora_entrada1': {
+        await save({ ...sesion, paso: 'pedido_hora_entrada2', horaEntrada1: textoRaw });
+        await enviarWA(telefono,
+          `🕑 ¿Hay un *segundo turno de entrada*?\n\n` +
+          `Si lo hay, indicá la hora. Si no, escribe *no*.`
+        );
+        break;
+      }
+      case 'pedido_hora_entrada2': {
+        const tieneSegundoTurno = !['no','n','ninguno','no hay'].includes(texto);
+        await save({ ...sesion, paso: 'pedido_camisa', horaEntrada2: tieneSegundoTurno ? textoRaw : '' });
+        await enviarWA(telefono,
+          `👔 ¿Color de *camisa* para el servicio?\n\n` +
+          `*1* — Negra\n` +
+          `*2* — Blanca`
+        );
+        break;
+      }
+      case 'pedido_camisa': {
+        const camisa = texto === '2' ? 'blanca' : 'negra';
+        await save({ ...sesion, paso: 'pedido_barcelona', camisa });
+        await enviarWA(telefono,
+          `📍 ¿El evento es *dentro de Barcelona ciudad*?\n\n` +
+          `*1* — Sí\n` +
+          `*2* — No`
+        );
+        break;
+      }
+      case 'pedido_barcelona': {
+        const enBarcelona = texto === '1' || texto === 'si' || texto === 'sí';
+        await save({ ...sesion, paso: 'pedido_notas', enBarcelona });
+        await enviarWA(telefono,
+          `📝 ¿Alguna *nota adicional*?\n\n` +
+          `_(Detalles especiales, instrucciones, alergias, dress code extra...)_\n\n` +
+          `Si no tenés notas, escribe *no*.`
+        );
+        break;
+      }
+      case 'pedido_notas': {
+        const notas = ['no','n','ninguna','sin notas'].includes(texto) ? '' : textoRaw;
+
+        // Guardar solicitud completa
         const solicitudId = `solicitud-chatbot:${Date.now()}`;
         const solicitud = {
-          id: solicitudId, telefonoCliente: telefono,
-          tipoEvento: sesion.tipoEvento, fechaEvento: sesion.fechaEvento,
-          lugarEvento: sesion.lugarEvento, cantidadCamareros: sesion.cantidadCamareros,
-          horario: sesion.horario, contacto: textoRaw,
-          creadoEn: new Date().toISOString(), estado: 'pendiente', origen: 'chatbot_whatsapp',
+          id: solicitudId,
+          telefonoCliente: telefono,
+          cliente:        sesion.cliente,
+          lugarEvento:    sesion.lugarEvento,
+          ubicacion:      sesion.ubicacion,
+          diaEvento:      sesion.diaEvento,
+          horaEntrada1:   sesion.horaEntrada1,
+          horaEntrada2:   sesion.horaEntrada2 || '',
+          camisa:         sesion.camisa,
+          enBarcelona:    sesion.enBarcelona,
+          notas,
+          creadoEn:       new Date().toISOString(),
+          estado:         'pendiente',
+          origen:         'chatbot_whatsapp',
         };
         await kv.set(solicitudId, solicitud);
-        // Notificar coordinadores
-        const coords = await kv.getByPrefix('coordinador:');
-        const msgCoords = `🆕 NUEVA SOLICITUD VÍA CHATBOT\n\n📋 Evento: ${solicitud.tipoEvento}\n📅 Fecha: ${solicitud.fechaEvento}\n📍 Lugar: ${solicitud.lugarEvento}\n👥 Camareros: ${solicitud.cantidadCamareros}\n🕐 Horario: ${solicitud.horario}\n📞 Contacto: ${solicitud.contacto}\n📱 WhatsApp: +${telefono}`;
-        for (const co of coords) { if (co?.id) notificarCoordinador(co.id, msgCoords).catch(() => {}); }
+
+        // Notificar a todos los coordinadores
+        const coordsAll = await kv.getByPrefix('coordinador:');
+        const msgNuevaSol =
+          `🆕 NUEVA SOLICITUD VÍA WHATSAPP\n\n` +
+          `👤 Cliente: ${solicitud.cliente}\n` +
+          `📍 Lugar: ${solicitud.lugarEvento}\n` +
+          `🗺 Ubicación: ${solicitud.ubicacion}\n` +
+          `📅 Día: ${solicitud.diaEvento}\n` +
+          `🕐 Entrada 1: ${solicitud.horaEntrada1}\n` +
+          (solicitud.horaEntrada2 ? `🕑 Entrada 2: ${solicitud.horaEntrada2}\n` : '') +
+          `👔 Camisa: ${solicitud.camisa}\n` +
+          `📍 Barcelona: ${solicitud.enBarcelona ? 'Sí' : 'No'}\n` +
+          (notas ? `📝 Notas: ${notas}\n` : '') +
+          `📱 WhatsApp: +${telefono}`;
+        for (const co of coordsAll) { if (co?.id) notificarCoordinador(co.id, msgNuevaSol).catch(() => {}); }
+
         await save({ paso: 'menu' });
         await enviarWA(telefono,
-          `✅ *¡Solicitud registrada!*\n\n📋 ${sesion.tipoEvento}\n📅 ${sesion.fechaEvento}\n📍 ${sesion.lugarEvento}\n👥 ${sesion.cantidadCamareros} camareros\n🕐 ${sesion.horario}\n\nUn coordinador te contactará pronto.\n\nRespondé *0* para volver al menú.`
+          `✅ *¡Solicitud registrada correctamente!*\n\n` +
+          `📋 *Resumen:*\n` +
+          `👤 ${solicitud.cliente}\n` +
+          `📍 ${solicitud.lugarEvento}\n` +
+          `📅 ${solicitud.diaEvento}\n` +
+          `🕐 Entrada: ${solicitud.horaEntrada1}` +
+          (solicitud.horaEntrada2 ? ` / ${solicitud.horaEntrada2}` : '') + `\n` +
+          `👔 Camisa ${solicitud.camisa}\n` +
+          `📍 Barcelona: ${solicitud.enBarcelona ? 'Sí' : 'No'}\n\n` +
+          `Un coordinador se pondrá en contacto contigo en breve.\n\n` +
+          `Escribe *0* para volver al menú.`
         );
         break;
       }
 
-      // Flujo 2: Coordinador
-      case 'coordinador_buscando': {
-        // Llegó mensaje adicional después de la derivación
+      // ══════════════════════════════════════════
+      // FLUJO 2: COORDINADOR (derivación directa)
+      // manejado por chatbotDerivacionCoordinador()
+      // ══════════════════════════════════════════
+      case 'coordinador_derivando': {
+        // No debería llegar aquí — la función maneja el estado
         await save({ paso: 'menu' });
-        await enviarWA(telefono, `Tu coordinador fue notificado. Respondé *0* para el menú.`);
         break;
       }
 
-      // Flujo 3: Comentario
-      case 'comentario_evento': {
-        await save({ ...sesion, paso: 'comentario_texto', nombreEvento: textoRaw });
-        await enviarWA(telefono, `✍️ Escribí tu comentario o valoración sobre *"${textoRaw}"*.\n\nTodo feedback nos ayuda a mejorar.`);
+      // ══════════════════════════════════════════
+      // FLUJO 3: COMENTARIO CON LISTA DE EVENTOS
+      // ══════════════════════════════════════════
+
+      case 'comentario_tipo': {
+        // El cliente eligió tipo: 1=pasado, 2=futuro
+        if (texto !== '1' && texto !== '2') {
+          await enviarWA(telefono, `Por favor respondé *1* para evento pasado o *2* para evento futuro.\n\nEscribí *0* para volver al menú.`);
+          break;
+        }
+        const esPasado = texto === '1';
+        await save({ ...sesion, paso: 'comentario_lista', tipoPeriodo: esPasado ? 'pasado' : 'futuro' });
+        await chatbotMostrarEventos(telefono, sesionKey, sesion, esPasado);
         break;
       }
+
+      case 'comentario_lista': {
+        // El cliente eligió un número de evento de la lista
+        const idx = parseInt(textoRaw) - 1;
+        const eventos: any[] = sesion.eventosLista || [];
+        if (isNaN(idx) || idx < 0 || idx >= eventos.length) {
+          const lista = eventos.map((e: any, i: number) => `*${i+1}* — ${new Date(e.diaEvento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} · ${e.cliente}`).join('\n');
+          await enviarWA(telefono,
+            `Por favor respondé con el *número* del evento.\n\n${lista}\n\nEscribí *0* para volver al menú.`
+          );
+          break;
+        }
+        const eventoElegido = eventos[idx];
+        await save({ ...sesion, paso: 'comentario_texto', eventoElegido });
+        const fechaStr = new Date(eventoElegido.diaEvento).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        await enviarWA(telefono,
+          `📝 *${eventoElegido.cliente}* — ${fechaStr}\n\n` +
+          `Escribí tu comentario o valoración sobre este evento.\n\n` +
+          `_(Podés incluir aspectos positivos, mejoras, sugerencias...)_`
+        );
+        break;
+      }
+
       case 'comentario_texto': {
         const comentarioId = `comentario-chatbot:${Date.now()}`;
-        await kv.set(comentarioId, {
-          id: comentarioId, telefonoCliente: telefono,
-          nombreEvento: sesion.nombreEvento, comentario: textoRaw,
-          creadoEn: new Date().toISOString(), leido: false, origen: 'chatbot_whatsapp',
-        });
-        // Notificar coordinadores
-        const coords2 = await kv.getByPrefix('coordinador:');
-        const msgComment = `💬 COMENTARIO DE CLIENTE\n\nEvento: ${sesion.nombreEvento}\nDe: +${telefono}\n\n"${textoRaw}"`;
-        for (const co of coords2) { if (co?.id) notificarCoordinador(co.id, msgComment).catch(() => {}); }
+        const evento = sesion.eventoElegido || {};
+        const comentario = {
+          id: comentarioId,
+          telefonoCliente: telefono,
+          pedidoId:        evento.id || '',
+          nombreEvento:    evento.cliente || 'Desconocido',
+          lugarEvento:     evento.lugar || '',
+          diaEvento:       evento.diaEvento || '',
+          coordinadorId:   evento.coordinadorId || '',
+          comentario:      textoRaw,
+          tipoPeriodo:     sesion.tipoPeriodo || 'pasado',
+          creadoEn:        new Date().toISOString(),
+          leido:           false,
+          origen:          'chatbot_whatsapp',
+        };
+        await kv.set(comentarioId, comentario);
+
+        // Notificar al coordinador asignado al evento (si existe)
+        if (evento.coordinadorId) {
+          const fechaStr = new Date(evento.diaEvento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+          await notificarCoordinador(evento.coordinadorId,
+            `💬 NUEVO COMENTARIO DE CLIENTE\n\n` +
+            `📋 Evento: ${evento.cliente}\n` +
+            `📅 Fecha: ${fechaStr}\n` +
+            `📍 Lugar: ${evento.lugar || ''}\n` +
+            `📱 De: +${telefono}\n\n` +
+            `"${textoRaw}"`
+          ).catch(() => {});
+        } else {
+          // Si no hay coordinador, notificar a todos
+          const coordsAll = await kv.getByPrefix('coordinador:');
+          for (const co of coordsAll) { if (co?.id) notificarCoordinador(co.id, `💬 Comentario de cliente: "${textoRaw}"`).catch(() => {}); }
+        }
+
         await save({ paso: 'menu' });
-        await enviarWA(telefono, `🙏 *¡Gracias por tu comentario!*\n\nTu opinión es muy valiosa.\n\nRespondé *0* para volver al menú.`);
+        await enviarWA(telefono,
+          `🙏 *¡Gracias por tu comentario!*\n\n` +
+          `Tu opinión sobre *${evento.cliente || 'el evento'}* fue enviada al coordinador.\n\n` +
+          `Escribí *0* para volver al menú.`
+        );
         break;
       }
     }
 
     return c.json({ status: 'ok' });
   } catch (error) {
-    console.error('Error en webhook WA:', error);
+    console.error('❌ Error en webhook WA:', error);
     return c.json({ status: 'error' }, 500);
   }
 });
 
-// Contactar coordinador del último evento
-async function chatbotContactarCoordinador(telefono: string, sesionKey: string) {
+// ── Helper: derivación directa al coordinador ──
+async function chatbotDerivacionCoordinador(telefono: string, sesionKey: string) {
   try {
-    const clientes = await kv.getByPrefix('cliente:');
-    const pedidos  = await kv.getByPrefix('pedido:');
-    const numLimpio = telefono.replace(/\D/g, '');
-    const cliente = clientes.find((c: any) => {
-      const t1 = (c.telefono1 || '').replace(/\D/g, '');
-      const t2 = (c.telefono2 || '').replace(/\D/g, '');
-      return t1 === numLimpio || t2 === numLimpio || t1.slice(-9) === numLimpio.slice(-9) || t2.slice(-9) === numLimpio.slice(-9);
-    });
+    const cliente = await buscarClientePorTel(telefono);
     if (!cliente) {
       await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
-      await enviarWA(telefono, `No encontramos tu número en nuestra base de datos. Por favor contactanos directamente o escribí *0* para volver al menú.`);
+      await enviarWA(telefono,
+        `No encontramos tu número en nuestra base de datos.\n\n` +
+        `Por favor contactanos directamente.\n\n` +
+        `Escribe *0* para volver al menú.`
+      );
       return;
     }
-    const ultimoPedido = pedidos
-      .filter((p: any) => p.cliente === cliente.nombre && p.coordinadorId)
-      .sort((a: any, b: any) => new Date(b.diaEvento).getTime() - new Date(a.diaEvento).getTime())[0];
-    if (!ultimoPedido) {
+    const resultado = await buscarCoordinadorCliente(cliente.nombre);
+    if (!resultado) {
       await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
-      await enviarWA(telefono, `No encontramos eventos asociados a tu número. Respondé *0* para volver al menú.`);
+      await enviarWA(telefono,
+        `No encontramos un coordinador asignado a tus eventos.\n` +
+        `Escribe *0* para volver al menú.`
+      );
       return;
     }
-    const coordinador = await kv.get(ultimoPedido.coordinadorId);
-    await notificarCoordinador(ultimoPedido.coordinadorId,
-      `📱 CONTACTO VÍA CHATBOT\n\nCliente: ${cliente.nombre}\nWhatsApp: +${telefono}\nÚltimo evento: ${ultimoPedido.cliente} — ${new Date(ultimoPedido.diaEvento).toLocaleDateString('es-ES')}\n\nEl cliente quiere hablar con vos.`
+    const { coordinadorId, coordinador, pedido } = resultado;
+    const fechaEvento = new Date(pedido.diaEvento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Notificar al coordinador con todos los datos del cliente
+    await notificarCoordinador(coordinadorId,
+      `📱 CLIENTE QUIERE CONTACTARTE (VÍA CHATBOT)\n\n` +
+      `👤 Cliente: ${cliente.nombre}\n` +
+      `📱 WhatsApp: +${telefono}\n` +
+      `📋 Último evento: ${pedido.cliente} — ${fechaEvento}\n\n` +
+      `El cliente solicitó contacto contigo desde el chatbot. Podés escribirle directamente a este número.`
     );
+
     await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
-    await enviarWA(telefono, `📞 *Tu coordinador ${coordinador?.nombre || ''} fue notificado.*\n\nTe contactará a la brevedad.\n\nRespondé *0* para volver al menú.`);
+    await enviarWA(telefono,
+      `📞 *¡Listo!*\n\n` +
+      `Tu coordinador *${coordinador.nombre}* fue notificado y se pondrá en contacto contigo a la brevedad.\n\n` +
+      `Escribe *0* si necesitás algo más.`
+    );
   } catch (e) {
-    console.error('Error contactando coordinador:', e);
+    console.error('Error en derivación coordinador:', e);
     await enviarWA(telefono, `Ocurrió un error. Por favor intentá más tarde.`);
   }
 }
 
-// Endpoints para la APP — leer solicitudes y comentarios
+// ── Helper: mostrar lista de eventos del cliente para comentario ──
+async function chatbotMostrarEventos(telefono: string, sesionKey: string, sesion: any, esPasado: boolean) {
+  try {
+    const cliente = await buscarClientePorTel(telefono);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let eventos: any[] = [];
+
+    if (cliente) {
+      // Cliente identificado — mostrar sus eventos específicos
+      const pedidos = await kv.getByPrefix('pedido:');
+      eventos = pedidos
+        .filter((p: any) => {
+          if (p.cliente !== cliente.nombre) return false;
+          const fecha = new Date(p.diaEvento);
+          return esPasado ? fecha < hoy : fecha >= hoy;
+        })
+        .sort((a: any, b: any) => {
+          const da = new Date(a.diaEvento).getTime();
+          const db = new Date(b.diaEvento).getTime();
+          return esPasado ? db - da : da - db; // pasados: más reciente primero; futuros: próximo primero
+        })
+        .slice(0, 10);
+    }
+
+    if (eventos.length === 0) {
+      const tipoTexto = esPasado ? 'pasados' : 'futuros';
+      await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
+      await enviarWA(telefono,
+        `No encontramos eventos ${tipoTexto} asociados a tu número.\n\n` +
+        `Escribe *0* para volver al menú.`
+      );
+      return;
+    }
+
+    // Guardar lista en sesión para validar la respuesta del cliente
+    await kv.set(sesionKey, { ...sesion, paso: 'comentario_lista', eventosLista: eventos, ts: Date.now() });
+
+    const tipoLabel = esPasado ? 'pasados' : 'próximos';
+    const lista = eventos
+      .map((e: any, i: number) => {
+        const fecha = new Date(e.diaEvento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+        return `*${i + 1}* — ${fecha}\n     ${e.cliente}${e.lugar ? ` · ${e.lugar}` : ''}`;
+      })
+      .join('\n\n');
+
+    await enviarWA(telefono,
+      `📋 *Tus eventos ${tipoLabel}:*\n\n${lista}\n\n` +
+      `Respondé con el *número* del evento sobre el que querés dejar un comentario.\n\n` +
+      `Escribe *0* para volver al menú.`
+    );
+  } catch (e) {
+    console.error('Error mostrando eventos:', e);
+    await enviarWA(telefono, `Ocurrió un error al cargar los eventos. Intentá más tarde.`);
+  }
+}
+
+// ── Endpoints para la APP — leer solicitudes y comentarios ──
 app.get('/make-server-25b11ac0/chatbot-solicitudes', async (c) => {
   try {
-    const data = (await kv.getByPrefix('solicitud-chatbot:')).sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    const data = (await kv.getByPrefix('solicitud-chatbot:'))
+      .sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
     return c.json({ success: true, data });
   } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
 });
 
 app.get('/make-server-25b11ac0/chatbot-comentarios', async (c) => {
   try {
-    const data = (await kv.getByPrefix('comentario-chatbot:')).sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    const data = (await kv.getByPrefix('comentario-chatbot:'))
+      .sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
     return c.json({ success: true, data });
   } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
 });
@@ -3063,3 +3323,5 @@ app.put('/make-server-25b11ac0/chatbot-comentarios/:id', async (c) => {
     return c.json({ success: true, data: updated });
   } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
 });
+
+Deno.serve(app.fetch);

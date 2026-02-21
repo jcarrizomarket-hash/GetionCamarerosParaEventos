@@ -2683,7 +2683,7 @@ function htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr,
   // Solo mostrar el QR en la pantalla de entrada — para que vuelvan a escanearlo al salir
   const mostrarQR = esEntrada && fichajeUrl;
 
-  return \`<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2725,11 +2725,11 @@ function htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr,
       <div class="subtitulo">\${subtitulo}</div>
     </div>
     <div class="body">
-      \${!esCompleto ? \`
+      \${!esCompleto ? `
       <div class="hora-badge">
         <div class="label">\${esEntrada ? 'Hora de entrada' : 'Hora de salida'}</div>
         <div class="hora">\${horaStr}</div>
-      </div>\` : ''}
+      </div>` : ''}
 
       <div class="info">
         <div class="info-row">
@@ -2760,28 +2760,28 @@ function htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr,
             <span class="value">\${fechaStr}</span>
           </div>
         </div>
-        \${horaEntradaPrevista ? \`
+        \${horaEntradaPrevista ? `
         <div class="info-row">
           <span class="emoji">🕐</span>
           <div>
             <span class="label">Horario previsto</span>
             <span class="value">\${horaEntradaPrevista} – \${horaSalidaPrevista || '?'}</span>
           </div>
-        </div>\` : ''}
+        </div>` : ''}
       </div>
 
-      \${mostrarQR ? \`
+      \${mostrarQR ? `
       <div class="qr-section">
         <div class="qr-label">📲 Escaneá al salir del evento</div>
         <div id="qrcode"></div>
         <div class="qr-sub">El mismo código registra tu salida</div>
-      </div>\` : ''}
+      </div>` : ''}
     </div>
     <div class="footer">
       <p>Registro automático · Gestión de Eventos</p>
     </div>
   </div>
-  \${mostrarQR ? \`
+  \${mostrarQR ? `
   <script>
     new QRCode(document.getElementById("qrcode"), {
       text: "\${fichajeUrl}",
@@ -2791,9 +2791,9 @@ function htmlFichajeOk({ accion, camareroNombre, clienteNombre, lugar, fechaStr,
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.M
     });
-  <\/script>\` : ''}
+  <\/script>` : ''}
 </body>
-</html>\`;
+</html>`;
 }
 
 function htmlFichajeError(msg: string) {

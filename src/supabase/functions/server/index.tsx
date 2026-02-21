@@ -2822,3 +2822,244 @@ function htmlFichajeError(msg: string) {
 }
 
 Deno.serve(app.fetch);
+// ================================================================
+// CHATBOT WHATSAPP — COMUNICACIÓN CON CLIENTES
+// ================================================================
+
+const MENU_PRINCIPAL = `👋 ¡Hola! Soy el asistente de *Gestión de Eventos*.
+
+¿En qué puedo ayudarte?
+
+*1️⃣* — Solicitar presupuesto / nuevo pedido
+*2️⃣* — Contactar con tu coordinador
+*3️⃣* — Dejar un comentario sobre un evento
+
+Responde con el número de la opción.`;
+
+async function enviarWA(telefono: string, texto: string) {
+  const apiKey  = Deno.env.get('WHATSAPP_API_KEY');
+  const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+  if (!apiKey || !phoneId) { console.error('WhatsApp no configurado'); return; }
+  let num = telefono.replace(/\D/g, '');
+  if (num.length === 9) num = '34' + num;
+  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', to: num, type: 'text', text: { body: texto, preview_url: false } })
+  });
+  if (!res.ok) console.error('WA error:', await res.text());
+}
+
+// Verificación Meta
+app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
+  const mode      = c.req.query('hub.mode');
+  const token     = c.req.query('hub.verify_token');
+  const challenge = c.req.query('hub.challenge');
+  const expected  = Deno.env.get('WHATSAPP_VERIFY_TOKEN') || 'gestion-eventos-verify';
+  if (mode === 'subscribe' && token === expected) {
+    console.error('✅ WhatsApp webhook verificado');
+    return c.text(challenge || '', 200);
+  }
+  return c.text('Forbidden', 403);
+});
+
+// Recepción de mensajes
+app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
+  try {
+    const body     = await c.req.json();
+    const msg      = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!msg) return c.json({ status: 'no_message' });
+
+    const telefono = msg.from;
+    const textoRaw = (msg.text?.body || '').trim();
+    const texto    = textoRaw.toLowerCase();
+    console.error(`📥 WA de ${telefono}: "${textoRaw}"`);
+
+    const sesionKey = `chatbot-sesion:${telefono}`;
+    const sesion    = await kv.get(sesionKey) || { paso: 'menu' };
+    const save      = async (datos: any) => kv.set(sesionKey, { ...datos, ts: Date.now() });
+
+    // Comandos globales → menú
+    if (['0','menu','hola','hi','inicio','start','ayuda','help'].includes(texto)) {
+      await save({ paso: 'menu' });
+      await enviarWA(telefono, MENU_PRINCIPAL);
+      return c.json({ status: 'ok' });
+    }
+
+    switch (sesion.paso) {
+      case 'menu':
+      default: {
+        if (texto === '1') {
+          await save({ paso: 'pedido_tipo' });
+          await enviarWA(telefono, `📋 *Solicitud de presupuesto*\n\n¿Para qué tipo de evento necesitás el servicio?\n_(Ej: boda, cena corporativa, cóctel...)_`);
+        } else if (texto === '2') {
+          await save({ paso: 'coordinador_buscando' });
+          await chatbotContactarCoordinador(telefono, sesionKey);
+        } else if (texto === '3') {
+          await save({ paso: 'comentario_evento' });
+          await enviarWA(telefono, `💬 *Comentarios sobre un evento*\n\n¿A qué empresa o evento querés referirte?`);
+        } else {
+          await save({ paso: 'menu' });
+          await enviarWA(telefono, `No entendí tu respuesta. 😊\n\n${MENU_PRINCIPAL}`);
+        }
+        break;
+      }
+
+      // Flujo 1: Pedido
+      case 'pedido_tipo': {
+        await save({ paso: 'pedido_fecha', tipoEvento: textoRaw });
+        await enviarWA(telefono, `📅 ¿Cuál es la *fecha del evento*?\n_(Ej: 15 de marzo de 2025)_`);
+        break;
+      }
+      case 'pedido_fecha': {
+        await save({ ...sesion, paso: 'pedido_lugar', fechaEvento: textoRaw });
+        await enviarWA(telefono, `📍 ¿Cuál es el *lugar / dirección* del evento?`);
+        break;
+      }
+      case 'pedido_lugar': {
+        await save({ ...sesion, paso: 'pedido_cantidad', lugarEvento: textoRaw });
+        await enviarWA(telefono, `👥 ¿Cuántos *camareros* necesitás aproximadamente?`);
+        break;
+      }
+      case 'pedido_cantidad': {
+        await save({ ...sesion, paso: 'pedido_horario', cantidadCamareros: textoRaw });
+        await enviarWA(telefono, `🕐 ¿Cuál es el *horario del servicio*?\n_(Ej: 19:00 a 01:00)_`);
+        break;
+      }
+      case 'pedido_horario': {
+        await save({ ...sesion, paso: 'pedido_contacto', horario: textoRaw });
+        await enviarWA(telefono, `📞 ¿Cuál es tu *nombre* y *email* para enviarte el presupuesto?`);
+        break;
+      }
+      case 'pedido_contacto': {
+        const solicitudId = `solicitud-chatbot:${Date.now()}`;
+        const solicitud = {
+          id: solicitudId, telefonoCliente: telefono,
+          tipoEvento: sesion.tipoEvento, fechaEvento: sesion.fechaEvento,
+          lugarEvento: sesion.lugarEvento, cantidadCamareros: sesion.cantidadCamareros,
+          horario: sesion.horario, contacto: textoRaw,
+          creadoEn: new Date().toISOString(), estado: 'pendiente', origen: 'chatbot_whatsapp',
+        };
+        await kv.set(solicitudId, solicitud);
+        // Notificar coordinadores
+        const coords = await kv.getByPrefix('coordinador:');
+        const msgCoords = `🆕 NUEVA SOLICITUD VÍA CHATBOT\n\n📋 Evento: ${solicitud.tipoEvento}\n📅 Fecha: ${solicitud.fechaEvento}\n📍 Lugar: ${solicitud.lugarEvento}\n👥 Camareros: ${solicitud.cantidadCamareros}\n🕐 Horario: ${solicitud.horario}\n📞 Contacto: ${solicitud.contacto}\n📱 WhatsApp: +${telefono}`;
+        for (const co of coords) { if (co?.id) notificarCoordinador(co.id, msgCoords).catch(() => {}); }
+        await save({ paso: 'menu' });
+        await enviarWA(telefono,
+          `✅ *¡Solicitud registrada!*\n\n📋 ${sesion.tipoEvento}\n📅 ${sesion.fechaEvento}\n📍 ${sesion.lugarEvento}\n👥 ${sesion.cantidadCamareros} camareros\n🕐 ${sesion.horario}\n\nUn coordinador te contactará pronto.\n\nRespondé *0* para volver al menú.`
+        );
+        break;
+      }
+
+      // Flujo 2: Coordinador
+      case 'coordinador_buscando': {
+        // Llegó mensaje adicional después de la derivación
+        await save({ paso: 'menu' });
+        await enviarWA(telefono, `Tu coordinador fue notificado. Respondé *0* para el menú.`);
+        break;
+      }
+
+      // Flujo 3: Comentario
+      case 'comentario_evento': {
+        await save({ ...sesion, paso: 'comentario_texto', nombreEvento: textoRaw });
+        await enviarWA(telefono, `✍️ Escribí tu comentario o valoración sobre *"${textoRaw}"*.\n\nTodo feedback nos ayuda a mejorar.`);
+        break;
+      }
+      case 'comentario_texto': {
+        const comentarioId = `comentario-chatbot:${Date.now()}`;
+        await kv.set(comentarioId, {
+          id: comentarioId, telefonoCliente: telefono,
+          nombreEvento: sesion.nombreEvento, comentario: textoRaw,
+          creadoEn: new Date().toISOString(), leido: false, origen: 'chatbot_whatsapp',
+        });
+        // Notificar coordinadores
+        const coords2 = await kv.getByPrefix('coordinador:');
+        const msgComment = `💬 COMENTARIO DE CLIENTE\n\nEvento: ${sesion.nombreEvento}\nDe: +${telefono}\n\n"${textoRaw}"`;
+        for (const co of coords2) { if (co?.id) notificarCoordinador(co.id, msgComment).catch(() => {}); }
+        await save({ paso: 'menu' });
+        await enviarWA(telefono, `🙏 *¡Gracias por tu comentario!*\n\nTu opinión es muy valiosa.\n\nRespondé *0* para volver al menú.`);
+        break;
+      }
+    }
+
+    return c.json({ status: 'ok' });
+  } catch (error) {
+    console.error('Error en webhook WA:', error);
+    return c.json({ status: 'error' }, 500);
+  }
+});
+
+// Contactar coordinador del último evento
+async function chatbotContactarCoordinador(telefono: string, sesionKey: string) {
+  try {
+    const clientes = await kv.getByPrefix('cliente:');
+    const pedidos  = await kv.getByPrefix('pedido:');
+    const numLimpio = telefono.replace(/\D/g, '');
+    const cliente = clientes.find((c: any) => {
+      const t1 = (c.telefono1 || '').replace(/\D/g, '');
+      const t2 = (c.telefono2 || '').replace(/\D/g, '');
+      return t1 === numLimpio || t2 === numLimpio || t1.slice(-9) === numLimpio.slice(-9) || t2.slice(-9) === numLimpio.slice(-9);
+    });
+    if (!cliente) {
+      await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
+      await enviarWA(telefono, `No encontramos tu número en nuestra base de datos. Por favor contactanos directamente o escribí *0* para volver al menú.`);
+      return;
+    }
+    const ultimoPedido = pedidos
+      .filter((p: any) => p.cliente === cliente.nombre && p.coordinadorId)
+      .sort((a: any, b: any) => new Date(b.diaEvento).getTime() - new Date(a.diaEvento).getTime())[0];
+    if (!ultimoPedido) {
+      await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
+      await enviarWA(telefono, `No encontramos eventos asociados a tu número. Respondé *0* para volver al menú.`);
+      return;
+    }
+    const coordinador = await kv.get(ultimoPedido.coordinadorId);
+    await notificarCoordinador(ultimoPedido.coordinadorId,
+      `📱 CONTACTO VÍA CHATBOT\n\nCliente: ${cliente.nombre}\nWhatsApp: +${telefono}\nÚltimo evento: ${ultimoPedido.cliente} — ${new Date(ultimoPedido.diaEvento).toLocaleDateString('es-ES')}\n\nEl cliente quiere hablar con vos.`
+    );
+    await kv.set(sesionKey, { paso: 'menu', ts: Date.now() });
+    await enviarWA(telefono, `📞 *Tu coordinador ${coordinador?.nombre || ''} fue notificado.*\n\nTe contactará a la brevedad.\n\nRespondé *0* para volver al menú.`);
+  } catch (e) {
+    console.error('Error contactando coordinador:', e);
+    await enviarWA(telefono, `Ocurrió un error. Por favor intentá más tarde.`);
+  }
+}
+
+// Endpoints para la APP — leer solicitudes y comentarios
+app.get('/make-server-25b11ac0/chatbot-solicitudes', async (c) => {
+  try {
+    const data = (await kv.getByPrefix('solicitud-chatbot:')).sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    return c.json({ success: true, data });
+  } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
+});
+
+app.get('/make-server-25b11ac0/chatbot-comentarios', async (c) => {
+  try {
+    const data = (await kv.getByPrefix('comentario-chatbot:')).sort((a: any, b: any) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    return c.json({ success: true, data });
+  } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
+});
+
+app.put('/make-server-25b11ac0/chatbot-solicitudes/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const { estado, nota } = await c.req.json();
+    const sol = await kv.get(id);
+    if (!sol) return c.json({ success: false, error: 'No encontrada' }, 404);
+    const updated = { ...sol, estado: estado || 'gestionada', nota, gestionadaEn: new Date().toISOString() };
+    await kv.set(id, updated);
+    return c.json({ success: true, data: updated });
+  } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
+});
+
+app.put('/make-server-25b11ac0/chatbot-comentarios/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const com = await kv.get(id);
+    if (!com) return c.json({ success: false, error: 'No encontrado' }, 404);
+    const updated = { ...com, leido: true, leidoEn: new Date().toISOString() };
+    await kv.set(id, updated);
+    return c.json({ success: true, data: updated });
+  } catch (e) { return c.json({ success: false, error: String(e) }, 500); }
+});

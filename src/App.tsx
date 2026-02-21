@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, LogOut, Shield, User } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, LogOut, Shield, User, Bot } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -14,6 +14,7 @@ import { SetupWizard } from './components/setup-wizard';
 import { GestionUsuarios } from './components/gestion-usuarios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CambiarPasswordModal } from './components/cambiar-password-modal';
+import { ChatbotPanel } from './components/chatbot-panel';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
 function AppShell() {
@@ -60,6 +61,7 @@ function AppShell() {
     { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare,   roles: ['admin', 'coordinador'] },
     { id: 'envio-parte',   label: 'Envío Parte',   icon: FileCheck,       roles: ['admin', 'coordinador'] },
     { id: 'chat-grupal',   label: 'Chat Grupal',   icon: MessagesSquare,  roles: ['admin', 'coordinador'] },
+    { id: 'chatbot',       label: 'Chatbot WA',    icon: Bot,             roles: ['admin', 'coordinador'] },
     { id: 'configuracion', label: 'Configuración', icon: Settings,        roles: ['admin'] },
     { id: 'usuarios',      label: 'Usuarios',      icon: Shield,          roles: ['admin'] },
   ];
@@ -135,6 +137,7 @@ function AppShell() {
         {activeTab === 'envio-mensaje' && <EnvioMensaje pedidos={pedidos} camareros={camareros} coordinadores={coordinadores} baseUrl={baseUrl} publicAnonKey={publicAnonKey} setPedidos={setPedidos} cargarDatos={cargarDatos} />}
         {activeTab === 'envio-parte' && <EnvioParte pedidos={pedidos} camareros={camareros} coordinadores={coordinadores} clientes={clientes} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} />}
         {activeTab === 'chat-grupal' && <ChatGrupal pedidos={pedidos} camareros={camareros} coordinadores={coordinadores} baseUrl={baseUrl} publicAnonKey={publicAnonKey} cargarDatos={cargarDatos} />}
+        {activeTab === 'chatbot' && <ChatbotPanel baseUrl={baseUrl} publicAnonKey={publicAnonKey} />}
         {activeTab === 'configuracion' && isAdmin && <Configuracion baseUrl={baseUrl} publicAnonKey={publicAnonKey} camareros={camareros} coordinadores={coordinadores} pedidos={pedidos} clientes={clientes} />}
         {activeTab === 'usuarios' && isAdmin && <GestionUsuarios coordinadores={coordinadores} baseUrl={baseUrl} publicAnonKey={publicAnonKey} />}
       </div>

@@ -2821,7 +2821,6 @@ function htmlFichajeError(msg: string) {
 </html>`;
 }
 
-Deno.serve(app.fetch);
 // ================================================================
 // CHATBOT WHATSAPP — COMUNICACIÓN CON CLIENTES
 // ================================================================

@@ -2888,10 +2888,19 @@ app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
   const token     = c.req.query('hub.verify_token');
   const challenge = c.req.query('hub.challenge');
   const expected  = Deno.env.get('WHATSAPP_VERIFY_TOKEN') || 'gestion-eventos-verify';
-  if (mode === 'subscribe' && token === expected) {
-    console.error('✅ WhatsApp webhook verificado');
+  
+  // Debug — ver exactamente qué llega
+  console.error(`🔍 Webhook verify — mode:"${mode}" token:"${token}" expected:"${expected}" challenge:"${challenge}"`);
+  
+  // Comparar limpiando espacios por si acaso
+  const tokenClean    = (token || '').trim();
+  const expectedClean = (expected || '').trim();
+  
+  if (mode === 'subscribe' && tokenClean === expectedClean) {
+    console.error('✅ WhatsApp webhook verificado OK');
     return c.text(challenge || '', 200);
   }
+  console.error(`❌ Verificación fallida — token recibido: "${tokenClean}" esperado: "${expectedClean}"`);
   return c.text('Forbidden', 403);
 });
 

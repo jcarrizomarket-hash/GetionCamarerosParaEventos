@@ -231,7 +231,9 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
     
     try {
-      const response = await fetch(`${baseUrl}/pedidos/${id}`, {
+      // Encodear el id para que los ":" no rompan la URL
+      const idEncoded = encodeURIComponent(id);
+      const response = await fetch(`${baseUrl}/pedidos/${idEncoded}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${publicAnonKey}` }
       });

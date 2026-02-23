@@ -33,9 +33,24 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [horaSalidaTemporal, setHoraSalidaTemporal] = useState({});
   const [debounceTimers, setDebounceTimers] = useState({});
 
+  // Fichajes QR por camarero/pedido — key: pedidoId-camareroId
+  const [fichajesGlobal, setFichajesGlobal] = useState<Record<string, any>>({});
+  // Edición inline activa en tabla global
+  const [editandoFichaje, setEditandoFichaje] = useState<Record<string, { entrada: string; salida: string } | null>>({});
+
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
   const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+
+  // Cargar fichajes QR al montar y cuando cambian los pedidos
+  useEffect(() => {
+    uniquePedidos.forEach(p => {
+      const camareroIds = (p.asignaciones || []).map((a: any) => a.camareroId);
+      if (camareroIds.length > 0) {
+        cargarFichajesParaPedido(p.id, camareroIds);
+      }
+    });
+  }, [uniquePedidos.map(p => p.id).join(',')]);
 
   // --- Mostrar alerta temporal ---
   const mostrarAlerta = useCallback((mensaje, tipo) => {
@@ -683,6 +698,67 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     return asignacion?.horaSalida || '';
   };
   
+  // --- CARGAR FICHAJES QR PARA LA TABLA GLOBAL ---
+  const cargarFichajesParaPedido = async (pedidoId: string, camareroIds: string[]) => {
+    try {
+      const res = await fetch(`${baseUrl}/fichajes/${pedidoId}`, {
+        headers: { Authorization: `Bearer ${publicAnonKey}` },
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const updates: Record<string, any> = {};
+        data.data.forEach((f: any) => {
+          if (f?.camareroId) {
+            updates[`${pedidoId}-${f.camareroId}`] = f;
+          }
+        });
+        setFichajesGlobal(prev => ({ ...prev, ...updates }));
+      }
+    } catch { /* silencioso */ }
+  };
+
+  const isoToLocalTime = (iso: string): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const formatHoraFichaje = (iso: string | null): string => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const calcularHorasFichaje = (entrada: string | null, salida: string | null): string => {
+    if (!entrada || !salida) return '-';
+    const diff = (new Date(salida).getTime() - new Date(entrada).getTime()) / (1000 * 60 * 60);
+    if (diff < 0) return '⚠';
+    const h = Math.floor(diff);
+    const m = Math.round((diff - h) * 60);
+    return `${h}h${m > 0 ? ` ${m}m` : ''}`;
+  };
+
+  const guardarFichajeManual = async (pedidoId: string, camareroId: string) => {
+    const key = `${pedidoId}-${camareroId}`;
+    const form = editandoFichaje[key];
+    if (!form) return;
+    try {
+      const res = await fetch(`${baseUrl}/fichajes/${pedidoId}/${camareroId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+        body: JSON.stringify({
+          entrada: form.entrada ? new Date(form.entrada).toISOString() : null,
+          salida:  form.salida  ? new Date(form.salida).toISOString()  : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFichajesGlobal(prev => ({ ...prev, [key]: data.data }));
+        setEditandoFichaje(prev => { const n = { ...prev }; delete n[key]; return n; });
+      }
+    } catch { /* error silencioso */ }
+  };
+
   // --- VISTA PRINCIPAL (SIN SELECCIÓN) ---
   if (!selectedPedido) {
     return (
@@ -998,34 +1074,80 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                           {item.pedido.lugar}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {item.hora || (item.type === 'asignado' ? item.data.horaEntrada : '-')}
-                          {item.turno === 2 && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">2º Turno</span>}
+                          {(() => {
+                            if (item.type !== 'asignado') return <span className="text-gray-400 italic text-xs">-</span>;
+                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
+                            const fichaje = fichajesGlobal[fichajeKey];
+                            const editForm = editandoFichaje[fichajeKey];
+                            const horaQR = fichaje?.entrada ? formatHoraFichaje(fichaje.entrada) : null;
+                            return (
+                              <div>
+                                {editForm !== undefined && editForm !== null ? (
+                                  <input type="datetime-local" value={editForm.entrada}
+                                    onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, entrada: e.target.value } }))}
+                                    className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 w-36" />
+                                ) : horaQR ? (
+                                  <span className="font-mono font-bold text-green-700">{horaQR}</span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">{item.hora || '-'} <span className="text-gray-300">(orientativo)</span></span>
+                                )}
+                                {item.turno === 2 && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">2º Turno</span>}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {item.type === 'asignado' ? (
-                            <input
-                              type="time"
-                              value={getHoraSalidaIndividual(item.pedido.id, item.data.camareroId)}
-                              onChange={(e) => actualizarHoraSalidaIndividual(item.pedido.id, item.data.camareroId, e.target.value)}
-                              className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            />
-                          ) : (
-                            <span className="text-gray-400 italic text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {item.type === 'asignado' && item.data.horaEntrada ? (() => {
-                            const horaSalida = getHoraSalidaIndividual(item.pedido.id, item.data.camareroId);
-                            return horaSalida ? (
-                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded font-mono text-sm font-semibold">
-                                {calcularHoras(item.data.horaEntrada, horaSalida)}
-                              </span>
+                          {(() => {
+                            if (item.type !== 'asignado') return <span className="text-gray-400 italic text-xs">-</span>;
+                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
+                            const fichaje = fichajesGlobal[fichajeKey];
+                            const editForm = editandoFichaje[fichajeKey];
+                            const horaQR = fichaje?.salida ? formatHoraFichaje(fichaje.salida) : null;
+                            return editForm !== undefined && editForm !== null ? (
+                              <input type="datetime-local" value={editForm.salida}
+                                onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, salida: e.target.value } }))}
+                                className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 w-36" />
+                            ) : horaQR ? (
+                              <span className="font-mono font-bold text-red-600">{horaQR}</span>
                             ) : (
                               <span className="text-gray-400 text-xs">-</span>
                             );
-                          })() : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {(() => {
+                            if (item.type !== 'asignado') return <span className="text-gray-400 text-xs">-</span>;
+                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
+                            const fichaje = fichajesGlobal[fichajeKey];
+                            const editForm = editandoFichaje[fichajeKey];
+                            const entrada = editForm?.entrada ? new Date(editForm.entrada).toISOString() : fichaje?.entrada;
+                            const salida  = editForm?.salida  ? new Date(editForm.salida).toISOString()  : fichaje?.salida;
+                            const h = calcularHorasFichaje(entrada || null, salida || null);
+                            const isEditing = editForm !== undefined && editForm !== null;
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                {h !== '-' && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-bold ${h === '⚠' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-700'}`}>{h}</span>
+                                )}
+                                {isEditing ? (
+                                  <div className="flex gap-1">
+                                    <button onClick={() => guardarFichajeManual(item.pedido.id, item.data.camareroId)}
+                                      className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">✓</button>
+                                    <button onClick={() => setEditandoFichaje(prev => { const n = { ...prev }; delete n[fichajeKey]; return n; })}
+                                      className="px-2 py-0.5 border border-gray-300 text-xs rounded hover:bg-gray-50">✕</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      const f = fichajesGlobal[fichajeKey];
+                                      const isoToLocal = (iso: string) => { const d = new Date(iso); const pad = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+                                      setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: f?.entrada ? isoToLocal(f.entrada) : '', salida: f?.salida ? isoToLocal(f.salida) : '' } }));
+                                    }}
+                                    className="text-[10px] text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">✏</button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
                           {camareroLabel}

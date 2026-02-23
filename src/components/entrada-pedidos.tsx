@@ -237,7 +237,10 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       });
       
       if (response.ok) {
-        await cargarDatos();
+        // Eliminar del estado local inmediatamente sin esperar reload
+        setPedidos((prev: any[]) => prev.filter((p: any) => p.id !== id));
+        // Recargar en segundo plano para sincronizar
+        cargarDatos();
       }
     } catch (error) {
       console.error('Error al eliminar:', error);

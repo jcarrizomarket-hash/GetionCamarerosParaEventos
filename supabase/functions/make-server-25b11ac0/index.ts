@@ -211,13 +211,8 @@ app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) =
 // ============== PEDIDOS/EVENTOS ==============
 app.get('/make-server-25b11ac0/pedidos', async (c) => {
   try {
-    const pedidos = await kv.getByPrefixWithKeys('pedido:');
-    // Asegurar que cada pedido tenga su id del KV como campo id
-    const pedidosConId = pedidos.map((entry: any) => ({
-      ...entry.value,
-      id: entry.value?.id || entry.key,
-    }));
-    return c.json({ success: true, data: pedidosConId });
+    const pedidos = await kv.getByPrefix('pedido:');
+    return c.json({ success: true, data: pedidos });
   } catch (error) {
     console.error('Error al obtener pedidos:', error);
     return c.json({ success: false, error: String(error) }, 500);

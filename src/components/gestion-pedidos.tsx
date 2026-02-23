@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search, Bell } from 'lucide-react';
-import { PanelFichajes } from './panel-fichajes';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
 
-// v1.1.0 - Polling automático + notificaciones de estado en tiempo real
+// v1.0.3 - Verificación completa de React keys
 interface GestionPedidosProps {
   pedidos: any[];
   setPedidos: (pedidos: any[]) => void;
@@ -10,21 +9,14 @@ interface GestionPedidosProps {
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
-  coordinadorIdPropio?: string;
 }
 
-export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos, coordinadorIdPropio }: GestionPedidosProps) {
-  // Si coordinadorIdPropio está definido, el usuario es coordinador y solo puede editar sus pedidos
-  const esSoloLectura = (pedido: any) => coordinadorIdPropio !== undefined && pedido?.coordinadorId !== coordinadorIdPropio;
+export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
-  const [alertas, setAlertas] = useState([]);
-
-  // Ref para trackear estados anteriores y detectar cambios
-  const estadosAnteriores = useRef({});
   
   // Estado para filtros de resumen
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual'); // diario, semanal, mensual
@@ -33,62 +25,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [horaSalidaTemporal, setHoraSalidaTemporal] = useState({});
   const [debounceTimers, setDebounceTimers] = useState({});
 
-  // Fichajes QR por camarero/pedido — key: pedidoId-camareroId
-  const [fichajesGlobal, setFichajesGlobal] = useState<Record<string, any>>({});
-  // Edición inline activa en tabla global
-  const [editandoFichaje, setEditandoFichaje] = useState<Record<string, { entrada: string; salida: string } | null>>({});
-
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
   const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
-
-  // Cargar fichajes QR al montar y cuando cambian los pedidos
-  useEffect(() => {
-    uniquePedidos.forEach(p => {
-      const camareroIds = (p.asignaciones || []).map((a: any) => a.camareroId);
-      if (camareroIds.length > 0) {
-        cargarFichajesParaPedido(p.id, camareroIds);
-      }
-    });
-  }, [uniquePedidos.map(p => p.id).join(',')]);
-
-  // --- Mostrar alerta temporal ---
-  const mostrarAlerta = useCallback((mensaje, tipo) => {
-    const id = `alerta-${Date.now()}`;
-    setAlertas(prev => [...prev, { id, mensaje, tipo }]);
-    setTimeout(() => {
-      setAlertas(prev => prev.filter(a => a.id !== id));
-    }, 6000);
-  }, []);
-
-  // --- Detectar cambios de estado automáticamente ---
-  useEffect(() => {
-    uniquePedidos.forEach(pedido => {
-      const asignaciones = pedido.asignaciones || [];
-      asignaciones.forEach(asig => {
-        const key = `${pedido.id}-${asig.camareroId}`;
-        const estadoAnterior = estadosAnteriores.current[key];
-        const estadoActual = asig.estado;
-        if (estadoAnterior && estadoAnterior !== estadoActual) {
-          const nombre = asig.camareroNombre || `#${asig.camareroNumero}`;
-          if (estadoActual === 'confirmado') {
-            mostrarAlerta(`✅ ${nombre} confirmó su asistencia a "${pedido.cliente}"`, 'confirmado');
-          } else if (estadoActual === 'rechazado') {
-            mostrarAlerta(`❌ ${nombre} rechazó el servicio en "${pedido.cliente}"`, 'rechazado');
-          }
-        }
-        estadosAnteriores.current[key] = estadoActual;
-      });
-    });
-  }, [uniquePedidos, mostrarAlerta]);
-
-  // --- Polling automático cada 15 segundos ---
-  useEffect(() => {
-    const polling = setInterval(() => {
-      cargarDatos();
-    }, 15000);
-    return () => clearInterval(polling);
-  }, [cargarDatos]);
 
   // --- Efecto para eliminar asignaciones rechazadas después de 5 horas ---
   useEffect(() => {
@@ -698,90 +637,10 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     return asignacion?.horaSalida || '';
   };
   
-  // --- CARGAR FICHAJES QR PARA LA TABLA GLOBAL ---
-  const cargarFichajesParaPedido = async (pedidoId: string, camareroIds: string[]) => {
-    try {
-      const res = await fetch(`${baseUrl}/fichajes/${pedidoId}`, {
-        headers: { Authorization: `Bearer ${publicAnonKey}` },
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        const updates: Record<string, any> = {};
-        data.data.forEach((f: any) => {
-          if (f?.camareroId) {
-            updates[`${pedidoId}-${f.camareroId}`] = f;
-          }
-        });
-        setFichajesGlobal(prev => ({ ...prev, ...updates }));
-      }
-    } catch { /* silencioso */ }
-  };
-
-  const isoToLocalTime = (iso: string): string => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
-  const formatHoraFichaje = (iso: string | null): string => {
-    if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const calcularHorasFichaje = (entrada: string | null, salida: string | null): string => {
-    if (!entrada || !salida) return '-';
-    const diff = (new Date(salida).getTime() - new Date(entrada).getTime()) / (1000 * 60 * 60);
-    if (diff < 0) return '⚠';
-    const h = Math.floor(diff);
-    const m = Math.round((diff - h) * 60);
-    return `${h}h${m > 0 ? ` ${m}m` : ''}`;
-  };
-
-  const guardarFichajeManual = async (pedidoId: string, camareroId: string) => {
-    const key = `${pedidoId}-${camareroId}`;
-    const form = editandoFichaje[key];
-    if (!form) return;
-    try {
-      const res = await fetch(`${baseUrl}/fichajes/${pedidoId}/${camareroId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
-        body: JSON.stringify({
-          entrada: form.entrada ? new Date(form.entrada).toISOString() : null,
-          salida:  form.salida  ? new Date(form.salida).toISOString()  : null,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFichajesGlobal(prev => ({ ...prev, [key]: data.data }));
-        setEditandoFichaje(prev => { const n = { ...prev }; delete n[key]; return n; });
-      }
-    } catch { /* error silencioso */ }
-  };
-
   // --- VISTA PRINCIPAL (SIN SELECCIÓN) ---
   if (!selectedPedido) {
     return (
       <div className="space-y-6">
-        {/* --- ALERTAS DE ESTADO EN TIEMPO REAL --- */}
-        {alertas.length > 0 && (
-          <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
-            {alertas.map(alerta => (
-              <div
-                key={alerta.id}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right-4 ${
-                  alerta.tipo === 'confirmado'
-                    ? 'bg-green-50 border-green-300 text-green-800'
-                    : 'bg-red-50 border-red-300 text-red-800'
-                }`}
-              >
-                <Bell className="w-4 h-4 flex-shrink-0" />
-                <span>{alerta.mensaje}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* --- BOTONES INFORMATIVOS (RESUMEN) --- */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1073,87 +932,35 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {item.pedido.lugar}
                         </td>
-                        {/* HORA ENTRADA — orientativa del pedido, se confirma con QR, editable manualmente */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
-                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
-                            const fichaje = fichajesGlobal[fichajeKey];
-                            const editForm = editandoFichaje[fichajeKey];
-                            const horaQR = fichaje?.entrada ? formatHoraFichaje(fichaje.entrada) : null;
-                            const isEditing = !!editForm;
-                            const abrirEdicion = () => {
-                              const iL = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
-                              setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: fichaje?.entrada ? iL(fichaje.entrada) : '', salida: fichaje?.salida ? iL(fichaje.salida) : '' } }));
-                            };
-                            return (
-                              <div className="flex flex-col gap-0.5">
-                                {isEditing ? (
-                                  <input type="datetime-local" value={editForm!.entrada}
-                                    onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, entrada: e.target.value } }))}
-                                    className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                                ) : (
-                                  <div className="flex items-center gap-1.5">
-                                    {horaQR
-                                      ? <span className="font-mono font-bold text-green-700">{horaQR} <span className="text-[10px] font-normal text-green-500">QR</span></span>
-                                      : <span className="text-gray-500">{item.hora || '-'} <span className="text-[10px] text-gray-400">orientativo</span></span>
-                                    }
-                                    <button onClick={abrirEdicion} className="text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    </button>
-                                  </div>
-                                )}
-                                {item.turno === 2 && <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded w-fit">2º Turno</span>}
-                              </div>
-                            );
-                          })()}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {item.hora || (item.type === 'asignado' ? item.data.horaEntrada : '-')}
+                          {item.turno === 2 && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">2º Turno</span>}
                         </td>
-                        {/* HORA SALIDA — vacía hasta QR, editable manualmente */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
-                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
-                            const fichaje = fichajesGlobal[fichajeKey];
-                            const editForm = editandoFichaje[fichajeKey];
-                            const horaQR = fichaje?.salida ? formatHoraFichaje(fichaje.salida) : null;
-                            const isEditing = !!editForm;
-                            const abrirEdicion = () => {
-                              const iL = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
-                              setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: fichaje?.entrada ? iL(fichaje.entrada) : '', salida: fichaje?.salida ? iL(fichaje.salida) : '' } }));
-                            };
-                            return isEditing ? (
-                              <div className="flex items-center gap-1">
-                                <input type="datetime-local" value={editForm!.salida}
-                                  onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, salida: e.target.value } }))}
-                                  className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                                <button onClick={() => guardarFichajeManual(item.pedido.id, item.data.camareroId)}
-                                  className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 font-bold">✓</button>
-                                <button onClick={() => setEditandoFichaje(prev => { const n = { ...prev }; delete n[fichajeKey]; return n; })}
-                                  className="px-2 py-1 border border-gray-300 text-xs rounded hover:bg-gray-50">✕</button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                {horaQR
-                                  ? <span className="font-mono font-bold text-red-600">{horaQR} <span className="text-[10px] font-normal text-red-400">QR</span></span>
-                                  : <span className="text-gray-300 text-xs">— sin registrar</span>
-                                }
-                                <button onClick={abrirEdicion} className="text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                              </div>
-                            );
-                          })()}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {item.type === 'asignado' ? (
+                            <input
+                              type="time"
+                              value={getHoraSalidaIndividual(item.pedido.id, item.data.camareroId)}
+                              onChange={(e) => actualizarHoraSalidaIndividual(item.pedido.id, item.data.camareroId, e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          ) : (
+                            <span className="text-gray-400 italic text-xs">-</span>
+                          )}
                         </td>
-                        {/* HORAS — control de horas reales trabajadas */}
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
-                            const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
-                            const fichaje = fichajesGlobal[fichajeKey];
-                            const editForm = editandoFichaje[fichajeKey];
-                            const entrada = editForm?.entrada ? new Date(editForm.entrada).toISOString() : fichaje?.entrada || null;
-                            const salida  = editForm?.salida  ? new Date(editForm.salida).toISOString()  : fichaje?.salida  || null;
-                            const h = calcularHorasFichaje(entrada, salida);
-                            if (h === '-') return <span className="text-gray-300 text-xs">—</span>;
-                            return <span className={`inline-flex items-center px-2 py-1 rounded font-mono text-xs font-bold ${h === '⚠' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-700'}`}>{h}</span>;
-                          })()}
+                          {item.type === 'asignado' && item.data.horaEntrada ? (() => {
+                            const horaSalida = getHoraSalidaIndividual(item.pedido.id, item.data.camareroId);
+                            return horaSalida ? (
+                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded font-mono text-sm font-semibold">
+                                {calcularHoras(item.data.horaEntrada, horaSalida)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            );
+                          })() : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
                           {camareroLabel}
@@ -1183,34 +990,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-
-      {/* --- ALERTAS EN TIEMPO REAL (también visibles en vista detalle) --- */}
-      {alertas.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
-          {alertas.map(alerta => (
-            <div
-              key={alerta.id}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right-4 ${
-                alerta.tipo === 'confirmado'
-                  ? 'bg-green-50 border-green-300 text-green-800'
-                  : 'bg-red-50 border-red-300 text-red-800'
-              }`}
-            >
-              <Bell className="w-4 h-4 flex-shrink-0" />
-              <span>{alerta.mensaje}</span>
-            </div>
-          ))}
-        </div>
-      )}
       
-      {/* BANNER SOLO LECTURA — visible cuando coordinador ve pedido ajeno */}
-      {esSoloLectura(selectedPedido) && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-          <span><strong>Solo lectura</strong> — Este pedido pertenece a otro coordinador. Podés consultarlo pero no modificarlo.</span>
-        </div>
-      )}
-
       {/* HEADER MODO ENFOQUE */}
       <div className="flex items-center justify-between">
         <button 
@@ -1318,10 +1098,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                     </div>
                     <button
                       onClick={() => agregarCamarero(camarero)}
-                      disabled={procesando || esSoloLectura(selectedPedido)}
-                      title={esSoloLectura(selectedPedido) ? 'No tienes permiso para modificar este pedido' : undefined}
+                      disabled={procesando}
                       className={`px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-xs font-bold uppercase tracking-wide transition-all transform active:scale-95 ${
-                        procesando || esSoloLectura(selectedPedido) ? 'opacity-40 cursor-not-allowed' : 'opacity-100 shadow-sm hover:shadow'
+                        procesando ? 'opacity-50 cursor-not-allowed' : 'opacity-100 shadow-sm hover:shadow'
                       }`}
                     >
                       {procesando ? '...' : 'Asignar'}
@@ -1378,10 +1157,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       <select
                         value={asignacion.estado || ''}
                         onChange={(e) => cambiarEstado(asignacion.camareroId, e.target.value)}
-                        disabled={esSoloLectura(selectedPedido)}
-                        className={`text-xs px-2 py-1.5 rounded border font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                          esSoloLectura(selectedPedido) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                        } ${
+                        className={`text-xs px-2 py-1.5 rounded border font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer ${
                           asignacion.estado === 'confirmado' ? 'text-green-700 border-green-200 bg-white' :
                           asignacion.estado === 'enviado' ? 'text-orange-700 border-orange-200 bg-white' :
                           asignacion.estado === 'rechazado' ? 'text-red-700 border-red-200 bg-white' :
@@ -1395,9 +1171,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                       </select>
                       <button
                         onClick={() => removerCamarero(asignacion.camareroId)}
-                        disabled={esSoloLectura(selectedPedido)}
-                        className={`p-1.5 rounded transition-colors ${esSoloLectura(selectedPedido) ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                        title={esSoloLectura(selectedPedido) ? 'No tienes permiso para modificar este pedido' : 'Remover del evento'}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Remover del evento"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -1409,17 +1184,6 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
           </div>
         </div>
 
-      </div>
-
-      {/* --- FICHAJES DEL EVENTO --- */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mt-6">
-        <PanelFichajes
-          pedido={selectedPedido}
-          camareros={camareros}
-          baseUrl={baseUrl}
-          publicAnonKey={publicAnonKey}
-          soloLectura={esSoloLectura(selectedPedido)}
-        />
       </div>
 
       {/* --- TABLA DETALLE (FILTRADA PARA EL EVENTO) --- */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
@@ -9,12 +9,9 @@ interface PedidosProps {
   setPedidos: (pedidos: any[]) => void;
   camareros: any[];
   coordinadores: any[];
-  clientes: any[];
-  setClientes: (clientes: any[]) => void;
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
-  coordinadorIdPropio?: string; // undefined = admin (ve todo con acceso total)
 }
 
 export function Pedidos({ 
@@ -22,16 +19,28 @@ export function Pedidos({
   setPedidos, 
   camareros,
   coordinadores,
-  clientes,
-  setClientes,
   baseUrl, 
   publicAnonKey, 
-  cargarDatos,
-  coordinadorIdPropio
+  cargarDatos 
 }: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
+  const [clientes, setClientes] = useState([]);
 
-  // FIX: Eliminada la doble carga de clientes — recibidos desde el estado global de App.tsx
+  useEffect(() => {
+    cargarClientes();
+  }, []);
+
+  const cargarClientes = async () => {
+    try {
+      const response = await fetch(`${baseUrl}/clientes`, {
+        headers: { Authorization: `Bearer ${publicAnonKey}` }
+      });
+      const data = await response.json();
+      if (data.success) setClientes(data.data);
+    } catch (error) {
+      console.log('Error al cargar clientes:', error);
+    }
+  };
 
   const subTabs = [
     { id: 'clientes', label: 'Clientes', icon: Building2 },
@@ -86,7 +95,6 @@ export function Pedidos({
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
-              coordinadorIdPropio={coordinadorIdPropio}
             />
           )}
 
@@ -98,7 +106,6 @@ export function Pedidos({
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
-              coordinadorIdPropio={coordinadorIdPropio}
             />
           )}
         </div>

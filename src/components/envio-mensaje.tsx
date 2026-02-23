@@ -75,129 +75,67 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
     
     const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Guardar token de confirmación y generar QR de fichaje en paralelo
-    let qrUrl = '';
+    // Guardar token en el servidor
     try {
-      const [, qrRes] = await Promise.all([
-        fetch(`${baseUrl}/guardar-token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
-          body: JSON.stringify({ token, pedidoId: pedido.id, camareroId: camarero.id, coordinadorId: coordinadorActual.id })
-        }),
-        fetch(`${baseUrl}/qr-tokens`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
-          body: JSON.stringify({ pedidoId: pedido.id, camareroId: camarero.id })
+      await fetch(`${baseUrl}/guardar-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          token: token,
+          pedidoId: pedido.id,
+          camareroId: camarero.id,
+          coordinadorId: coordinadorActual.id
         })
-      ]);
-      const qrData = await qrRes.json();
-      if (qrData.success) qrUrl = qrData.qrUrl;
+      });
     } catch (error) {
-      console.log('Error al guardar tokens:', error);
+      console.log('Error al guardar token:', error);
     }
     
     const baseUrlConfirmacion = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
     const confirmarUrl = `${baseUrlConfirmacion}/confirmar/${token}`;
     const noConfirmarUrl = `${baseUrlConfirmacion}/no-confirmar/${token}`;
-
-    // Formatear fecha con día y fecha completa
-    const fechaEvento = new Date(pedido.diaEvento);
-    const diaStr = fechaEvento.toLocaleDateString('es-ES', { weekday: 'long' });
-    const fechaStr = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    const esCatering = pedido.catering === 'si';
-
-    // --- CALCULAR HORA DE ENCUENTRO VÍA GOOGLE MAPS (solo catering) ---
-    let horaEncuentroStr = '';
-    if (esCatering) {
-      try {
-        const destino = encodeURIComponent(pedido.ubicacion || pedido.lugar);
-        const distRes = await fetch(`${baseUrl}/calcular-distancia?destino=${destino}`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        });
-        const distData = await distRes.json();
-
-        if (distData.success) {
-          // Hora de encuentro = hora de entrada - tiempo real Google Maps - 15 min margen
-          const minutosAntes = distData.duracionMinutos + 15;
-          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
-          const totalMinutos = horas * 60 + minutos - minutosAntes;
-          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
-          const mEncuentro = Math.abs(totalMinutos) % 60;
-          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
-          console.log(`✅ Hora de encuentro calculada con Google Maps: ${horaEncuentroStr} (${distData.duracionMinutos}min de viaje)`);
-        } else if (pedido.tiempoViaje) {
-          // Fallback: usar tiempoViaje del pedido si Google Maps falla
-          const minutosAntes = parseInt(pedido.tiempoViaje) + 15;
-          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
-          const totalMinutos = horas * 60 + minutos - minutosAntes;
-          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
-          const mEncuentro = Math.abs(totalMinutos) % 60;
-          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
-          console.log(`⚠️ Fallback a tiempoViaje manual: ${horaEncuentroStr}`);
-        }
-      } catch (err) {
-        console.log('Error calculando distancia, usando fallback:', err);
-        if (pedido.tiempoViaje) {
-          const minutosAntes = parseInt(pedido.tiempoViaje) + 15;
-          const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
-          const totalMinutos = horas * 60 + minutos - minutosAntes;
-          const hEncuentro = Math.floor(Math.abs(totalMinutos) / 60);
-          const mEncuentro = Math.abs(totalMinutos) % 60;
-          horaEncuentroStr = `${String(hEncuentro).padStart(2, '0')}:${String(mEncuentro).padStart(2, '0')}`;
-        }
-      }
-    }
-
-    const diaCapitalizado = diaStr.charAt(0).toUpperCase() + diaStr.slice(1);
-
+    
     let texto = '';
-
-    // --- CABECERA: Fecha · Día · Cliente · Hora ---
-    texto += `*${fechaStr} · ${diaCapitalizado}*\n`;
-    texto += `*${pedido.cliente}*\n`;
-    texto += `🕐 *${pedido.horaEntrada}*\n`;
-
-    // --- UBICACIÓN / ENCUENTRO ---
-    texto += `\n`;
-    if (!esCatering) {
-      // Sin catering: link directo al lugar del evento
-      if (pedido.ubicacion) {
-        texto += `📍 ${pedido.ubicacion}\n`;
-      } else {
-        texto += `📍 ${pedido.lugar}\n`;
-      }
-    } else {
-      // Catering: hora y punto de encuentro (transporte)
-      if (horaEncuentroStr) {
-        texto += `🚌 *Hora de encuentro: ${horaEncuentroStr}*\n`;
-      }
-      texto += `📌 Punto de encuentro: https://maps.app.goo.gl/nofiiyVsnx5XLkES8\n`;
+    texto += `${new Date(pedido.diaEvento).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}\n`;
+    texto += `${pedido.cliente}\n`;
+    texto += `${pedido.lugar}\n`;
+    texto += `Hora de inicio: ${pedido.horaEntrada}\n\n`;
+    
+    if (pedido.ubicacion) {
+      texto += `${pedido.ubicacion}\n\n`;
     }
-
-    // --- QR FICHAJE ---
-    if (qrUrl) {
-      texto += `\n`;
-      texto += `${qrUrl}\n`;
+    
+    if (pedido.catering === 'si' && pedido.tiempoViaje) {
+      const tiempoViaje = parseInt(pedido.tiempoViaje) || 0;
+      const minutosAntes = tiempoViaje + 10;
+      const [horas, minutos] = pedido.horaEntrada.split(':').map(Number);
+      const totalMinutos = horas * 60 + minutos - minutosAntes;
+      const horaEncuentro = Math.floor(totalMinutos / 60);
+      const minutosEncuentro = totalMinutos % 60;
+      const horaEncuentroStr = `${String(horaEncuentro).padStart(2, '0')}:${String(minutosEncuentro).padStart(2, '0')}`;
+      
+      texto += `Hora de encuentro: ${horaEncuentroStr}\n`;
+      texto += `Punto de encuentro detrás de la estación de autobus del Fabra i Puig.\n`;
+      texto += `https://maps.app.goo.gl/1VswxFT1AdT3J3d78\n\n`;
     }
-
-    // --- UNIFORME ---
-    texto += `\n`;
-    texto += `👔 *Uniforme:*\n`;
-    texto += `Zapatos, pantalón, delantal francés largo.\n`;
-    texto += `*TODO DE COLOR NEGRO*\n`;
-    texto += `*CAMISA: ${(pedido.camisa || '').toUpperCase()}*\n`;
-
-    // --- CIERRE ---
-    texto += `\n`;
-    texto += `Presentarse 15 minutos antes.\n`;
-    texto += `\n`;
-    texto += `Gracias por tu puntualidad 🙏\n`;
-
-    // --- CONFIRMACIÓN ---
-    texto += `\n`;
-    texto += `✅ *CONFIRMO:* ${confirmarUrl}\n`;
-    texto += `❌ *RECHAZO:* ${noConfirmarUrl}`;
+    
+    texto += `Uniforme:\n`;
+    texto += `ZAPATOS, PANTAÓN Y DELANTAL. DE COLOR NEGRO\n\n`;
+    texto += `CAMISA ${pedido.camisa.toUpperCase()}\n\n`;
+    texto += `UNIFORME IMPOLUTO\n\n`;
+    texto += `Estar con 15 minutos antes de anticipación\n\n`;
+    texto += `Por favor, confirma tu asistencia:\n\n`;
+    texto += `✅ ACEPTAR: ${confirmarUrl}\n\n`;
+    texto += `❌ RECHAZAR: ${noConfirmarUrl}\n\n`;
+    texto += `Gracias`;
     
     return texto;
   };
@@ -245,7 +183,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
 
   // Manejar aceptación
   const manejarAceptar = async () => {
-    if (!eventoSeleccionado || !camareroSeleccionado || !coordinadorActual) return;
+    if (!eventoSeleccionado || !camareroSeleccionado) return;
 
     const asignaciones = eventoSeleccionado.asignaciones.map(a => 
       a.camareroId === camareroSeleccionado.id 
@@ -260,7 +198,10 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
           'Content-Type': 'application/json',
           Authorization: `Bearer ${publicAnonKey}`
         },
-        body: JSON.stringify({ ...eventoSeleccionado, asignaciones })
+        body: JSON.stringify({
+          ...eventoSeleccionado,
+          asignaciones
+        })
       });
       
       setMensajes(prev => [...prev, {
@@ -270,23 +211,6 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         timestamp: new Date().toISOString(),
         estado: 'confirmado'
       }]);
-
-      // Notificar al coordinador por WhatsApp
-      if (coordinadorActual.telefono) {
-        const fechaEvento = new Date(eventoSeleccionado.diaEvento).toLocaleDateString('es-ES', {
-          weekday: 'long', day: 'numeric', month: 'long'
-        });
-        const nombre = `${camareroSeleccionado.nombre} ${camareroSeleccionado.apellido}`;
-        const totalConfirmados = asignaciones.filter(a => a.estado === 'confirmado').length;
-        const totalAsignados = asignaciones.length;
-        const mensajeCoord = `✅ CONFIRMACIÓN\n\n${nombre} ha confirmado su asistencia.\n\nEvento: ${eventoSeleccionado.cliente}\nFecha: ${fechaEvento}\nLugar: ${eventoSeleccionado.lugar}\n\n👥 Confirmados: ${totalConfirmados}/${totalAsignados}`;
-        
-        await fetch(`${baseUrl}/enviar-whatsapp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
-          body: JSON.stringify({ telefono: coordinadorActual.telefono, mensaje: mensajeCoord })
-        }).catch(() => {}); // No bloquear si WhatsApp falla
-      }
       
       await cargarDatos();
     } catch (error) {
@@ -296,11 +220,14 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
 
   // Manejar rechazo
   const manejarRechazar = async () => {
-    if (!eventoSeleccionado || !camareroSeleccionado || !coordinadorActual) return;
+    if (!eventoSeleccionado || !camareroSeleccionado) return;
 
-    // Eliminar inmediatamente de la lista de asignaciones
-    const asignacionesFiltradas = eventoSeleccionado.asignaciones.filter(
-      a => a.camareroId !== camareroSeleccionado.id
+    const asignaciones = eventoSeleccionado.asignaciones.map(a => 
+      a.camareroId === camareroSeleccionado.id ? { 
+        ...a, 
+        estado: 'rechazado',
+        eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() // 5 horas
+      } : a
     );
     
     try {
@@ -310,35 +237,20 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
           'Content-Type': 'application/json',
           Authorization: `Bearer ${publicAnonKey}`
         },
-        body: JSON.stringify({ ...eventoSeleccionado, asignaciones: asignacionesFiltradas })
+        body: JSON.stringify({
+          ...eventoSeleccionado,
+          asignaciones
+        })
       });
       
       setMensajes(prev => [...prev, {
         id: `msg-${Date.now()}`,
-        texto: '❌ He rechazado el servicio.',
+        texto: '❌ He rechazado el servicio. Seré eliminado en 5 horas.',
         remitente: 'camarero',
         timestamp: new Date().toISOString(),
         estado: 'rechazado'
       }]);
-
-      // Notificar al coordinador por WhatsApp
-      if (coordinadorActual.telefono) {
-        const fechaEvento = new Date(eventoSeleccionado.diaEvento).toLocaleDateString('es-ES', {
-          weekday: 'long', day: 'numeric', month: 'long'
-        });
-        const nombre = `${camareroSeleccionado.nombre} ${camareroSeleccionado.apellido}`;
-        const mensajeCoord = `❌ RECHAZO DE SERVICIO\n\n${nombre} NO puede asistir.\n\nEvento: ${eventoSeleccionado.cliente}\nFecha: ${fechaEvento}\nLugar: ${eventoSeleccionado.lugar}\n\n⚠️ ACCIÓN REQUERIDA: Asignar un camarero de reemplazo.`;
-        
-        await fetch(`${baseUrl}/enviar-whatsapp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
-          body: JSON.stringify({ telefono: coordinadorActual.telefono, mensaje: mensajeCoord })
-        }).catch(() => {}); // No bloquear si WhatsApp falla
-      }
-
-      // Limpiar selección y recargar
-      setCamareroSeleccionado(null);
-      setMensajes([]);
+      
       await cargarDatos();
     } catch (error) {
       console.error('Error al rechazar:', error);
@@ -561,15 +473,10 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                 <h2 className="font-semibold text-gray-900 text-sm">
                   {camareroSeleccionado.nombre} {camareroSeleccionado.apellido}
                 </h2>
-                <p className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  camareroSeleccionado.estado === 'confirmado' ? 'bg-green-100 text-green-700' :
-                  camareroSeleccionado.estado === 'rechazado' ? 'bg-red-100 text-red-700' :
-                  camareroSeleccionado.estado === 'enviado' ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
+                <p className="text-xs text-gray-600">
                   {camareroSeleccionado.estado === 'confirmado' && '✅ Confirmado'}
                   {camareroSeleccionado.estado === 'rechazado' && '❌ Rechazado'}
-                  {camareroSeleccionado.estado === 'enviado' && '📤 Enviado — esperando respuesta'}
+                  {camareroSeleccionado.estado === 'enviado' && '📤 Mensaje enviado'}
                   {!camareroSeleccionado.estado && '⏳ Pendiente'}
                 </p>
               </div>

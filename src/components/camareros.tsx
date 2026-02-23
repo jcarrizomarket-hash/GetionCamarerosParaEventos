@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -110,8 +111,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       apercibidos: totalApercibidos,
       reserva: Math.max(0, enReserva),
       noDisponibles: noDisponiblesIds.size,
-      // FIX: Calcular valoración real basada en estado del equipo (pendiente sistema de valoraciones real)
-      valoracion: totalActivos > 0 ? 'N/A' : '-'
+      valoracion: "4.8"
     };
   }, [camareros, pedidos]);
 
@@ -316,6 +316,139 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         return a.numero - b.numero;
     });
 
+  // --- Funciones de Exportación e Importación Excel ---
+  const exportarAExcel = () => {
+    try {
+      // Preparar datos para exportar
+      const datosExportacion = camareros.map(cam => ({
+        'Código': cam.codigo || '',
+        'Tipo Perfil': cam.tipoPerfil || 'CAM',
+        'Nombre': cam.nombre,
+        'Apellido': cam.apellido,
+        'Teléfono': cam.telefono || '',
+        'Email': cam.email || '',
+        'Especialidades': Array.isArray(cam.especialidades) ? cam.especialidades.join(', ') : '',
+        'Experiencia (años)': cam.experiencia || '',
+        'Idiomas': Array.isArray(cam.idiomas) ? cam.idiomas.join(', ') : '',
+        'Otros Idiomas': cam.otrosIdiomas || '',
+        'Certificaciones': Array.isArray(cam.certificaciones) ? cam.certificaciones.join(', ') : '',
+        'Otras Certificaciones': cam.otrasCertificaciones || '',
+        'Coordinador ID': cam.coordinadorId || '',
+        'Comentarios': cam.comentarios || '',
+        'Estado': cam.estado || 'activo'
+      }));
+
+      // Crear libro de Excel
+      const ws = XLSX.utils.json_to_sheet(datosExportacion);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+
+      // Generar archivo y descargarlo
+      const fecha = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+
+      alert('✅ Datos exportados correctamente');
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      alert('❌ Error al exportar datos');
+    }
+  };
+
+  const importarDesdeExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        alert('❌ El archivo está vacío');
+        return;
+      }
+
+      // Confirmar importación
+      if (!window.confirm(`¿Deseas importar ${jsonData.length} registros?\n\nEsto creará nuevos camareros. Los códigos duplicados serán ignorados.`)) {
+        return;
+      }
+
+      let importados = 0;
+      let errores = 0;
+
+      for (const row of jsonData) {
+        try {
+          // Validar campos requeridos
+          if (!row['Nombre'] || !row['Apellido']) {
+            console.warn('Fila sin nombre/apellido, omitida:', row);
+            errores++;
+            continue;
+          }
+
+          // Verificar si el código ya existe
+          const codigoExistente = camareros.find(c => c.codigo === row['Código']);
+          if (codigoExistente) {
+            console.warn('Código duplicado, omitido:', row['Código']);
+            errores++;
+            continue;
+          }
+
+          // Construir objeto camarero
+          const nuevoCamarero = {
+            codigo: row['Código'] || '',
+            tipoPerfil: row['Tipo Perfil'] || 'CAM',
+            nombre: row['Nombre'],
+            apellido: row['Apellido'],
+            telefono: row['Teléfono'] || '',
+            email: row['Email'] || '',
+            especialidades: row['Especialidades'] ? row['Especialidades'].split(',').map(e => e.trim()) : [],
+            experiencia: row['Experiencia (años)'] || '',
+            idiomas: row['Idiomas'] ? row['Idiomas'].split(',').map(i => i.trim()) : [],
+            otrosIdiomas: row['Otros Idiomas'] || '',
+            certificaciones: row['Certificaciones'] ? row['Certificaciones'].split(',').map(c => c.trim()) : [],
+            otrasCertificaciones: row['Otras Certificaciones'] || '',
+            coordinadorId: row['Coordinador ID'] || '',
+            comentarios: row['Comentarios'] || '',
+            estado: row['Estado'] || 'activo',
+            disponibilidad: []
+          };
+
+          // Crear en el servidor
+          const response = await fetch(`${baseUrl}/camareros`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${publicAnonKey}`
+            },
+            body: JSON.stringify(nuevoCamarero)
+          });
+
+          if (response.ok) {
+            importados++;
+          } else {
+            errores++;
+          }
+        } catch (error) {
+          console.error('Error al importar fila:', error);
+          errores++;
+        }
+      }
+
+      // Recargar datos
+      await cargarDatos();
+
+      // Mostrar resultado
+      alert(`✅ Importación completada\n\n• Importados: ${importados}\n• Errores/Omitidos: ${errores}`);
+
+      // Limpiar input file
+      event.target.value = '';
+    } catch (error) {
+      console.error('Error al procesar archivo:', error);
+      alert('❌ Error al procesar el archivo Excel');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       
@@ -354,44 +487,67 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
       {/* Métricas (Solo visibles en modo Activos) */}
       {!verApercibidos ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
-              <Users className="w-6 h-6" />
+        <>
+          {/* Botones de Exportación e Importación */}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={exportarAExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-sm transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Exportar a Excel
+            </button>
+            <label className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Importar desde Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importarDesdeExcel}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Total Activos</p>
+                <p className="text-2xl font-bold text-gray-800">{metricas.total}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Total Activos</p>
-              <p className="text-2xl font-bold text-gray-800">{metricas.total}</p>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+              <div className="p-3 bg-green-100 text-green-600 rounded-full">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">En Reserva (Hoy)</p>
+                <p className="text-2xl font-bold text-gray-800">{metricas.reserva}</p>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+              <div className="p-3 bg-red-100 text-red-600 rounded-full">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">No Disponibles (Hoy)</p>
+                <p className="text-2xl font-bold text-gray-800">{metricas.noDisponibles}</p>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+              <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full">
+                <Star className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Valoración Equipo</p>
+                <p className="text-2xl font-bold text-gray-800">{metricas.valoracion}/5</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-            <div className="p-3 bg-green-100 text-green-600 rounded-full">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">En Reserva (Hoy)</p>
-              <p className="text-2xl font-bold text-gray-800">{metricas.reserva}</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-            <div className="p-3 bg-red-100 text-red-600 rounded-full">
-              <UserX className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">No Disponibles (Hoy)</p>
-              <p className="text-2xl font-bold text-gray-800">{metricas.noDisponibles}</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-            <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full">
-              <Star className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Valoración Equipo</p>
-              <p className="text-2xl font-bold text-gray-800">{metricas.valoracion}/5</p>
-            </div>
-          </div>
-        </div>
+        </>
       ) : (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4 mb-4">
            <AlertTriangle className="w-8 h-8 text-amber-600" />

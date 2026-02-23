@@ -83,16 +83,5 @@ export const getByPrefix = async (prefix: string): Promise<any[]> => {
   if (error) {
     throw new Error(error.message);
   }
-  // Incluir el key del KV en cada objeto como _kvKey para que el frontend pueda usarlo como id
-  return data?.map((d) => ({ ...d.value, _kvKey: d.key })) ?? [];
-};
-
-// Search for key-value pairs by prefix, returning both key and value.
-export const getByPrefixWithKeys = async (prefix: string): Promise<any[]> => {
-  const supabase = client()
-  const { data, error } = await supabase.from("kv_store_25b11ac0").select("key, value").like("key", prefix + "%");
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data?.map((d) => ({ key: d.key, value: d.value })) ?? [];
+  return data?.map((d) => d.value) ?? [];
 };

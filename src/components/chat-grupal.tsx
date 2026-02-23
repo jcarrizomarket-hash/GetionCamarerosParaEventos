@@ -57,6 +57,8 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
     const chatsCreados = uniquePedidos.filter(pedido => {
       const asignaciones = pedido.asignaciones || [];
       if (asignaciones.length === 0) return false;
+      
+      // Todos deben estar confirmados
       const todosConfirmados = asignaciones.every(a => a.estado === 'confirmado');
       return todosConfirmados;
     }).sort((a, b) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime());
@@ -64,25 +66,13 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
     setChatsDisponibles(chatsCreados);
   }, [uniquePedidos]);
 
-  // Polling para detectar nuevos chats automáticamente (cada 15 segundos)
-  useEffect(() => {
-    const polling = setInterval(() => {
-      cargarDatos();
-    }, 15000);
-    return () => clearInterval(polling);
-  }, [cargarDatos]);
-
   // Cargar mensajes del chat seleccionado
   useEffect(() => {
     if (!chatSeleccionado) return;
 
     const cargarMensajes = async () => {
       try {
-        // FIX: El servidor crea chats con ID "chat:{pedidoId}", usar ese prefijo
-        const chatId = chatSeleccionado.id.startsWith('chat:') 
-          ? chatSeleccionado.id 
-          : `chat:${chatSeleccionado.id}`;
-        const response = await fetch(`${baseUrl}/chat-mensajes/${encodeURIComponent(chatId)}`, {
+        const response = await fetch(`${baseUrl}/chat-mensajes/${chatSeleccionado.id}`, {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`
           }
@@ -113,13 +103,9 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
   const enviarMensaje = async () => {
     if (!nuevoMensaje.trim() || !chatSeleccionado || !coordinadorActual) return;
 
-    // FIX: Usar el chatId correcto con prefijo "chat:"
-    const chatId = chatSeleccionado.id.startsWith('chat:') 
-      ? chatSeleccionado.id 
-      : `chat:${chatSeleccionado.id}`;
     const mensaje: Mensaje = {
       id: `msg-${Date.now()}-${Math.random()}`,
-      chatId: chatId,
+      chatId: chatSeleccionado.id,
       remitenteId: coordinadorActual.id,
       remitenteNombre: coordinadorActual.nombre,
       remitenteTipo: 'coordinador',

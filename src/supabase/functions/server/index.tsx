@@ -211,11 +211,11 @@ app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) =
 // ============== PEDIDOS/EVENTOS ==============
 app.get('/make-server-25b11ac0/pedidos', async (c) => {
   try {
-    const pedidos = await kv.getByPrefixWithKeys('pedido:');
-    // Asegurar que cada pedido tenga su id del KV como campo id
-    const pedidosConId = pedidos.map((entry: any) => ({
-      ...entry.value,
-      id: entry.value?.id || entry.key,
+    const pedidos = await kv.getByPrefix('pedido:');
+    // getByPrefix ahora incluye _kvKey en cada objeto — usarlo como id si no tiene id propio
+    const pedidosConId = pedidos.map((p: any) => ({
+      ...p,
+      id: p.id || p._kvKey,
     }));
     return c.json({ success: true, data: pedidosConId });
   } catch (error) {

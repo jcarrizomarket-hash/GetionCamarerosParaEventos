@@ -83,7 +83,8 @@ export const getByPrefix = async (prefix: string): Promise<any[]> => {
   if (error) {
     throw new Error(error.message);
   }
-  return data?.map((d) => d.value) ?? [];
+  // Incluir el key del KV en cada objeto como _kvKey para que el frontend pueda usarlo como id
+  return data?.map((d) => ({ ...d.value, _kvKey: d.key })) ?? [];
 };
 
 // Search for key-value pairs by prefix, returning both key and value.

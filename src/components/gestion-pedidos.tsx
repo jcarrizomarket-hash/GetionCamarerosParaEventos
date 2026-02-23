@@ -1073,80 +1073,86 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {item.pedido.lugar}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {(() => {
-                            if (item.type !== 'asignado') return <span className="text-gray-400 italic text-xs">-</span>;
+                        {/* HORA ENTRADA — orientativa del pedido, se confirma con QR, editable manualmente */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
                             const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
                             const fichaje = fichajesGlobal[fichajeKey];
                             const editForm = editandoFichaje[fichajeKey];
                             const horaQR = fichaje?.entrada ? formatHoraFichaje(fichaje.entrada) : null;
+                            const isEditing = !!editForm;
+                            const abrirEdicion = () => {
+                              const iL = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+                              setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: fichaje?.entrada ? iL(fichaje.entrada) : '', salida: fichaje?.salida ? iL(fichaje.salida) : '' } }));
+                            };
                             return (
-                              <div>
-                                {editForm !== undefined && editForm !== null ? (
-                                  <input type="datetime-local" value={editForm.entrada}
+                              <div className="flex flex-col gap-0.5">
+                                {isEditing ? (
+                                  <input type="datetime-local" value={editForm!.entrada}
                                     onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, entrada: e.target.value } }))}
-                                    className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 w-36" />
-                                ) : horaQR ? (
-                                  <span className="font-mono font-bold text-green-700">{horaQR}</span>
+                                    className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
                                 ) : (
-                                  <span className="text-gray-400 text-xs">{item.hora || '-'} <span className="text-gray-300">(orientativo)</span></span>
+                                  <div className="flex items-center gap-1.5">
+                                    {horaQR
+                                      ? <span className="font-mono font-bold text-green-700">{horaQR} <span className="text-[10px] font-normal text-green-500">QR</span></span>
+                                      : <span className="text-gray-500">{item.hora || '-'} <span className="text-[10px] text-gray-400">orientativo</span></span>
+                                    }
+                                    <button onClick={abrirEdicion} className="text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                  </div>
                                 )}
-                                {item.turno === 2 && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">2º Turno</span>}
+                                {item.turno === 2 && <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded w-fit">2º Turno</span>}
                               </div>
                             );
                           })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {(() => {
-                            if (item.type !== 'asignado') return <span className="text-gray-400 italic text-xs">-</span>;
+                        {/* HORA SALIDA — vacía hasta QR, editable manualmente */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
                             const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
                             const fichaje = fichajesGlobal[fichajeKey];
                             const editForm = editandoFichaje[fichajeKey];
                             const horaQR = fichaje?.salida ? formatHoraFichaje(fichaje.salida) : null;
-                            return editForm !== undefined && editForm !== null ? (
-                              <input type="datetime-local" value={editForm.salida}
-                                onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, salida: e.target.value } }))}
-                                className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 w-36" />
-                            ) : horaQR ? (
-                              <span className="font-mono font-bold text-red-600">{horaQR}</span>
+                            const isEditing = !!editForm;
+                            const abrirEdicion = () => {
+                              const iL = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+                              setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: fichaje?.entrada ? iL(fichaje.entrada) : '', salida: fichaje?.salida ? iL(fichaje.salida) : '' } }));
+                            };
+                            return isEditing ? (
+                              <div className="flex items-center gap-1">
+                                <input type="datetime-local" value={editForm!.salida}
+                                  onChange={e => setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { ...prev[fichajeKey]!, salida: e.target.value } }))}
+                                  className="px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                                <button onClick={() => guardarFichajeManual(item.pedido.id, item.data.camareroId)}
+                                  className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 font-bold">✓</button>
+                                <button onClick={() => setEditandoFichaje(prev => { const n = { ...prev }; delete n[fichajeKey]; return n; })}
+                                  className="px-2 py-1 border border-gray-300 text-xs rounded hover:bg-gray-50">✕</button>
+                              </div>
                             ) : (
-                              <span className="text-gray-400 text-xs">-</span>
+                              <div className="flex items-center gap-1.5">
+                                {horaQR
+                                  ? <span className="font-mono font-bold text-red-600">{horaQR} <span className="text-[10px] font-normal text-red-400">QR</span></span>
+                                  : <span className="text-gray-300 text-xs">— sin registrar</span>
+                                }
+                                <button onClick={abrirEdicion} className="text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                </button>
+                              </div>
                             );
                           })()}
                         </td>
+                        {/* HORAS — control de horas reales trabajadas */}
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {(() => {
-                            if (item.type !== 'asignado') return <span className="text-gray-400 text-xs">-</span>;
+                          {item.type !== 'asignado' ? <span className="text-gray-400 text-xs">-</span> : (() => {
                             const fichajeKey = `${item.pedido.id}-${item.data.camareroId}`;
                             const fichaje = fichajesGlobal[fichajeKey];
                             const editForm = editandoFichaje[fichajeKey];
-                            const entrada = editForm?.entrada ? new Date(editForm.entrada).toISOString() : fichaje?.entrada;
-                            const salida  = editForm?.salida  ? new Date(editForm.salida).toISOString()  : fichaje?.salida;
-                            const h = calcularHorasFichaje(entrada || null, salida || null);
-                            const isEditing = editForm !== undefined && editForm !== null;
-                            return (
-                              <div className="flex flex-col items-center gap-1">
-                                {h !== '-' && (
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-bold ${h === '⚠' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-700'}`}>{h}</span>
-                                )}
-                                {isEditing ? (
-                                  <div className="flex gap-1">
-                                    <button onClick={() => guardarFichajeManual(item.pedido.id, item.data.camareroId)}
-                                      className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">✓</button>
-                                    <button onClick={() => setEditandoFichaje(prev => { const n = { ...prev }; delete n[fichajeKey]; return n; })}
-                                      className="px-2 py-0.5 border border-gray-300 text-xs rounded hover:bg-gray-50">✕</button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      const f = fichajesGlobal[fichajeKey];
-                                      const isoToLocal = (iso: string) => { const d = new Date(iso); const pad = (n: number) => String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-                                      setEditandoFichaje(prev => ({ ...prev, [fichajeKey]: { entrada: f?.entrada ? isoToLocal(f.entrada) : '', salida: f?.salida ? isoToLocal(f.salida) : '' } }));
-                                    }}
-                                    className="text-[10px] text-gray-300 hover:text-blue-500 transition-colors" title="Editar manualmente">✏</button>
-                                )}
-                              </div>
-                            );
+                            const entrada = editForm?.entrada ? new Date(editForm.entrada).toISOString() : fichaje?.entrada || null;
+                            const salida  = editForm?.salida  ? new Date(editForm.salida).toISOString()  : fichaje?.salida  || null;
+                            const h = calcularHorasFichaje(entrada, salida);
+                            if (h === '-') return <span className="text-gray-300 text-xs">—</span>;
+                            return <span className={`inline-flex items-center px-2 py-1 rounded font-mono text-xs font-bold ${h === '⚠' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-700'}`}>{h}</span>;
                           })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">

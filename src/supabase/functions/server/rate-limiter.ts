@@ -127,7 +127,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
 
       c.header('X-RateLimit-Limit', finalConfig.maxRequests.toString());
       c.header('X-RateLimit-Remaining', remaining.toString());
-      c.header('X-RateLimit-Reset', record.resetAt.toString());
+      c.header('X-RateLimit-Reset', Math.floor(record.resetAt / 1000).toString());
 
       // Soft limit warning
       const softPercent = finalConfig.softLimitPercent ?? 80;

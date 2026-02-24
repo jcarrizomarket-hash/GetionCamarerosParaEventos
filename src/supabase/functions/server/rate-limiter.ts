@@ -50,7 +50,7 @@ async function getOrCreateRecord(
   return {
     count: 0,
     resetAt: now + config.windowMs,
-    // Reset violations when a new window starts so backoff doesn't grow forever
+    // Start a fresh violation count for the new window
     violations: 0,
   };
 }
@@ -70,22 +70,10 @@ async function recordViolation(
   config: RateLimitConfig,
   identifier: string
 ): Promise<RateLimitRecord> {
-  let record: RateLimitRecord;
-  try {
-    record = await getOrCreateRecord(key, config);
-    record.violations = (record.violations || 0) + 1;
-    record.lastViolation = Date.now();
-    await kv.set(key, record);
-  } catch (error) {
-    console.error('Rate limiter: failed to persist violation record', error);
-    // Return a minimal record so the caller can still produce a 429 response
-    record = {
-      count: config.maxRequests + 1,
-      resetAt: Date.now() + config.windowMs,
-      violations: 1,
-      lastViolation: Date.now(),
-    };
-  }
+  const record = await getOrCreateRecord(key, config);
+  record.violations = (record.violations || 0) + 1;
+  record.lastViolation = Date.now();
+  await kv.set(key, record);
 
   console.warn('🚨 Rate limit violation', {
     identifier,
@@ -99,15 +87,9 @@ async function recordViolation(
   return record;
 }
 
-/**
- * Extracts the client IP from standard proxy headers.
- *
- * NOTE: This implementation trusts that the function runs behind a reverse proxy
- * (e.g. Supabase Edge, Cloudflare, Vercel) that strips client-provided
- * x-forwarded-for values and appends the real connecting IP.  If deployed
- * without such a proxy, malicious clients could spoof these headers.
- */
 function getIdentifier(c: Context): string {
+  // Prefer the first IP from x-forwarded-for (most proxies prepend the real IP),
+  // then fall back to other common headers.
   const ip =
     c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
     c.req.header('x-real-ip') ||
@@ -130,7 +112,7 @@ function isTrustedSource(identifier: string, whitelist?: string[]): boolean {
 
 function getRetryAfter(record: RateLimitRecord): number {
   const resetIn = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
-  // Exponential backoff multiplier capped at 5 doublings (2^5 = ×32); violations themselves are not capped
+  // Exponential backoff capped at 5 doublings (×32)
   const backoffMultiplier = Math.pow(2, Math.min(record.violations, 5));
   return resetIn * backoffMultiplier;
 }
@@ -165,15 +147,15 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
         console.warn(`⚠️ Rate limit approaching for ${identifier} on ${method} ${path}`);
       }
 
-      // Hard limit exceeded (count is already incremented, so > allows exactly maxRequests requests per window)
-      if (record.count > finalConfig.maxRequests) {
+      // Hard limit exceeded
+      if (record.count >= finalConfig.maxRequests) {
         const violated = await recordViolation(key, finalConfig, identifier);
         const retryAfter = getRetryAfter(violated);
 
         return c.json(
           {
             success: false,
-            error: 'Demasiadas solicitudes. Por favor, intenta más tarde.',
+            error: 'Too many requests. Please try again later.',
             retryAfter,
             violations: violated.violations,
           },

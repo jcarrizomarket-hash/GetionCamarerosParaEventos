@@ -4,6 +4,7 @@
  */
 
 import type { Context } from 'npm:hono';
+import * as kv from './kv_store.tsx';
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
@@ -94,40 +95,92 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
 }
 
 /**
- * Middleware para rate limiting simple (prevenir abuso)
- * NOTA: En producción, considera usar Redis o similar para un rate limiting más robusto
+ * Extrae la IP real del cliente comprobando primero headers de proxies/CDN de confianza.
+ * Orden de prioridad: Cloudflare > X-Real-IP > primer valor de X-Forwarded-For.
  */
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
+function getClientIP(c: Context): string {
+  // Cloudflare añade siempre la IP original del cliente en este header
+  const cfIP = c.req.header('cf-connecting-ip');
+  if (cfIP) return cfIP;
 
-export function rateLimit(maxRequests: number = 100, windowMs: number = 60000) {
+  // Header estándar de proxies que solo añaden una IP
+  const realIP = c.req.header('x-real-ip');
+  if (realIP) return realIP;
+
+  // Usar sólo el primer valor de la lista; el cliente real es el primero de la cadena
+  const forwardedFor = c.req.header('x-forwarded-for');
+  if (forwardedFor) {
+    const firstIP = forwardedFor.split(',')[0].trim();
+    if (firstIP) return firstIP;
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Middleware para rate limiting con persistencia en KV Store.
+ *
+ * @param maxRequests - Número máximo de peticiones permitidas en la ventana temporal
+ * @param windowMs    - Duración de la ventana en milisegundos (por defecto 60 segundos)
+ * @param endpointName - Nombre lógico del endpoint para aislar los contadores por ruta
+ */
+export function rateLimit(maxRequests: number = 100, windowMs: number = 60000, endpointName: string = 'default') {
   return async (c: Context, next: () => Promise<void>) => {
-    // Usar IP o un identificador del cliente
-    const identifier = c.req.header('x-forwarded-for') || 'unknown';
-    const now = Date.now();
-    
-    const record = requestCounts.get(identifier);
-    
-    if (!record || now > record.resetAt) {
-      // Nuevo período o primer request
-      requestCounts.set(identifier, {
-        count: 1,
-        resetAt: now + windowMs,
-      });
+    const identifier = getClientIP(c);
+
+    // IPs en la whitelist (separadas por coma en la variable de entorno) no están limitadas
+    const whitelist = (Deno.env.get('RATE_LIMIT_WHITELIST') || '').split(',').map(ip => ip.trim()).filter(Boolean);
+    if (whitelist.includes(identifier)) {
       return next();
     }
-    
-    if (record.count >= maxRequests) {
-      return c.json(
-        {
-          success: false,
-          error: 'Demasiadas peticiones. Intenta más tarde.',
-        },
-        429
-      );
+
+    const kvKey = `ratelimit:${endpointName}:${identifier}`;
+    const now = Date.now();
+
+    try {
+      const raw = await kv.get(kvKey);
+      const record: { count: number; resetAt: number } | null =
+        raw && typeof raw.count === 'number' && typeof raw.resetAt === 'number' ? raw : null;
+
+      let count: number;
+      let resetAt: number;
+
+      if (!record || now > record.resetAt) {
+        // Nueva ventana temporal
+        count = 1;
+        resetAt = now + windowMs;
+      } else {
+        count = record.count + 1;
+        resetAt = record.resetAt;
+      }
+
+      if (count > maxRequests) {
+        const retryAfter = Math.ceil((resetAt - now) / 1000);
+        console.warn(`⚠️ Rate limit excedido: IP=${identifier} endpoint=${endpointName} count=${count}/${maxRequests}`);
+        c.header('X-RateLimit-Limit', String(maxRequests));
+        c.header('X-RateLimit-Remaining', '0');
+        c.header('Retry-After', String(retryAfter));
+        return c.json(
+          {
+            success: false,
+            error: 'Demasiadas peticiones. Intenta más tarde.',
+          },
+          429
+        );
+      }
+
+      // Persistir el contador actualizado
+      await kv.set(kvKey, { count, resetAt });
+
+      c.header('X-RateLimit-Limit', String(maxRequests));
+      c.header('X-RateLimit-Remaining', String(maxRequests - count));
+
+      return next();
+    } catch (error) {
+      // Si el KV store falla, se permite la petición para no bloquear el servicio
+      console.error('⚠️ Error en KV store del rate limit:', error instanceof Error ? error.message : String(error));
+      return next();
     }
-    
-    record.count++;
-    return next();
   };
 }
 

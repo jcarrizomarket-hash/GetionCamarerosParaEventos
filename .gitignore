@@ -1,6 +1,30 @@
+# Dependencies
 node_modules/
+
+# Build output
+build/
 dist/
-*.local
-package-lock.json
-src/node_modules/
-src/package-lock.json
+
+# Environment variables - never commit these
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

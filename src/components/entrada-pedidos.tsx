@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
 
 export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
@@ -57,19 +57,18 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     return { days, firstDay: adjustedFirstDay };
   };
 
-  const changeMonth = (offset) => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-    setCurrentDate(newDate);
-  };
+  const changeMonth = useCallback((offset) => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  }, []);
 
   const monthData = getDaysInMonth(currentDate);
   
   // Filtrar pedidos del mes actual (para calendario)
-  const pedidosMes = uniquePedidos.filter(p => {
+  const pedidosMes = useMemo(() => uniquePedidos.filter(p => {
     const fecha = new Date(p.diaEvento);
     return fecha.getMonth() === currentDate.getMonth() && 
            fecha.getFullYear() === currentDate.getFullYear();
-  });
+  }), [uniquePedidos, currentDate]);
 
   // Verificar si un pedido está completo (todos confirmados y número correcto)
   const isPedidoCompleto = (pedido) => {
@@ -176,25 +175,27 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     return `${horas}h ${minutos > 0 ? minutos + 'm' : ''}`;
   };
 
-  const handleTimeChange = (field, value, type) => {
-    const newFormData = { ...formData, [field]: value };
-    
-    if (type === 1) {
-      if (field === 'horaEntrada' && newFormData.horaSalida) {
-        newFormData.totalHoras = calcularHoras(value, newFormData.horaSalida);
-      } else if (field === 'horaSalida' && newFormData.horaEntrada) {
-        newFormData.totalHoras = calcularHoras(newFormData.horaEntrada, value);
+  const handleTimeChange = useCallback((field, value, type) => {
+    setFormData(prev => {
+      const newFormData = { ...prev, [field]: value };
+      
+      if (type === 1) {
+        if (field === 'horaEntrada' && newFormData.horaSalida) {
+          newFormData.totalHoras = calcularHoras(value, newFormData.horaSalida);
+        } else if (field === 'horaSalida' && newFormData.horaEntrada) {
+          newFormData.totalHoras = calcularHoras(newFormData.horaEntrada, value);
+        }
+      } else {
+        if (field === 'horaEntrada2' && newFormData.horaSalida2) {
+          newFormData.totalHoras2 = calcularHoras(value, newFormData.horaSalida2);
+        } else if (field === 'horaSalida2' && newFormData.horaEntrada2) {
+          newFormData.totalHoras2 = calcularHoras(newFormData.horaEntrada2, value);
+        }
       }
-    } else {
-      if (field === 'horaEntrada2' && newFormData.horaSalida2) {
-        newFormData.totalHoras2 = calcularHoras(value, newFormData.horaSalida2);
-      } else if (field === 'horaSalida2' && newFormData.horaEntrada2) {
-        newFormData.totalHoras2 = calcularHoras(newFormData.horaEntrada2, value);
-      }
-    }
-    
-    setFormData(newFormData);
-  };
+      
+      return newFormData;
+    });
+  }, []);
 
   const handleEdit = (pedido) => {
     console.log('📝 Editando pedido:', pedido.id, pedido.numero);
@@ -234,7 +235,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     }, 50);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
     
     try {
@@ -260,7 +261,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       console.error('❌ Error al eliminar:', error);
       alert(`❌ Error: ${error.message}`);
     }
-  };
+  }, [baseUrl, publicAnonKey, cargarDatos]);
 
   // --- Lógica de Alertas y Sonido ---
   const playNotificationSound = () => {

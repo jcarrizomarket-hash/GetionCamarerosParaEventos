@@ -1,13 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send } from 'lucide-react';
-import { Dashboard } from './components/dashboard';
-import { Pedidos } from './components/pedidos';
-import { Camareros } from './components/camareros';
-import { Coordinadores } from './components/coordinadores';
-import { Informes } from './components/informes';
-import { Envios } from './components/envios';
-import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+
+const Dashboard = lazy(() => import('./components/dashboard').then(m => ({ default: m.Dashboard })));
+const Pedidos = lazy(() => import('./components/pedidos').then(m => ({ default: m.Pedidos })));
+const Camareros = lazy(() => import('./components/camareros').then(m => ({ default: m.Camareros })));
+const Coordinadores = lazy(() => import('./components/coordinadores').then(m => ({ default: m.Coordinadores })));
+const Informes = lazy(() => import('./components/informes').then(m => ({ default: m.Informes })));
+const Envios = lazy(() => import('./components/envios').then(m => ({ default: m.Envios })));
+const Configuracion = lazy(() => import('./components/configuracion').then(m => ({ default: m.Configuracion })));
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="text-gray-600">Cargando...</div>
+  </div>
+);
 
 // Aplicación de Gestión de Camareros para Eventos v2.1
 // Última actualización: Funcionalidad de edición y eliminación de coordinadores
@@ -25,7 +32,7 @@ export default function App() {
     cargarDatos();
   }, []);
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
@@ -54,7 +61,7 @@ export default function App() {
     } catch (error) {
       console.log('Error al cargar datos:', error);
     }
-  };
+  }, [baseUrl, publicAnonKey]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -100,6 +107,7 @@ export default function App() {
 
       {/* Content */}
       <div className="p-6">
+        <Suspense fallback={<LoadingFallback />}>
         {activeTab === 'dashboard' && (
           <Dashboard
             camareros={camareros}
@@ -176,6 +184,7 @@ export default function App() {
         )}
 
         {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
+        </Suspense>
       </div>
     </div>
   );

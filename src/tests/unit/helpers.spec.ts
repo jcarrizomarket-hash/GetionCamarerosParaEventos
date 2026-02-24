@@ -7,7 +7,7 @@
  * npm test
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   calcularHoras,
   formatearHoras,
@@ -21,6 +21,8 @@ import {
   isPedidoCompleto,
   calcularPorcentajeConfirmacion,
   parsearFechaEvento,
+  parseApiResponse,
+  fetchConReintento,
 } from '../../src/utils/helpers';
 
 describe('calcularHoras', () => {
@@ -273,5 +275,95 @@ describe('parsearFechaEvento', () => {
     expect(fecha.getHours()).toBe(0);
     expect(fecha.getMinutes()).toBe(0);
     expect(fecha.getSeconds()).toBe(0);
+  });
+});
+
+describe('parseApiResponse', () => {
+  it('debe retornar error cuando response.ok es false', async () => {
+    const response = new Response(JSON.stringify({}), { status: 500, statusText: 'Internal Server Error' });
+    const result = await parseApiResponse(response, 'camareros');
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('Error del servidor en camareros');
+    expect(result.error).toContain('500');
+  });
+
+  it('debe retornar error cuando el JSON es inválido', async () => {
+    const response = new Response('texto no json', { status: 200 });
+    const result = await parseApiResponse(response, 'pedidos');
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('Error al parsear JSON de pedidos');
+  });
+
+  it('debe retornar error cuando falta la propiedad success', async () => {
+    const response = new Response(JSON.stringify({ data: [] }), { status: 200 });
+    const result = await parseApiResponse(response, 'coordinadores');
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('Estructura inválida');
+  });
+
+  it('debe retornar error cuando falta la propiedad data', async () => {
+    const response = new Response(JSON.stringify({ success: true }), { status: 200 });
+    const result = await parseApiResponse(response, 'clientes');
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('Estructura inválida');
+  });
+
+  it('debe retornar error cuando success es false', async () => {
+    const response = new Response(JSON.stringify({ success: false, message: 'No autorizado' }), { status: 200 });
+    const result = await parseApiResponse(response, 'camareros');
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('camareros reportó error: No autorizado');
+  });
+
+  it('debe retornar datos cuando la respuesta es válida', async () => {
+    const data = [{ id: '1', nombre: 'Juan' }];
+    const response = new Response(JSON.stringify({ success: true, data }), { status: 200 });
+    const result = await parseApiResponse(response, 'camareros');
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual(data);
+  });
+});
+
+describe('fetchConReintento', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('debe retornar la respuesta si el fetch tiene éxito en el primer intento', async () => {
+    const mockResponse = new Response(JSON.stringify({ success: true, data: [] }), { status: 200 });
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+    const result = await fetchConReintento('https://example.com/api', {}, 'endpoint');
+    expect(result).toBe(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('debe reintentar y tener éxito tras un fallo', async () => {
+    vi.useFakeTimers();
+    const mockResponse = new Response(JSON.stringify({ success: true, data: [] }), { status: 200 });
+    (global.fetch as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(mockResponse);
+
+    let result: Response | undefined;
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      fetchConReintento('https://example.com/api', {}, 'endpoint').then((r) => { result = r; }),
+    ]);
+    expect(result).toBe(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('debe lanzar error tras agotar los reintentos', async () => {
+    vi.useFakeTimers();
+    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
+
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      expect(fetchConReintento('https://example.com/api', {}, 'endpoint', 2)).rejects.toThrow('Network error'),
+    ]);
+
+    vi.useRealTimers();
   });
 });

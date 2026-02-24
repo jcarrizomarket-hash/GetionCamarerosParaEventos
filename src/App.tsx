@@ -10,6 +10,7 @@ import { EnvioParte } from './components/envio-parte';
 import { ChatGrupal } from './components/chat-grupal';
 import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+import { parseApiResponse, fetchConReintento } from './src/utils/helpers';
 
 // Aplicación de Gestión de Camareros para Eventos v2.1
 // Última actualización: Funcionalidad de edición y eliminación de coordinadores
@@ -20,6 +21,7 @@ export default function App() {
   const [coordinadores, setCoordinadores] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [selectedPedido, setSelectedPedido] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -28,34 +30,46 @@ export default function App() {
   }, []);
 
   const cargarDatos = async () => {
-    try {
-      const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
-        fetch(`${baseUrl}/camareros`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/pedidos`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/coordinadores`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/clientes`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        })
-      ]);
+    const headers = { Authorization: `Bearer ${publicAnonKey}` };
+    const endpoints = [
+      { key: 'camareros', url: `${baseUrl}/camareros` },
+      { key: 'pedidos', url: `${baseUrl}/pedidos` },
+      { key: 'coordinadores', url: `${baseUrl}/coordinadores` },
+      { key: 'clientes', url: `${baseUrl}/clientes` },
+    ] as const;
 
-      const camarerosData = await camarerosRes.json();
-      const pedidosData = await pedidosRes.json();
-      const coordinadoresData = await coordinadoresRes.json();
-      const clientesData = await clientesRes.json();
+    const resultados = await Promise.allSettled(
+      endpoints.map(({ key, url }) =>
+        fetchConReintento(url, { headers }, key).then((res) => parseApiResponse(res, key))
+      )
+    );
 
-      if (camarerosData.success) setCamareros(camarerosData.data);
-      if (pedidosData.success) setPedidos(pedidosData.data);
-      if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
-      if (clientesData.success) setClientes(clientesData.data);
-    } catch (error) {
-      console.log('Error al cargar datos:', error);
-    }
+    const setters: Record<string, (data: any) => void> = {
+      camareros: setCamareros,
+      pedidos: setPedidos,
+      coordinadores: setCoordinadores,
+      clientes: setClientes,
+    };
+
+    const errores: string[] = [];
+
+    resultados.forEach((resultado, index) => {
+      const { key } = endpoints[index];
+      if (resultado.status === 'fulfilled') {
+        const { data, error: endpointError } = resultado.value;
+        if (data !== null) {
+          setters[key]?.(data as any);
+        } else if (endpointError) {
+          errores.push(endpointError);
+        }
+      } else {
+        const errorMsg = `Error de red en ${key}: ${resultado.reason?.message || 'Error desconocido'}`;
+        console.error(errorMsg);
+        errores.push(errorMsg);
+      }
+    });
+
+    setError(errores.length > 0 ? errores.join('\n') : null);
   };
 
   const tabs = [
@@ -104,6 +118,13 @@ export default function App() {
 
       {/* Content */}
       <div className="p-6">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 whitespace-pre-line">
+            <strong>Error al cargar datos:</strong>
+            <br />
+            {error}
+          </div>
+        )}
         {activeTab === 'dashboard' && (
           <Dashboard
             camareros={camareros}

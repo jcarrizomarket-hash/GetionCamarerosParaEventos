@@ -231,3 +231,93 @@ export function parsearFechaEvento(fechaStr: string): Date {
   const [year, month, day] = fechaStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
+
+/**
+ * Resultado de parseApiResponse
+ */
+export interface ApiResponse<T = any[]> {
+  data: T | null;
+  error: string | null;
+}
+
+/**
+ * Valida y parsea la respuesta de un endpoint de la API
+ * Verifica response.ok, parsea JSON y valida estructura { success, data }
+ * @param response - Respuesta de fetch
+ * @param endpoint - Nombre del endpoint (para logs)
+ * @returns { data, error }
+ */
+export async function parseApiResponse<T = any[]>(
+  response: Response,
+  endpoint: string
+): Promise<ApiResponse<T>> {
+  if (!response.ok) {
+    const errorMsg = `Error del servidor en ${endpoint}: ${response.status} ${response.statusText}`;
+    console.error(errorMsg);
+    return { data: null, error: errorMsg };
+  }
+
+  let json: any;
+  try {
+    json = await response.json();
+  } catch (e) {
+    const errorMsg = `Error al parsear JSON de ${endpoint}`;
+    console.error(errorMsg, e);
+    return { data: null, error: errorMsg };
+  }
+
+  if (!json || typeof json.success === 'undefined') {
+    const errorMsg = `Estructura inválida en respuesta de ${endpoint}`;
+    console.error(errorMsg, json);
+    return { data: null, error: errorMsg };
+  }
+
+  if (!json.success) {
+    const errorMsg = `${endpoint} reportó error: ${json.message || 'Error desconocido'}`;
+    console.error(errorMsg);
+    return { data: null, error: errorMsg };
+  }
+
+  if (!('data' in json)) {
+    const errorMsg = `Estructura inválida en respuesta de ${endpoint}`;
+    console.error(errorMsg, json);
+    return { data: null, error: errorMsg };
+  }
+
+  console.log(`${endpoint}: ${Array.isArray(json.data) ? json.data.length : 1} registros cargados`);
+  return { data: json.data as T, error: null };
+}
+
+/**
+ * Realiza un fetch con reintentos automáticos y backoff exponencial
+ * @param url - URL del endpoint
+ * @param options - Opciones de fetch
+ * @param endpoint - Nombre del endpoint (para logs)
+ * @param maxIntentos - Número máximo de intentos (por defecto 3)
+ * @returns Promise<Response>
+ */
+export async function fetchConReintento(
+  url: string,
+  options: RequestInit,
+  endpoint: string,
+  maxIntentos = 3
+): Promise<Response> {
+  let ultimoError: Error = new Error(`No se pudo conectar a ${endpoint}`);
+
+  for (let intento = 0; intento < maxIntentos; intento++) {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      ultimoError = error instanceof Error ? error : new Error(String(error));
+      if (intento < maxIntentos - 1) {
+        const delay = Math.pow(2, intento) * 1000;
+        console.warn(
+          `Reintentando ${endpoint} en ${delay}ms (intento ${intento + 2}/${maxIntentos})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw ultimoError;
+}

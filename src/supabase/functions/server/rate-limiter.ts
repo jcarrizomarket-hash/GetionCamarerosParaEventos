@@ -155,7 +155,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
         return c.json(
           {
             success: false,
-            error: 'Too many requests. Please try again later.',
+            error: 'Demasiadas solicitudes. Por favor, intenta más tarde.',
             retryAfter,
             violations: violated.violations,
           },

@@ -5,6 +5,10 @@ node_modules/
 build/
 dist/
 
+# Coverage reports
+coverage/
+src/coverage/
+
 # Environment variables - never commit these
 .env
 .env.local

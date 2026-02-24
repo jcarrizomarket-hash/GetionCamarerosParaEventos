@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
 
 // v1.0.3 - Verificación completa de React keys
@@ -11,7 +11,7 @@ interface GestionPedidosProps {
   cargarDatos: () => void;
 }
 
-export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
+export const GestionPedidos = memo(function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
@@ -94,10 +94,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     return { days, firstDay: adjustedFirstDay };
   };
 
-  const changeMonth = (offset) => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-    setCurrentDate(newDate);
-  };
+  const changeMonth = useCallback((offset) => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  }, []);
 
   const monthData = getDaysInMonth(currentDate);
 
@@ -113,14 +112,21 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   };
 
   // Filtrar pedidos del mes actual para el calendario
-  const pedidosMes = uniquePedidos.filter(p => {
+  const pedidosMes = useMemo(() => uniquePedidos.filter(p => {
     const fecha = new Date(p.diaEvento);
     return fecha.getMonth() === currentDate.getMonth() && 
            fecha.getFullYear() === currentDate.getFullYear();
-  });
+  }), [uniquePedidos, currentDate]);
 
   // --- Cálculos de Resumen ---
-  const getResumenData = () => {
+  const { 
+    totalEventos, 
+    totalCamarerosNecesarios,
+    totalEnviados,
+    totalConfirmados,
+    totalFaltantes,
+    totalDisponibles 
+  } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -150,11 +156,11 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       pedidosFiltrados = pedidosMes;
     }
 
-    const totalEventos = pedidosFiltrados.length;
-    let totalCamarerosNecesarios = 0;
-    let totalEnviados = 0;
-    let totalConfirmados = 0;
-    let totalFaltantes = 0;
+    const _totalEventos = pedidosFiltrados.length;
+    let _totalCamarerosNecesarios = 0;
+    let _totalEnviados = 0;
+    let _totalConfirmados = 0;
+    let _totalFaltantes = 0;
 
     pedidosFiltrados.forEach(p => {
       const req = (parseInt(p.cantidadCamareros || 0) + parseInt(p.cantidadCamareros2 || 0));
@@ -163,40 +169,31 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       const conf = asigs.filter(a => a.estado === 'confirmado').length;
       const assignedTotal = asigs.length;
 
-      totalCamarerosNecesarios += req;
-      totalEnviados += env;
-      totalConfirmados += conf;
+      _totalCamarerosNecesarios += req;
+      _totalEnviados += env;
+      _totalConfirmados += conf;
       // Faltantes: huecos sin cubrir (req - assigned).
       // Si se quiere "faltantes por confirmar" sería otra cosa.
       // Pero para gestión, "faltantes" suele ser "aún no tengo a nadie ahí".
-      totalFaltantes += Math.max(0, req - assignedTotal);
+      _totalFaltantes += Math.max(0, req - assignedTotal);
     });
 
     const totalApercibidos = uniqueCamareros.filter(c => c.estado === 'apercibido').length;
-    const totalDisponibles = uniqueCamareros.length - totalApercibidos;
+    const _totalDisponibles = uniqueCamareros.length - totalApercibidos;
 
     return { 
-      totalEventos, 
-      totalCamarerosNecesarios,
-      totalEnviados,
-      totalConfirmados,
-      totalFaltantes,
-      totalDisponibles
+      totalEventos: _totalEventos, 
+      totalCamarerosNecesarios: _totalCamarerosNecesarios,
+      totalEnviados: _totalEnviados,
+      totalConfirmados: _totalConfirmados,
+      totalFaltantes: _totalFaltantes,
+      totalDisponibles: _totalDisponibles
     };
-  };
-
-  const { 
-    totalEventos, 
-    totalCamarerosNecesarios,
-    totalEnviados,
-    totalConfirmados,
-    totalFaltantes,
-    totalDisponibles 
-  } = getResumenData();
+  }, [periodoFiltro, uniquePedidos, uniqueCamareros, pedidosMes]);
 
   // --- Acciones de Gestión ---
 
-  const agregarCamarero = async (camarero) => {
+  const agregarCamarero = useCallback(async (camarero) => {
     if (!selectedPedido || procesando) return;
     
     const asignaciones = selectedPedido.asignaciones || [];
@@ -251,9 +248,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } finally {
       setProcesando(false);
     }
-  };
+  }, [selectedPedido, procesando, baseUrl, publicAnonKey, cargarDatos]);
 
-  const cambiarEstado = async (camareroId, nuevoEstado) => {
+  const cambiarEstado = useCallback(async (camareroId, nuevoEstado) => {
     if (!selectedPedido) return;
     
     const asignaciones = selectedPedido.asignaciones.map(a => {
@@ -298,9 +295,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } catch (error) {
       console.error('Error al cambiar estado:', error);
     }
-  };
+  }, [selectedPedido, baseUrl, publicAnonKey, cargarDatos]);
 
-  const removerCamarero = async (camareroId) => {
+  const removerCamarero = useCallback(async (camareroId) => {
     if (!selectedPedido) return;
     
     const asignaciones = selectedPedido.asignaciones.filter(a => a.camareroId !== camareroId);
@@ -327,14 +324,14 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } catch (error) {
       console.error('Error al remover camarero:', error);
     }
-  };
+  }, [selectedPedido, baseUrl, publicAnonKey, cargarDatos]);
 
   // Listas filtradas
-  const pedidosOrdenados = [...uniquePedidos].sort((a, b) => 
+  const pedidosOrdenados = useMemo(() => [...uniquePedidos].sort((a, b) => 
     new Date(a.diaEvento) - new Date(b.diaEvento)
-  );
+  ), [uniquePedidos]);
 
-  const camarerosDisponibles = uniqueCamareros
+  const camarerosDisponibles = useMemo(() => uniqueCamareros
     .filter(c => {
       // Filtro de búsqueda por nombre/apellido
       const search = filtroCamarero.toLowerCase();
@@ -349,7 +346,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       if (!selectedPedido) return true;
       return !selectedPedido.asignaciones?.some(a => a.camareroId === c.id);
     })
-    .sort((a, b) => a.numero - b.numero);
+    .sort((a, b) => a.numero - b.numero), [uniqueCamareros, filtroCamarero, selectedPedido]);
 
   // --- TABLA GLOBAL DE ASIGNACIONES (SOLICITADA) ---
   const filasTabla = useMemo(() => {
@@ -1234,4 +1231,4 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
     </div>
   );
-}
+});

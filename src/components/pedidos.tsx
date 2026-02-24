@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
@@ -14,7 +14,7 @@ interface PedidosProps {
   cargarDatos: () => void;
 }
 
-export function Pedidos({ 
+export const Pedidos = memo(function Pedidos({ 
   pedidos, 
   setPedidos, 
   camareros,
@@ -26,11 +26,7 @@ export function Pedidos({
   const [activeSubTab, setActiveSubTab] = useState('clientes');
   const [clientes, setClientes] = useState([]);
 
-  useEffect(() => {
-    cargarClientes();
-  }, []);
-
-  const cargarClientes = async () => {
+  const cargarClientes = useCallback(async () => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }
@@ -40,7 +36,11 @@ export function Pedidos({
     } catch (error) {
       console.log('Error al cargar clientes:', error);
     }
-  };
+  }, [baseUrl, publicAnonKey]);
+
+  useEffect(() => {
+    cargarClientes();
+  }, [cargarClientes]);
 
   const subTabs = [
     { id: 'clientes', label: 'Clientes', icon: Building2 },
@@ -112,4 +112,4 @@ export function Pedidos({
       </div>
     </div>
   );
-}
+});

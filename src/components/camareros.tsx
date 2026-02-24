@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -12,6 +12,25 @@ const TIPOS_PERFIL = [
   { codigo: 'AZA', label: 'Azafata' }
 ];
 
+const INITIAL_FORM_STATE = {
+  codigo: '',
+  tipoPerfil: 'CAM',
+  nombre: '',
+  apellido: '',
+  telefono: '',
+  email: '',
+  especialidades: [],
+  experiencia: '',
+  coordinadorId: '',
+  comentarios: '',
+  idiomas: [],
+  otrosIdiomas: '',
+  certificaciones: [],
+  otrasCertificaciones: '',
+  disponibilidad: [],
+  estado: 'activo'
+};
+
 interface CamarerosProps {
   camareros: any[];
   setCamareros: (camareros: any[]) => void;
@@ -22,7 +41,7 @@ interface CamarerosProps {
   cargarDatos: () => void;
 }
 
-export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
+export const Camareros = memo(function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingCamarero, setEditingCamarero] = useState(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
@@ -41,26 +60,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [diasSeleccionados, setDiasSeleccionados] = useState([]); // 0=Domingo, 1=Lunes...
   const [tipoDisponibilidad, setTipoDisponibilidad] = useState('disponible');
 
-  const initialFormState = {
-    codigo: '',
-    tipoPerfil: 'CAM', // Nuevo campo
-    nombre: '',
-    apellido: '',
-    telefono: '',
-    email: '',
-    especialidades: [],
-    experiencia: '',
-    coordinadorId: '',
-    comentarios: '',
-    idiomas: [],
-    otrosIdiomas: '',
-    certificaciones: [],
-    otrasCertificaciones: '',
-    disponibilidad: [],
-    estado: 'activo'
-  };
-
-  const [formData, setFormData] = useState(initialFormState);
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
   // --- Generación de Código Automático ---
   const generarCodigo = (tipoPerfil = formData.tipoPerfil) => {
@@ -115,28 +115,28 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     };
   }, [camareros, pedidos]);
 
-  const resetForm = () => {
-    setFormData(initialFormState);
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_STATE);
     setEditingCamarero(null);
     setShowForm(false);
     setActiveFormTab('general');
-  };
+  }, []);
 
   // --- Helpers de Formulario ---
-  const toggleListValue = (field, value) => {
+  const toggleListValue = useCallback((field, value) => {
     setFormData(prev => {
       const list = prev[field] || [];
       if (list.includes(value)) return { ...prev, [field]: list.filter(item => item !== value) };
       return { ...prev, [field]: [...list, value] };
     });
-  };
+  }, []);
 
-  const toggleDiaSemana = (diaIndex) => {
+  const toggleDiaSemana = useCallback((diaIndex) => {
     setDiasSeleccionados(prev => {
       if (prev.includes(diaIndex)) return prev.filter(d => d !== diaIndex);
       return [...prev, diaIndex];
     });
-  };
+  }, []);
 
   // --- Gestión de Disponibilidad Avanzada ---
   const generarFechas = () => {
@@ -283,7 +283,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     setShowForm(true);
   };
 
-  const eliminarCamarero = async (id) => {
+  const eliminarCamarero = useCallback(async (id) => {
     if (!window.confirm('¿Eliminar camarero permanentemente?')) return;
     try {
       const response = await fetch(`${baseUrl}/camareros/${id}`, {
@@ -295,9 +295,9 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         if (selectedCamarero?.id === id) setSelectedCamarero(null);
       }
     } catch (error) { console.log(error); }
-  };
+  }, [baseUrl, publicAnonKey, cargarDatos, selectedCamarero]);
 
-  const toggleApercibido = async (camarero) => {
+  const toggleApercibido = useCallback(async (camarero) => {
     const nuevoEstado = camarero.estado === 'apercibido' ? 'activo' : 'apercibido';
     try {
       const response = await fetch(`${baseUrl}/camareros/${camarero.id}`, {
@@ -307,14 +307,14 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       });
       if (response.ok) await cargarDatos();
     } catch (error) { console.log(error); }
-  };
+  }, [baseUrl, publicAnonKey, cargarDatos]);
 
-  const listaCamareros = camareros
+  const listaCamareros = useMemo(() => camareros
     .filter(c => verApercibidos ? c.estado === 'apercibido' : (c.estado !== 'apercibido' || !c.estado))
     .sort((a, b) => {
         if (a.codigo && b.codigo) return a.codigo.localeCompare(b.codigo);
         return a.numero - b.numero;
-    });
+    }), [camareros, verApercibidos]);
 
   // --- Funciones de Exportación e Importación Excel ---
   const exportarAExcel = () => {
@@ -926,4 +926,4 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       </div>
     </div>
   );
-}
+});

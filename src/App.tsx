@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
@@ -23,11 +23,7 @@ export default function App() {
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
@@ -56,7 +52,11 @@ export default function App() {
     } catch (error) {
       console.log('Error al cargar datos:', error);
     }
-  };
+  }, [baseUrl, publicAnonKey]);
+
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

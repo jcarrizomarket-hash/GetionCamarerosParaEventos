@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
 
@@ -64,7 +65,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
               })
             });
           } catch (error) {
-            console.error('Error al eliminar asignación rechazada:', error);
+            logger.error('Error al eliminar asignación rechazada:', error);
           }
         }
       }
@@ -246,7 +247,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         alert('Error al asignar camarero. Por favor intente de nuevo.');
       }
     } catch (error) {
-      console.error('Error al asignar camarero:', error);
+      logger.error('Error al asignar camarero:', error);
       alert('Error de conexión al asignar camarero.');
     } finally {
       setProcesando(false);
@@ -296,7 +297,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         setSelectedPedido(updatedPedido);
       }
     } catch (error) {
-      console.error('Error al cambiar estado:', error);
+      logger.error('Error al cambiar estado:', error);
     }
   };
 
@@ -325,7 +326,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         setSelectedPedido(updatedPedido);
       }
     } catch (error) {
-      console.error('Error al remover camarero:', error);
+      logger.error('Error al remover camarero:', error);
     }
   };
 
@@ -610,7 +611,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
           });
         }
       } catch (error) {
-        console.error('Error al actualizar hora de salida:', error);
+        logger.error('Error al actualizar hora de salida:', error);
       }
     }, 1000);
 

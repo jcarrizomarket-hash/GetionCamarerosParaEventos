@@ -3,6 +3,7 @@
  * Unifica todas las llamadas al backend con manejo de errores consistente
  */
 
+import { logger } from '../../utils/logger';
 import type { 
   ApiResponse, 
   Pedido, 
@@ -34,7 +35,7 @@ const getApiConfig = () => {
 const getBaseUrl = (): string => {
   const { projectId } = getApiConfig();
   if (!projectId) {
-    console.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
+    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
     return '';
   }
   return `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;

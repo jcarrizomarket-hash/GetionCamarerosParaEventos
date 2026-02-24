@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useMemo, useEffect, useState } from 'react';
 import { 
   Calendar, 
@@ -46,7 +47,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       const data = await response.json();
       if (data.success) setClientes(data.data);
     } catch (error) {
-      console.log('Error al cargar clientes:', error);
+      logger.error('Error al cargar clientes:', error);
     }
   };
 

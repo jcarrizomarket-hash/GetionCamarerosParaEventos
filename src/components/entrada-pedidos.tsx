@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useMemo } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
 
@@ -229,7 +230,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
     
     try {
-      console.log(`🗑️ Eliminando pedido con ID: ${id}`);
+      logger.info(`🗑️ Eliminando pedido con ID: ${id}`);
       
       const response = await fetch(`${baseUrl}/pedidos/${id}`, {
         method: 'DELETE',
@@ -237,18 +238,18 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       });
       
       const result = await response.json();
-      console.log('📝 Respuesta del servidor:', response.status, result);
+      logger.info('📝 Respuesta del servidor:', response.status, result);
       
       if (response.ok && result.success) {
-        console.log('✅ Pedido eliminado, recargando datos...');
+        logger.info('✅ Pedido eliminado, recargando datos...');
         await cargarDatos();
         alert('✅ Pedido eliminado correctamente');
       } else {
-        console.error('❌ Error del servidor:', result);
+        logger.error('❌ Error del servidor:', result);
         alert(`❌ Error: ${result.error || 'No se pudo eliminar el pedido'}`);
       }
     } catch (error) {
-      console.error('❌ Error al eliminar:', error);
+      logger.error('❌ Error al eliminar:', error);
       alert(`❌ Error: ${error.message}`);
     }
   };
@@ -257,9 +258,9 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
   const playNotificationSound = () => {
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Sonido de campana/notificación
-      audio.play().catch(e => console.log('Audio autoplay blocked', e));
+      audio.play().catch(e => logger.warn('Audio autoplay blocked', e));
     } catch (error) {
-      console.error('Error playing sound', error);
+      logger.error('Error playing sound', error);
     }
   };
 
@@ -344,7 +345,7 @@ _Por favor confirme recepción de este mensaje._`;
         setFormData(initialFormState);
       }
     } catch (error) {
-      console.error('Error al guardar:', error);
+      logger.error('Error al guardar:', error);
     }
   };
 

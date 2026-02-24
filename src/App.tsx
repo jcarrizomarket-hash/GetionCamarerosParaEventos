@@ -10,6 +10,7 @@ import { EnvioParte } from './components/envio-parte';
 import { ChatGrupal } from './components/chat-grupal';
 import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+import { logger } from './utils/logger';
 
 // Aplicación de Gestión de Camareros para Eventos v2.1
 // Última actualización: Funcionalidad de edición y eliminación de coordinadores
@@ -54,7 +55,7 @@ export default function App() {
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
-      console.log('Error al cargar datos:', error);
+      logger.error('Error al cargar datos', error);
     }
   };
 

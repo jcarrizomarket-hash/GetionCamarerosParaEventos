@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -212,7 +213,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         setHoraInicio('');
         setHoraFin('');
       }
-    } catch (error) { console.log(error); }
+    } catch (error) { logger.error(error); }
   };
 
   const eliminarDisponibilidad = async (fecha) => {
@@ -231,7 +232,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         await cargarDatos();
         setSelectedCamarero({ ...selectedCamarero, disponibilidad });
       }
-    } catch (error) { console.log(error); }
+    } catch (error) { logger.error(error); }
   };
 
   // --- Operaciones CRUD Camarero ---
@@ -257,7 +258,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         await cargarDatos();
         resetForm();
       }
-    } catch (error) { console.log('Error:', error); }
+    } catch (error) { logger.error('Error:', error); }
   };
 
   const editarCamarero = (camarero) => {
@@ -294,7 +295,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         await cargarDatos();
         if (selectedCamarero?.id === id) setSelectedCamarero(null);
       }
-    } catch (error) { console.log(error); }
+    } catch (error) { logger.error(error); }
   };
 
   const toggleApercibido = async (camarero) => {
@@ -306,7 +307,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         body: JSON.stringify({ ...camarero, estado: nuevoEstado })
       });
       if (response.ok) await cargarDatos();
-    } catch (error) { console.log(error); }
+    } catch (error) { logger.error(error); }
   };
 
   const listaCamareros = camareros
@@ -349,7 +350,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
       alert('✅ Datos exportados correctamente');
     } catch (error) {
-      console.error('Error al exportar:', error);
+      logger.error('Error al exportar:', error);
       alert('❌ Error al exportar datos');
     }
   };
@@ -381,7 +382,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         try {
           // Validar campos requeridos
           if (!row['Nombre'] || !row['Apellido']) {
-            console.warn('Fila sin nombre/apellido, omitida:', row);
+            logger.warn('Fila sin nombre/apellido, omitida:', row);
             errores++;
             continue;
           }
@@ -389,7 +390,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
           // Verificar si el código ya existe
           const codigoExistente = camareros.find(c => c.codigo === row['Código']);
           if (codigoExistente) {
-            console.warn('Código duplicado, omitido:', row['Código']);
+            logger.warn('Código duplicado, omitido:', row['Código']);
             errores++;
             continue;
           }
@@ -430,7 +431,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
             errores++;
           }
         } catch (error) {
-          console.error('Error al importar fila:', error);
+          logger.error('Error al importar fila:', error);
           errores++;
         }
       }
@@ -444,7 +445,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       // Limpiar input file
       event.target.value = '';
     } catch (error) {
-      console.error('Error al procesar archivo:', error);
+      logger.error('Error al procesar archivo:', error);
       alert('❌ Error al procesar el archivo Excel');
     }
   };

@@ -1,5 +1,8 @@
 import type { Context } from 'npm:hono';
+import { createClient } from 'jsr:@supabase/supabase-js@2.49.8';
 import * as kv from './kv_store.tsx';
+
+const KV_TABLE = 'kv_store_25b11ac0';
 
 export interface RateLimitConfig {
   maxRequests: number;
@@ -37,10 +40,18 @@ async function getOrCreateRecord(
     return existing;
   }
 
+  // Window expired — delete the stale entry so it doesn't accumulate in the KV store
+  if (existing) {
+    kv.del(key).catch((err) =>
+      console.error('Rate limiter: failed to delete expired record', key, err)
+    );
+  }
+
   return {
     count: 0,
     resetAt: now + config.windowMs,
-    violations: existing?.violations ?? 0,
+    // Reset violations when a new window starts so backoff doesn't grow forever
+    violations: 0,
   };
 }
 
@@ -59,10 +70,22 @@ async function recordViolation(
   config: RateLimitConfig,
   identifier: string
 ): Promise<RateLimitRecord> {
-  const record = await getOrCreateRecord(key, config);
-  record.violations = (record.violations || 0) + 1;
-  record.lastViolation = Date.now();
-  await kv.set(key, record);
+  let record: RateLimitRecord;
+  try {
+    record = await getOrCreateRecord(key, config);
+    record.violations = (record.violations || 0) + 1;
+    record.lastViolation = Date.now();
+    await kv.set(key, record);
+  } catch (error) {
+    console.error('Rate limiter: failed to persist violation record', error);
+    // Return a minimal record so the caller can still produce a 429 response
+    record = {
+      count: config.maxRequests + 1,
+      resetAt: Date.now() + config.windowMs,
+      violations: 1,
+      lastViolation: Date.now(),
+    };
+  }
 
   console.warn('🚨 Rate limit violation', {
     identifier,
@@ -76,9 +99,15 @@ async function recordViolation(
   return record;
 }
 
+/**
+ * Extracts the client IP from standard proxy headers.
+ *
+ * NOTE: This implementation trusts that the function runs behind a reverse proxy
+ * (e.g. Supabase Edge, Cloudflare, Vercel) that strips client-provided
+ * x-forwarded-for values and appends the real connecting IP.  If deployed
+ * without such a proxy, malicious clients could spoof these headers.
+ */
 function getIdentifier(c: Context): string {
-  // Prefer the first IP from x-forwarded-for (most proxies prepend the real IP),
-  // then fall back to other common headers.
   const ip =
     c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
     c.req.header('x-real-ip') ||
@@ -101,7 +130,7 @@ function isTrustedSource(identifier: string, whitelist?: string[]): boolean {
 
 function getRetryAfter(record: RateLimitRecord): number {
   const resetIn = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
-  // Exponential backoff capped at 5 doublings (×32)
+  // Exponential backoff multiplier capped at 5 doublings (2^5 = ×32); violations themselves are not capped
   const backoffMultiplier = Math.pow(2, Math.min(record.violations, 5));
   return resetIn * backoffMultiplier;
 }
@@ -136,7 +165,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
         console.warn(`⚠️ Rate limit approaching for ${identifier} on ${method} ${path}`);
       }
 
-      // Hard limit exceeded
+      // Hard limit exceeded (count is already incremented, so > allows exactly maxRequests requests per window)
       if (record.count > finalConfig.maxRequests) {
         const violated = await recordViolation(key, finalConfig, identifier);
         const retryAfter = getRetryAfter(violated);
@@ -144,7 +173,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
         return c.json(
           {
             success: false,
-            error: 'Too many requests. Please try again later.',
+            error: 'Demasiadas solicitudes. Por favor, intenta más tarde.',
             retryAfter,
             violations: violated.violations,
           },
@@ -162,4 +191,55 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
       return next();
     }
   };
+}
+
+/**
+ * Deletes all rate-limit records whose window has already expired.
+ * Should be called periodically (e.g. every 5 minutes) to prevent the KV
+ * store from accumulating stale entries for IPs that never revisit.
+ */
+export async function cleanupExpiredRateLimitRecords(): Promise<void> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const now = Date.now();
+    const { data, error } = await supabase
+      .from(KV_TABLE)
+      .select('key, value')
+      .like('key', 'rate-limit:%');
+
+    if (error) {
+      console.error('Rate limiter cleanup: failed to fetch records', error);
+      return;
+    }
+
+    const expiredKeys = (data ?? [])
+      .filter((row) => row.value?.resetAt !== undefined && row.value.resetAt < now)
+      .map((row) => row.key);
+
+    if (expiredKeys.length === 0) {
+      return;
+    }
+
+    const { error: delError } = await supabase
+      .from(KV_TABLE)
+      .delete()
+      .in('key', expiredKeys);
+
+    if (delError) {
+      console.error('Rate limiter cleanup: failed to delete expired records', delError);
+    } else {
+      console.log(`🧹 Rate limiter cleanup: removed ${expiredKeys.length} expired record(s)`);
+    }
+  } catch (error) {
+    console.error('Rate limiter cleanup error:', error);
+  }
+}
+
+// Run cleanup every 5 minutes
+if (typeof Deno !== 'undefined') {
+  setInterval(cleanupExpiredRateLimitRecords, 5 * 60 * 1000);
 }

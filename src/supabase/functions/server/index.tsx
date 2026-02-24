@@ -288,7 +288,7 @@ app.post('/make-server-25b11ac0/pedidos', endpointRateLimiter, requireSecret, as
   }
 });
 
-app.put('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, async (c) => {
+app.put('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -304,7 +304,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);

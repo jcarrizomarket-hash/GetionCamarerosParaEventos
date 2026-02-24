@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
@@ -71,6 +72,7 @@ export default function App() {
   ];
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -205,5 +207,6 @@ export default function App() {
         {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

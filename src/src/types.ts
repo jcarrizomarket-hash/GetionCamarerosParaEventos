@@ -118,6 +118,16 @@ export interface EmailConfig {
   emailFrom?: string;
 }
 
+// Tipos para sesión de usuario y autenticación
+export type UserRole = 'admin' | 'coordinador' | 'camarero';
+
+export interface UserSession {
+  userId: string;
+  email: string;
+  role: UserRole;
+  expiresAt: number;
+}
+
 // Tipos para informes
 export interface InformeMetrics {
   totalEventos: number;

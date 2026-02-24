@@ -8,6 +8,7 @@ import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+import { useAuth } from './hooks/useAuth';
 
 // Aplicación de Gestión de Camareros para Eventos v2.1
 // Última actualización: Funcionalidad de edición y eliminación de coordinadores
@@ -19,6 +20,8 @@ export default function App() {
   const [clientes, setClientes] = useState([]);
   const [selectedPedido, setSelectedPedido] = useState(null);
 
+  const { isExpired, getAuthHeaders } = useAuth();
+
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
   useEffect(() => {
@@ -27,18 +30,19 @@ export default function App() {
 
   const cargarDatos = async () => {
     try {
+      const authHeaders = getAuthHeaders();
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
+          headers: authHeaders
         }),
         fetch(`${baseUrl}/pedidos`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
+          headers: authHeaders
         }),
         fetch(`${baseUrl}/coordinadores`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
+          headers: authHeaders
         }),
         fetch(`${baseUrl}/clientes`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
+          headers: authHeaders
         })
       ]);
 
@@ -68,6 +72,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Session expired warning */}
+      {isExpired && (
+        <div className="bg-red-600 text-white text-center py-2 px-4 text-sm">
+          Tu sesión ha expirado. Por favor, recarga la página para continuar.
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-4">

@@ -92,7 +92,7 @@ export interface TokenConfirmacion {
 }
 
 // Tipos para respuestas de la API
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -137,4 +137,10 @@ export interface EventoCalendario {
   completo: boolean;
   totalCamareros: number;
   confirmados: number;
+}
+
+// Tipos para estado de carga
+export interface LoadingState {
+  isLoading: boolean;
+  error: string | null;
 }

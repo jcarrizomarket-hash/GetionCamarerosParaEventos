@@ -1,25 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
+import type { Pedido, Camarero, Coordinador } from '../src/types';
 
 // v2.0.0 - Interfaz tipo WhatsApp Web completa
 interface EnvioMensajeProps {
-  pedidos: any[];
-  camareros: any[];
-  coordinadores: any[];
+  pedidos: Pedido[];
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
   baseUrl: string;
   publicAnonKey: string;
-  setPedidos: (pedidos: any[]) => void;
+  setPedidos: (pedidos: Pedido[]) => void;
   cargarDatos: () => Promise<void>;
 }
 
 export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey, setPedidos, cargarDatos }: EnvioMensajeProps) {
   const [periodoFiltro, setPeriodoFiltro] = useState<'diario' | 'semanal' | 'mensual'>('semanal');
-  const [eventoSeleccionado, setEventoSeleccionado] = useState<any>(null);
-  const [camareroSeleccionado, setCamareroSeleccionado] = useState<any>(null);
-  const [mensajes, setMensajes] = useState<any[]>([]);
-  const [nuevoMensaje, setNuevoMensaje] = useState('');
-  const [coordinadorActual, setCoordinadorActual] = useState<any>(null);
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<Pedido | null>(null);
+  const [camareroSeleccionado, setCamareroSeleccionado] = useState<Camarero | null>(null);
+  const [mensajes, setMensajes] = useState<Array<{ id: string; texto: string; timestamp: string; remitente: string }>>([]);
+  const [nuevoMensaje, setNuevoMensaje] = useState<string>('');
+  const [coordinadorActual, setCoordinadorActual] = useState<Coordinador | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos
@@ -70,7 +71,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
   }, [mensajes]);
 
   // Generar mensaje predefinido
-  const generarMensaje = async (pedido: any, camarero: any) => {
+  const generarMensaje = async (pedido: Pedido, camarero: Camarero): Promise<string> => {
     if (!pedido || !camarero || !coordinadorActual) return '';
     
     const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -141,7 +142,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
   };
 
   // Enviar mensaje automáticamente al seleccionar camarero
-  const enviarMensajeAutomatico = async (camarero: any) => {
+  const enviarMensajeAutomatico = async (camarero: Camarero): Promise<void> => {
     if (!eventoSeleccionado || !coordinadorActual) return;
 
     const mensajeTexto = await generarMensaje(eventoSeleccionado, camarero);
@@ -393,7 +394,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
                 <p>No hay camareros asignados a este evento</p>
               </div>
             ) : (
-              camarerosEvento.map((camarero: any) => {
+              camarerosEvento.map((camarero: Camarero) => {
                 const esSeleccionado = camareroSeleccionado?.id === camarero.id;
                 let bgColor = 'bg-white';
                 let borderColor = 'border-gray-200';

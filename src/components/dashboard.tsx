@@ -22,23 +22,24 @@ import {
   Settings
 } from 'lucide-react';
 import { WhatsAppConfigStatus } from './whatsapp-config-status';
+import type { Camarero, Pedido, Cliente } from '../src/types';
 
 interface DashboardProps {
-  camareros: any[];
-  pedidos: any[];
+  camareros: Camarero[];
+  pedidos: Pedido[];
   setActiveTab: (tab: string) => void;
   baseUrl: string;
   publicAnonKey: string;
 }
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
 
   useEffect(() => {
     cargarClientes();
   }, []);
 
-  const cargarClientes = async () => {
+  const cargarClientes = async (): Promise<void> => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }

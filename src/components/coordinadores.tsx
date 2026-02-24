@@ -1,22 +1,24 @@
 import { useState } from 'react';
+import type React from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import type { Coordinador } from '../src/types';
 
 interface CoordinadoresProps {
-  coordinadores: any[];
-  setCoordinadores: (coordinadores: any[]) => void;
+  coordinadores: Coordinador[];
+  setCoordinadores: (coordinadores: Coordinador[]) => void;
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
 }
 
 export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, publicAnonKey, cargarDatos }: CoordinadoresProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [nombre, setNombre] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [email, setEmail] = useState('');
-  const [editingCoordinador, setEditingCoordinador] = useState(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [nombre, setNombre] = useState<string>('');
+  const [telefono, setTelefono] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [editingCoordinador, setEditingCoordinador] = useState<Coordinador | null>(null);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     
     if (!nombre.trim()) {

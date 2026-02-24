@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import type { Camarero, Pedido, Coordinador } from '../src/types';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -13,33 +14,33 @@ const TIPOS_PERFIL = [
 ];
 
 interface CamarerosProps {
-  camareros: any[];
-  setCamareros: (camareros: any[]) => void;
-  pedidos?: any[];
-  coordinadores?: any[];
+  camareros: Camarero[];
+  setCamareros: (camareros: Camarero[]) => void;
+  pedidos?: Pedido[];
+  coordinadores?: Coordinador[];
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
 }
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingCamarero, setEditingCamarero] = useState(null);
-  const [activeFormTab, setActiveFormTab] = useState('general');
-  const [verApercibidos, setVerApercibidos] = useState(false);
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [editingCamarero, setEditingCamarero] = useState<Camarero | null>(null);
+  const [activeFormTab, setActiveFormTab] = useState<string>('general');
+  const [verApercibidos, setVerApercibidos] = useState<boolean>(false);
 
   // Estados para calendario avanzado
-  const [selectedCamarero, setSelectedCamarero] = useState(null);
-  const [showCalendario, setShowCalendario] = useState(false);
+  const [selectedCamarero, setSelectedCamarero] = useState<Camarero | null>(null);
+  const [showCalendario, setShowCalendario] = useState<boolean>(false);
   
   // Estado formulario disponibilidad
-  const [modoDisponibilidad, setModoDisponibilidad] = useState('unica'); // 'unica', 'rango', 'semanal'
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
-  const [horaInicio, setHoraInicio] = useState('');
-  const [horaFin, setHoraFin] = useState('');
-  const [diasSeleccionados, setDiasSeleccionados] = useState([]); // 0=Domingo, 1=Lunes...
-  const [tipoDisponibilidad, setTipoDisponibilidad] = useState('disponible');
+  const [modoDisponibilidad, setModoDisponibilidad] = useState<string>('unica'); // 'unica', 'rango', 'semanal'
+  const [fechaInicio, setFechaInicio] = useState<string>('');
+  const [fechaFin, setFechaFin] = useState<string>('');
+  const [horaInicio, setHoraInicio] = useState<string>('');
+  const [horaFin, setHoraFin] = useState<string>('');
+  const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([]); // 0=Domingo, 1=Lunes...
+  const [tipoDisponibilidad, setTipoDisponibilidad] = useState<string>('disponible');
 
   const initialFormState = {
     codigo: '',

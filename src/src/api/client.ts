@@ -367,14 +367,14 @@ export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppCon
   }
 }
 
-export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<any>> {
+export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<unknown>> {
   try {
     const response = await fetch(`${getBaseUrl()}/enviar-whatsapp`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ telefono, mensaje }),
     });
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   } catch (error) {
     return {
       success: false,
@@ -411,14 +411,14 @@ export async function enviarEmailParte(params: {
     fecha: string;
     lugar: string;
   };
-}): Promise<ApiResponse<any>> {
+}): Promise<ApiResponse<unknown>> {
   try {
     const response = await fetch(`${getBaseUrl()}/enviar-email-parte`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(params),
     });
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   } catch (error) {
     return {
       success: false,

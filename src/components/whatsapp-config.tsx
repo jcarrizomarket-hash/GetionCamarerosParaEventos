@@ -7,10 +7,10 @@ interface WhatsAppConfigProps {
 }
 
 export function WhatsAppConfig({ baseUrl, publicAnonKey }: WhatsAppConfigProps) {
-  const [isConfigured, setIsConfigured] = useState(false);
-  const [message, setMessage] = useState('');
-  const [configDetails, setConfigDetails] = useState<any>(null);
-  const [checking, setChecking] = useState(true);
+  const [isConfigured, setIsConfigured] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>('');
+  const [configDetails, setConfigDetails] = useState<Record<string, unknown> | null>(null);
+  const [checking, setChecking] = useState<boolean>(true);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {

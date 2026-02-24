@@ -14,7 +14,7 @@ export function EmailConfigStatus({ baseUrl, publicAnonKey }: EmailConfigStatusP
     emailFrom: string;
     message: string;
     checking: boolean;
-    debug?: any;
+    debug?: unknown;
   }>({
     configured: false,
     servicioActivo: null,

@@ -2,11 +2,21 @@ import { useState } from 'react';
 import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
+import type { Pedido, Camarero, Coordinador, Cliente } from '../src/types';
 
-export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
-  const [showPrintView, setShowPrintView] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
+interface EnvioParteProps {
+  pedidos: Pedido[];
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
+  clientes: Cliente[];
+  baseUrl: string;
+  publicAnonKey: string;
+}
+
+export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: EnvioParteProps) {
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
+  const [showPrintView, setShowPrintView] = useState<boolean>(false);
+  const [showEmailModal, setShowEmailModal] = useState<boolean>(false);
   const [emailData, setEmailData] = useState({
     destinatario: '',
     asunto: '',
@@ -14,7 +24,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
     copiaCoordinador: false,
     emailCoordinador: ''
   });
-  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [enviandoEmail, setEnviandoEmail] = useState<boolean>(false);
 
   // Deduplicar pedidos y ordenar descendentemente
   const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values())

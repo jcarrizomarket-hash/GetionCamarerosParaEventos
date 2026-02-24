@@ -1,39 +1,40 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Send, MessageSquare, Users, Bot, CheckCircle, Clock, MapPin, Calendar, X, Phone, Mail as MailIcon, ChevronDown, ChevronUp, FileCheck } from 'lucide-react';
+import type { Pedido, Camarero, Coordinador, Cliente } from '../src/types';
 
 interface EnviosProps {
-  pedidos: any[];
-  camareros: any[];
-  coordinadores: any[];
-  clientes: any[];
+  pedidos: Pedido[];
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
+  clientes: Cliente[];
   baseUrl: string;
   publicAnonKey: string;
 }
 
 export function Envios({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: EnviosProps) {
   const [activeTab, setActiveTab] = useState<'servicios' | 'grupal' | 'coordinadores' | 'chatbot' | 'partes'>('servicios');
-  const [selectedEvento, setSelectedEvento] = useState<any>(null);
+  const [selectedEvento, setSelectedEvento] = useState<Pedido | null>(null);
   const [mensajeTipo, setMensajeTipo] = useState<'catering' | 'restauracion'>('restauracion');
-  const [showAsistentes, setShowAsistentes] = useState(false);
+  const [showAsistentes, setShowAsistentes] = useState<boolean>(false);
   
   // Chat states
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [selectedChatEvento, setSelectedChatEvento] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; role: string; content: string }>>([]);
+  const [newMessage, setNewMessage] = useState<string>('');
+  const [selectedChatEvento, setSelectedChatEvento] = useState<Pedido | null>(null);
   
   // Chatbot states
-  const [chatbotMessages, setChatbotMessages] = useState<any[]>([
+  const [chatbotMessages, setChatbotMessages] = useState<Array<{ id: string; role: string; content: string }>>([
     { id: 'initial-1', role: 'assistant', content: '¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?' }
   ]);
-  const [chatbotInput, setChatbotInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [chatbotInput, setChatbotInput] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   
   // Partes de Servicios states
-  const [vistaPrevia, setVistaPrevia] = useState<any>(null);
-  const [estadosPartes, setEstadosPartes] = useState<{[key: string]: 'pendiente' | 'enviado'}>({});
+  const [vistaPrevia, setVistaPrevia] = useState<Pedido | null>(null);
+  const [estadosPartes, setEstadosPartes] = useState<Record<string, 'pendiente' | 'enviado'>>({});
   
   // Vista previa de mensaje de servicio
-  const [showVistaPreviaServicio, setShowVistaPreviaServicio] = useState(false);
+  const [showVistaPreviaServicio, setShowVistaPreviaServicio] = useState<boolean>(false);
 
   const tabs = [
     { id: 'servicios' as const, label: 'Envíos Servicios', icon: Send },
@@ -209,7 +210,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
   };
 
   // Función para enviar parte de servicio
-  const enviarParteServicio = async (evento: any) => {
+  const enviarParteServicio = async (evento: Pedido): Promise<void> => {
     const cliente = clientes.find(c => c.nombre === evento.cliente);
     if (!cliente) {
       alert('⚠️ Cliente no encontrado');

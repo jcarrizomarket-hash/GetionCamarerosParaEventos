@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import type { Cliente } from '../src/types';
 
-export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editandoClienteId, setEditandoClienteId] = useState(null);
+interface ClientesProps {
+  clientes: Cliente[];
+  setClientes: (clientes: Cliente[]) => void;
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
+export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }: ClientesProps) {
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [editandoClienteId, setEditandoClienteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nombre: '',
     contacto1: '',

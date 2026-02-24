@@ -3,12 +3,13 @@ import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
 import { GestionPedidos } from './gestion-pedidos';
+import type { Pedido, Camarero, Coordinador, Cliente } from '../src/types';
 
 interface PedidosProps {
-  pedidos: any[];
-  setPedidos: (pedidos: any[]) => void;
-  camareros: any[];
-  coordinadores: any[];
+  pedidos: Pedido[];
+  setPedidos: (pedidos: Pedido[]) => void;
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
@@ -23,14 +24,14 @@ export function Pedidos({
   publicAnonKey, 
   cargarDatos 
 }: PedidosProps) {
-  const [activeSubTab, setActiveSubTab] = useState('clientes');
-  const [clientes, setClientes] = useState([]);
+  const [activeSubTab, setActiveSubTab] = useState<string>('clientes');
+  const [clientes, setClientes] = useState<Cliente[]>([]);
 
   useEffect(() => {
     cargarClientes();
   }, []);
 
-  const cargarClientes = async () => {
+  const cargarClientes = async (): Promise<void> => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }

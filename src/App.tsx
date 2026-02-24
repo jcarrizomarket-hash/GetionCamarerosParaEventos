@@ -8,16 +8,17 @@ import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+import type { Camarero, Pedido, Coordinador, Cliente } from './src/types';
 
 // Aplicación de Gestión de Camareros para Eventos v2.1
 // Última actualización: Funcionalidad de edición y eliminación de coordinadores
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [camareros, setCamareros] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
-  const [coordinadores, setCoordinadores] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [camareros, setCamareros] = useState<Camarero[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [coordinadores, setCoordinadores] = useState<Coordinador[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -25,7 +26,7 @@ export default function App() {
     cargarDatos();
   }, []);
 
-  const cargarDatos = async () => {
+  const cargarDatos = async (): Promise<void> => {
     try {
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {

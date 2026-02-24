@@ -1,13 +1,26 @@
 import { useState, useMemo } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
+import type { Pedido, Camarero, Coordinador, Cliente } from '../src/types';
 
-export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
+interface EntradaPedidosProps {
+  clientes: Cliente[];
+  setClientes: (clientes: Cliente[]) => void;
+  pedidos: Pedido[];
+  setPedidos: (pedidos: Pedido[]) => void;
+  camareros?: Camarero[];
+  coordinadores?: Coordinador[];
+  baseUrl: string;
+  publicAnonKey: string;
+  cargarDatos: () => void;
+}
+
+export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: EntradaPedidosProps) {
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   
   // Estado para el informe
-  const [reportPeriod, setReportPeriod] = useState('mensual'); // 'diario' | 'semanal' | 'mensual'
+  const [reportPeriod, setReportPeriod] = useState<string>('mensual'); // 'diario' | 'semanal' | 'mensual'
 
   const initialFormState = {
     numero: '',

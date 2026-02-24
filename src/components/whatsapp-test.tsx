@@ -1,21 +1,31 @@
 import { useState } from 'react';
 import { Send, CheckCircle, XCircle, AlertCircle, Loader, MessageCircle, Users, Phone } from 'lucide-react';
+import type { Camarero, Coordinador, Pedido } from '../src/types';
+
+interface TestResult {
+  id: string;
+  test: string;
+  status: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  details?: unknown;
+  timestamp: string;
+}
 
 interface WhatsAppTestProps {
   baseUrl: string;
   publicAnonKey: string;
-  camareros: any[];
-  coordinadores: any[];
-  pedidos: any[];
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
+  pedidos: Pedido[];
 }
 
 export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores, pedidos }: WhatsAppTestProps) {
-  const [testResults, setTestResults] = useState<any[]>([]);
-  const [testing, setTesting] = useState(false);
-  const [telefonoTest, setTelefonoTest] = useState('');
-  const [mensajeTest, setMensajeTest] = useState('Hola! Este es un mensaje de prueba de WhatsApp Business API. ✅');
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [testing, setTesting] = useState<boolean>(false);
+  const [telefonoTest, setTelefonoTest] = useState<string>('');
+  const [mensajeTest, setMensajeTest] = useState<string>('Hola! Este es un mensaje de prueba de WhatsApp Business API. ✅');
 
-  const addTestResult = (test: string, status: 'success' | 'error' | 'warning' | 'info', message: string, details?: any) => {
+  const addTestResult = (test: string, status: 'success' | 'error' | 'warning' | 'info', message: string, details?: unknown): void => {
     setTestResults(prev => [...prev, {
       id: `test-${Date.now()}-${Math.random()}`,
       test,

@@ -32,12 +32,26 @@ import { TestEmail } from './test-email';
 const TEST_PHONE = '+15558327331';
 const TEST_EMAIL = 'pruebas@sistema-camareros.com';
 
+interface TestResult {
+  id: string;
+  test: string;
+  status: 'success' | 'error' | 'warning';
+  message: string;
+  details?: unknown;
+  timestamp: string;
+}
+
+interface StatusInfo {
+  configured?: boolean;
+  [key: string]: unknown;
+}
+
 export function TestPanel() {
-  const [whatsappStatus, setWhatsappStatus] = useState<any>(null);
-  const [emailStatus, setEmailStatus] = useState<any>(null);
-  const [testResults, setTestResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<StatusInfo | null>(null);
+  const [emailStatus, setEmailStatus] = useState<StatusInfo | null>(null);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
 
   // Datos de prueba
   const [testData, setTestData] = useState({
@@ -52,7 +66,7 @@ export function TestPanel() {
     }
   });
 
-  const addResult = (test: string, status: 'success' | 'error' | 'warning', message: string, details?: any) => {
+  const addResult = (test: string, status: 'success' | 'error' | 'warning', message: string, details?: unknown): void => {
     setTestResults(prev => [{
       id: `test-${Date.now()}-${Math.random()}`,
       test,

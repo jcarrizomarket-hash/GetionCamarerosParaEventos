@@ -5,14 +5,15 @@ import { TestPanel } from './test-panel';
 import { TestEmail } from './test-email';
 import { WhatsAppTest } from './whatsapp-test';
 import { WhatsAppChatbotConfig } from './whatsapp-chatbot-config';
+import type { Camarero, Pedido, Coordinador, Cliente } from '../src/types';
 
 interface ConfiguracionProps {
   baseUrl: string;
   publicAnonKey: string;
-  camareros?: any[];
-  coordinadores?: any[];
-  pedidos?: any[];
-  clientes?: any[];
+  camareros?: Camarero[];
+  coordinadores?: Coordinador[];
+  pedidos?: Pedido[];
+  clientes?: Cliente[];
 }
 
 export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordinadores = [], pedidos = [], clientes = [] }: ConfiguracionProps) {
@@ -64,9 +65,9 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
         console.error('❌ Error al eliminar:', result);
         alert(`❌ Error al eliminar el pedido: ${result.error || 'Error desconocido'}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al eliminar pedido:', error);
-      alert(`❌ Error: ${error.message}`);
+      alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   };
 
@@ -143,9 +144,9 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
         console.error('❌ Error en la limpieza:', result);
         alert(`❌ Error al limpiar datos: ${result.error || 'Error desconocido'}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error en limpieza de datos:', error);
-      alert(`❌ Error: ${error.message}`);
+      alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setLimpiandoDatos(false);
     }

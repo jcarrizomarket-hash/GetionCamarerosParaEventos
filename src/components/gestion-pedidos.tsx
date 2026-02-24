@@ -1,29 +1,30 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
+import type { Pedido, Camarero } from '../src/types';
 
 // v1.0.3 - Verificación completa de React keys
 interface GestionPedidosProps {
-  pedidos: any[];
-  setPedidos: (pedidos: any[]) => void;
-  camareros: any[];
+  pedidos: Pedido[];
+  setPedidos: (pedidos: Pedido[]) => void;
+  camareros: Camarero[];
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
 }
 
 export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
-  const [procesando, setProcesando] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [filtroCamarero, setFiltroCamarero] = useState('');
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
+  const [procesando, setProcesando] = useState<boolean>(false);
+  const [showCalendar, setShowCalendar] = useState<boolean>(true);
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [filtroCamarero, setFiltroCamarero] = useState<string>('');
   
   // Estado para filtros de resumen
-  const [periodoFiltro, setPeriodoFiltro] = useState('mensual'); // diario, semanal, mensual
+  const [periodoFiltro, setPeriodoFiltro] = useState<string>('mensual'); // diario, semanal, mensual
   
   // Estado temporal para horas de salida (permite edición inmediata)
-  const [horaSalidaTemporal, setHoraSalidaTemporal] = useState({});
-  const [debounceTimers, setDebounceTimers] = useState({});
+  const [horaSalidaTemporal, setHoraSalidaTemporal] = useState<Record<string, string>>({});
+  const [debounceTimers, setDebounceTimers] = useState<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);

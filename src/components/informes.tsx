@@ -2,21 +2,29 @@ import { useState, useMemo, useEffect } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { Camarero, Pedido, Cliente } from '../src/types';
 
-export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
-  const [tipoInforme, setTipoInforme] = useState('cliente');
-  const [clienteSeleccionado, setClienteSeleccionado] = useState('');
-  const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [clientes, setClientes] = useState([]);
+interface InformesProps {
+  camareros: Camarero[];
+  pedidos: Pedido[];
+  baseUrl: string;
+  publicAnonKey: string;
+}
+
+export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }: InformesProps) {
+  const [tipoInforme, setTipoInforme] = useState<string>('cliente');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<string>('');
+  const [camareroSeleccionado, setCamareroSeleccionado] = useState<string>('');
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
+  const [clientes, setClientes] = useState<Cliente[]>([]);
 
   // Cargar clientes
   useEffect(() => {
     cargarClientes();
   }, []);
 
-  const cargarClientes = async () => {
+  const cargarClientes = async (): Promise<void> => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }
@@ -29,7 +37,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
   };
 
   // Helpers para parsear horas "5h 30m" -> Minutos
-  const parseDuration = (str) => {
+  const parseDuration = (str: string): number => {
     if (!str) return 0;
     const matchH = str.match(/(\d+)h/);
     const matchM = str.match(/(\d+)m/);
@@ -38,7 +46,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     return h * 60 + m;
   };
 
-  const formatDuration = (minutes) => {
+  const formatDuration = (minutes: number): string => {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
     if (m === 0) return `${h}h`;

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Send, Users, ChevronDown, MessageCircle, Check, CheckCheck } from 'lucide-react';
+import type { Pedido, Camarero, Coordinador } from '../src/types';
 
 interface ChatGrupalProps {
-  pedidos: any[];
-  camareros: any[];
-  coordinadores: any[];
+  pedidos: Pedido[];
+  camareros: Camarero[];
+  coordinadores: Coordinador[];
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => Promise<void>;
@@ -21,12 +22,12 @@ interface Mensaje {
 }
 
 export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicAnonKey, cargarDatos }: ChatGrupalProps) {
-  const [chatsDisponibles, setChatsDisponibles] = useState<any[]>([]);
-  const [chatSeleccionado, setChatSeleccionado] = useState<any>(null);
+  const [chatsDisponibles, setChatsDisponibles] = useState<Pedido[]>([]);
+  const [chatSeleccionado, setChatSeleccionado] = useState<Pedido | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
-  const [nuevoMensaje, setNuevoMensaje] = useState('');
-  const [mostrarParticipantes, setMostrarParticipantes] = useState(false);
-  const [coordinadorActual, setCoordinadorActual] = useState<any>(null);
+  const [nuevoMensaje, setNuevoMensaje] = useState<string>('');
+  const [mostrarParticipantes, setMostrarParticipantes] = useState<boolean>(false);
+  const [coordinadorActual, setCoordinadorActual] = useState<Coordinador | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos con useMemo para evitar recrear arrays en cada render
@@ -297,7 +298,7 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
                       {/* Camareros */}
                       <div className="px-4 py-2">
                         <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Camareros</p>
-                        {participantes.map((participante: any) => (
+                        {participantes.map((participante: Camarero) => (
                           <div key={participante.id} className="flex items-center gap-3 py-2">
                             <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold">
                               {participante.nombre.charAt(0).toUpperCase()}

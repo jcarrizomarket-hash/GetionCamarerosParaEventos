@@ -14,6 +14,11 @@ import { createTestJwt } from '../test-helpers';
 // ─── Reimplementación testeable de los middlewares ─────────────────────────
 // (misma lógica que middleware.ts, sin dependencias Deno-específicas)
 
+/**
+ * Test stub for logAudit — mirrors the production function signature but performs
+ * no actual logging. The production version writes a structured JSON audit entry
+ * to the console; in tests we keep it silent to avoid noise in test output.
+ */
 function logAudit(
   c: ReturnType<typeof createMockContext>,
   userId: string | null,

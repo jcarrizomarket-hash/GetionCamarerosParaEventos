@@ -61,6 +61,8 @@ export function validarFecha(fecha: string): { valid: boolean; error?: string } 
 
 /**
  * Valida número de pedido (formato alfanumérico con guiones)
+ * Patrón: empieza con carácter alfanumérico, seguido de 1-19 caracteres alfanuméricos o guiones,
+ * total 2-20 caracteres, sin distinción de mayúsculas/minúsculas.
  */
 export function validarNumeroPedido(numero: string): { valid: boolean; error?: string } {
   if (!numero || numero.trim() === '') {

@@ -169,11 +169,14 @@ export function generarId(): string {
  */
 export function deduplicarPorId<T extends { id: string }>(array: T[]): T[] {
   const seen = new Set<string>();
-  return array.filter(item => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+  const result: T[] = [];
+  for (const item of array) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      result.push(item);
+    }
+  }
+  return result;
 }
 
 /**

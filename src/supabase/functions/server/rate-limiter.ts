@@ -1,7 +1,6 @@
 import type { Context } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2.49.8';
 import * as kv from './kv_store.tsx';
-
 const KV_TABLE = 'kv_store_25b11ac0';
 
 export interface RateLimitConfig {

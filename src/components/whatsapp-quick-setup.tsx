@@ -197,8 +197,8 @@ export function WhatsAppQuickSetup() {
                 
                 {stepItem.details && (
                   <ul className="space-y-1 mb-3">
-                    {stepItem.details.map((detail, idx) => (
-                      <li key={idx} className="text-gray-700 text-sm flex items-start gap-2">
+                    {stepItem.details.map((detail) => (
+                      <li key={`detail-${stepItem.number}-${detail.substring(0, 30)}`} className="text-gray-700 text-sm flex items-start gap-2">
                         <span className="text-blue-600 mt-1">•</span>
                         <span>{detail}</span>
                       </li>

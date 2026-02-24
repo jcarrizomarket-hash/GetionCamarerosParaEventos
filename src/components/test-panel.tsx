@@ -54,6 +54,7 @@ export function TestPanel() {
 
   const addResult = (test: string, status: 'success' | 'error' | 'warning', message: string, details?: any) => {
     setTestResults(prev => [{
+      id: `test-${Date.now()}-${Math.random()}`,
       test,
       status,
       message,
@@ -391,9 +392,9 @@ export function TestPanel() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {testResults.map((result, index) => (
+                      {testResults.map((result) => (
                         <div
-                          key={index}
+                          key={result.id}
                           className={`p-3 rounded-lg border ${
                             result.status === 'success'
                               ? 'bg-green-50 border-green-200'

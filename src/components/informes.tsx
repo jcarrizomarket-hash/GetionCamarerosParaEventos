@@ -518,8 +518,8 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                          {clientAnalytics.pedidosDetallados.map((p, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50">
+                          {clientAnalytics.pedidosDetallados.map((p) => (
+                              <tr key={`pedido-${p.id || p.diaEvento}-${p.lugar}`} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                       {new Date(p.diaEvento).toLocaleDateString()}
                                   </td>
@@ -579,8 +579,8 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                          {waiterAnalytics.eventosTrabajados.map((e, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50">
+                          {waiterAnalytics.eventosTrabajados.map((e) => (
+                              <tr key={`evento-${e.fecha}-${e.cliente}-${e.lugar}`} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                       {new Date(e.fecha).toLocaleDateString()}
                                   </td>

@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
 import { Coordinadores } from './components/coordinadores';
 import { Informes } from './components/informes';
-import { EnvioMensaje } from './components/envio-mensaje';
-import { EnvioParte } from './components/envio-parte';
-import { ChatGrupal } from './components/chat-grupal';
+import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
@@ -64,9 +62,7 @@ export default function App() {
     { id: 'camareros', label: 'Personal', icon: Users },
     { id: 'coordinadores', label: 'Coordinadores', icon: UserPlus },
     { id: 'informes', label: 'Informes', icon: FileText },
-    { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare },
-    { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck },
-    { id: 'chat-grupal', label: 'Chat Grupal', icon: MessagesSquare },
+    { id: 'envios', label: 'Envíos', icon: Send },
     { id: 'configuracion', label: 'Configuración', icon: Settings }
   ];
 
@@ -157,37 +153,14 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'envio-mensaje' && (
-          <EnvioMensaje
-            pedidos={pedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            setPedidos={setPedidos}
-            cargarDatos={cargarDatos}
-          />
-        )}
-
-        {activeTab === 'envio-parte' && (
-          <EnvioParte
+        {activeTab === 'envios' && (
+          <Envios
             pedidos={pedidos}
             camareros={camareros}
             coordinadores={coordinadores}
             clientes={clientes}
             baseUrl={baseUrl}
             publicAnonKey={publicAnonKey}
-          />
-        )}
-
-        {activeTab === 'chat-grupal' && (
-          <ChatGrupal
-            pedidos={pedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
           />
         )}
 

@@ -197,32 +197,41 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
   };
 
   const handleEdit = (pedido) => {
-    setFormData({
-      numero: pedido.numero || '',
-      cliente: pedido.cliente,
-      lugar: pedido.lugar,
-      ubicacion: pedido.ubicacion || '',
-      diaEvento: pedido.diaEvento,
-      
-      cantidadCamareros: pedido.cantidadCamareros,
-      horaEntrada: pedido.horaEntrada,
-      horaSalida: pedido.horaSalida,
-      totalHoras: pedido.totalHoras,
-      
-      cantidadCamareros2: pedido.cantidadCamareros2 || 0,
-      horaEntrada2: pedido.horaEntrada2 || '',
-      horaSalida2: pedido.horaSalida2 || '',
-      totalHoras2: pedido.totalHoras2 || '',
-      
-      catering: pedido.catering,
-      camisa: pedido.camisa,
-      notas: pedido.notas || '',
-      // NUEVO: Coordinador del evento para chats grupales
-      coordinadorId: pedido.coordinadorId || '',
-      coordinadorNombre: pedido.coordinadorNombre || ''
-    });
-    setEditingId(pedido.id);
-    setShowForm(true);
+    console.log('📝 Editando pedido:', pedido.id, pedido.numero);
+    console.log('📋 Datos completos del pedido:', pedido);
+    
+    // Primero cerrar el formulario si está abierto
+    setShowForm(false);
+    
+    // Esperar un momento y luego configurar todo
+    setTimeout(() => {
+      setEditingId(pedido.id);
+      setFormData({
+        numero: pedido.numero || '',
+        cliente: pedido.cliente,
+        lugar: pedido.lugar,
+        ubicacion: pedido.ubicacion || '',
+        diaEvento: pedido.diaEvento,
+        
+        cantidadCamareros: pedido.cantidadCamareros,
+        horaEntrada: pedido.horaEntrada,
+        horaSalida: pedido.horaSalida,
+        totalHoras: pedido.totalHoras,
+        
+        cantidadCamareros2: pedido.cantidadCamareros2 || 0,
+        horaEntrada2: pedido.horaEntrada2 || '',
+        horaSalida2: pedido.horaSalida2 || '',
+        totalHoras2: pedido.totalHoras2 || '',
+        
+        catering: pedido.catering,
+        camisa: pedido.camisa,
+        notas: pedido.notas || '',
+        coordinadorId: pedido.coordinadorId || '',
+        coordinadorNombre: pedido.coordinadorNombre || ''
+      });
+      console.log('✅ Estado editingId configurado a:', pedido.id);
+      setShowForm(true);
+    }, 50);
   };
 
   const handleDelete = async (id) => {

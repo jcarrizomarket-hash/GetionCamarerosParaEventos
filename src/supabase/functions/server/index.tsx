@@ -3,28 +3,15 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
+import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Middleware de seguridad simple
-const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
-  // Solo validar en métodos mutantes
-  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
-    }
-  }
-  
-  await next();
-};
+// Apply auth validation to all routes
+app.use('*', requireAuth);
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -42,7 +29,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -58,7 +45,7 @@ app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -70,7 +57,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -92,7 +79,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -123,7 +110,7 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -135,7 +122,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -157,7 +144,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -185,7 +172,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -197,7 +184,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -219,7 +206,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -2177,7 +2164,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireFunctionSecret, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);

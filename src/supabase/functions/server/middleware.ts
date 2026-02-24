@@ -4,6 +4,38 @@
  */
 
 import type { Context } from 'npm:hono';
+import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+
+// Lazily-initialized Supabase client for token validation (reused across requests)
+let _authClient: ReturnType<typeof createClient> | null = null;
+function getAuthClient(): ReturnType<typeof createClient> | null {
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return null;
+  if (!_authClient) {
+    _authClient = createClient(url, key, { auth: { persistSession: false } });
+  }
+  return _authClient;
+}
+
+/**
+ * Registra un evento de auditoría con timestamp, usuario y detalle
+ */
+export function logAudit(
+  c: Context,
+  userId: string | null,
+  event: string,
+  details?: string
+) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    event,
+    userId,
+    method: c.req.method,
+    url: c.req.url,
+    details,
+  }));
+}
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
@@ -70,13 +102,15 @@ export async function logFunctionAccess(c: Context, next: () => Promise<void>) {
 }
 
 /**
- * Middleware para validar que el request tenga un token de autorización
- * (Bearer token de Supabase)
+ * Middleware para validar JWT, extraer claims y registrar auditoría.
+ * Valida formato, expiración y autenticidad del token Bearer.
+ * Almacena userId, email y role en el contexto para uso por requireRole.
  */
 export async function requireAuth(c: Context, next: () => Promise<void>) {
   const authHeader = c.req.header('Authorization');
-  
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logAudit(c, null, 'AUTH_FAILED', 'Missing or invalid Authorization header');
     return c.json(
       {
         success: false,
@@ -86,11 +120,99 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
     );
   }
 
-  // Aquí podrías validar el token con Supabase si es necesario
-  // const token = authHeader.split(' ')[1];
-  // const { data, error } = await supabase.auth.getUser(token);
-  
+  const token = authHeader.split(' ')[1];
+
+  // Decode JWT payload (base64url) to extract claims
+  let payload: Record<string, any>;
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    payload = JSON.parse(atob(base64));
+  } catch {
+    logAudit(c, null, 'AUTH_FAILED', 'Malformed JWT token');
+    return c.json(
+      {
+        success: false,
+        error: 'Token inválido.',
+      },
+      401
+    );
+  }
+
+  // Validate token expiration
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < now) {
+    logAudit(c, payload.sub ?? null, 'TOKEN_EXPIRED', `Token expired at ${new Date(payload.exp * 1000).toISOString()}`);
+    return c.json(
+      {
+        success: false,
+        error: 'Token expirado. Por favor, inicie sesión nuevamente.',
+      },
+      401
+    );
+  }
+
+  // Validate token signature via Supabase auth API
+  const authClient = getAuthClient();
+  if (authClient) {
+    const { data, error } = await authClient.auth.getUser(token);
+    if (error || !data.user) {
+      logAudit(c, payload.sub ?? null, 'AUTH_FAILED', `Token validation error: ${error?.message ?? 'no user'}`);
+      return c.json(
+        {
+          success: false,
+          error: 'Token inválido o sesión no encontrada.',
+        },
+        401
+      );
+    }
+    // Store validated user info in context
+    c.set('userId', data.user.id);
+    c.set('userEmail', data.user.email ?? null);
+    c.set('userRole', data.user.app_metadata?.role ?? data.user.user_metadata?.role ?? payload.role ?? null);
+  } else {
+    // Fallback: store claims from decoded JWT (development / missing env vars)
+    c.set('userId', payload.sub ?? null);
+    c.set('userEmail', payload.email ?? null);
+    c.set('userRole', payload.app_metadata?.role ?? payload.role ?? null);
+  }
+
+  c.set('tokenExp', payload.exp ?? null);
+  logAudit(c, c.get('userId'), 'AUTH_SUCCESS', `Access granted to ${c.req.method} ${c.req.url}`);
+
   return next();
+}
+
+/**
+ * Middleware para control de acceso basado en roles.
+ * Debe usarse después de requireAuth (requiere userId/userRole en contexto).
+ *
+ * Uso:
+ * ```typescript
+ * app.delete('/recurso/:id', requireAuth, requireRole('admin', 'coordinador'), handler);
+ * ```
+ */
+export function requireRole(...roles: string[]) {
+  return async (c: Context, next: () => Promise<void>) => {
+    const userRole: string | null = c.get('userRole');
+
+    if (!userRole || !roles.includes(userRole)) {
+      logAudit(
+        c,
+        c.get('userId') ?? null,
+        'ROLE_DENIED',
+        `Role '${userRole ?? 'none'}' not in [${roles.join(', ')}]`
+      );
+      return c.json(
+        {
+          success: false,
+          error: `Acceso denegado. Se requiere uno de los roles: ${roles.join(', ')}.`,
+        },
+        403
+      );
+    }
+
+    return next();
+  };
 }
 
 /**

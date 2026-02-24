@@ -15,6 +15,7 @@ export interface RateLimitRecord {
   resetAt: number;
   violations: number;
   lastViolation?: number;
+  version?: number; // used for optimistic concurrency control
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
@@ -27,6 +28,13 @@ const TRUSTED_IPS = [
   '127.0.0.1',
   '::1',
 ];
+
+function supabaseClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+}
 
 async function getOrCreateRecord(
   key: string,
@@ -51,17 +59,83 @@ async function getOrCreateRecord(
     resetAt: now + config.windowMs,
     // Start a fresh violation count for the new window
     violations: 0,
+    version: 0,
   };
 }
 
+/**
+ * Increments the request count for a key using optimistic concurrency control.
+ * Retries up to MAX_RETRIES times on version conflicts before falling back to
+ * an unconditional write so the caller is never blocked by a locking failure.
+ */
 async function incrementCount(
   key: string,
   config: RateLimitConfig
 ): Promise<RateLimitRecord> {
-  const record = await getOrCreateRecord(key, config);
-  record.count++;
-  await kv.set(key, record);
-  return record;
+  const MAX_RETRIES = 3;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const existing: RateLimitRecord | undefined = await kv.get(key);
+    const now = Date.now();
+
+    // Start a new window when the record is absent or expired
+    if (!existing || now >= existing.resetAt) {
+      if (existing) {
+        kv.del(key).catch((err) =>
+          console.error('Rate limiter: failed to delete expired record', key, err)
+        );
+      }
+      const newRecord: RateLimitRecord = {
+        count: 1,
+        resetAt: now + config.windowMs,
+        violations: 0,
+        version: 1,
+      };
+      await kv.set(key, newRecord);
+      return newRecord;
+    }
+
+    const currentVersion = existing.version ?? 0;
+    const updatedRecord: RateLimitRecord = {
+      ...existing,
+      count: existing.count + 1,
+      version: currentVersion + 1,
+    };
+
+    if (existing.version === undefined) {
+      // Legacy record without version field — unconditional update
+      await kv.set(key, updatedRecord);
+      return updatedRecord;
+    }
+
+    // Conditional update: only write if version hasn't changed since we read it
+    const { data, error } = await supabaseClient()
+      .from(KV_TABLE)
+      .update({ value: updatedRecord })
+      .eq('key', key)
+      .filter('value->>version', 'eq', currentVersion.toString())
+      .select('key');
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      return updatedRecord;
+    }
+
+    // Version conflict: another concurrent request updated the record — retry
+    console.warn(
+      `Rate limiter: concurrent update conflict for ${key}, retrying (attempt ${attempt + 1}/${MAX_RETRIES})`
+    );
+  }
+
+  // All retries exhausted: fall back to unconditional update so the request is not blocked
+  const fallback: RateLimitRecord | undefined = await kv.get(key);
+  const now = Date.now();
+  const fallbackRecord: RateLimitRecord = (fallback && now < fallback.resetAt)
+    ? { ...fallback, count: fallback.count + 1, version: (fallback.version ?? 0) + 1 }
+    : { count: 1, resetAt: now + config.windowMs, violations: 0, version: 1 };
+  await kv.set(key, fallbackRecord);
+  return fallbackRecord;
 }
 
 async function recordViolation(
@@ -69,10 +143,22 @@ async function recordViolation(
   config: RateLimitConfig,
   identifier: string
 ): Promise<RateLimitRecord> {
-  const record = await getOrCreateRecord(key, config);
-  record.violations = (record.violations || 0) + 1;
-  record.lastViolation = Date.now();
-  await kv.set(key, record);
+  let record: RateLimitRecord;
+  try {
+    record = await getOrCreateRecord(key, config);
+    record.violations = (record.violations || 0) + 1;
+    record.lastViolation = Date.now();
+    await kv.set(key, record);
+  } catch (error) {
+    console.error('Rate limiter: failed to persist violation record', error);
+    // Return a minimal record so the caller can still produce a correct 429 response
+    record = {
+      count: config.maxRequests + 1,
+      resetAt: Date.now() + config.windowMs,
+      violations: 1,
+      lastViolation: Date.now(),
+    };
+  }
 
   console.warn('🚨 Rate limit violation', {
     identifier,
@@ -86,9 +172,16 @@ async function recordViolation(
   return record;
 }
 
+/**
+ * Extracts the client IP from standard proxy headers.
+ *
+ * NOTE: This implementation assumes the function is deployed behind a trusted
+ * reverse proxy (e.g. Supabase Edge, Cloudflare, or Vercel) that strips any
+ * client-provided x-forwarded-for header and appends the real connecting IP.
+ * Without such a proxy, malicious clients could spoof these headers and bypass
+ * rate limiting.
+ */
 function getIdentifier(c: Context): string {
-  // Prefer the first IP from x-forwarded-for (most proxies prepend the real IP),
-  // then fall back to other common headers.
   const ip =
     c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
     c.req.header('x-real-ip') ||
@@ -181,11 +274,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
  */
 export async function cleanupExpiredRateLimitRecords(): Promise<void> {
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
+    const supabase = supabaseClient();
     const now = Date.now();
     const { data, error } = await supabase
       .from(KV_TABLE)
@@ -224,3 +313,4 @@ export async function cleanupExpiredRateLimitRecords(): Promise<void> {
 if (typeof Deno !== 'undefined') {
   setInterval(cleanupExpiredRateLimitRecords, 5 * 60 * 1000);
 }
+

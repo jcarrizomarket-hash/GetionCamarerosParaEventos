@@ -222,13 +222,13 @@ export function requireRole(...roles: string[]) {
  * NOTA: En producción, considera usar Redis o similar para un rate limiting más robusto
  * Rate limiters respaldados por KV store (persistentes y distribuidos).
  *
- * globalRateLimiter  – límite alto para todas las rutas (10 000 req/hora)
+ * globalRateLimiter  – protección contra burst en todas las rutas (200 req/min por IP)
  * endpointRateLimiter – límite moderado para endpoints de modificación (500 req/min)
  * authRateLimiter     – límite estricto para prevenir fuerza bruta (10 req/min)
  */
 export const globalRateLimiter = createRateLimiter({
-  maxRequests: 10000,
-  windowMs: 3600000, // 1 hora
+  maxRequests: 200,
+  windowMs: 60000, // 1 minuto — ventana corta para detectar burst attacks
   softLimitPercent: 80,
 });
 

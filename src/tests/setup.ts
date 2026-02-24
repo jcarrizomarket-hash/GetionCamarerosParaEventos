@@ -24,5 +24,12 @@ global.import = {
 // Mock de fetch global para tests
 global.fetch = vi.fn();
 
+// Mock del objeto Deno global (requerido por supabase/functions/server/middleware.ts)
+(global as any).Deno = {
+  env: {
+    get: vi.fn(),
+  },
+};
+
 // Extender matchers si es necesario
 // expect.extend({ ... });

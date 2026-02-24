@@ -1,5 +1,53 @@
 # 📝 Changelog - Sistema de Gestión de Camareros
 
+## [2.1.2] - 2026-02-24
+
+### 📚 Documentación Completa del Proyecto
+
+Esta versión añade documentación completa del proyecto, incluyendo referencia de API, guía de deployment, troubleshooting, seguridad y guía de contribución.
+
+#### Nuevos Documentos en `docs/`
+
+- **[docs/API.md](../docs/API.md)**: Referencia completa de todos los endpoints de la API REST
+  - Documentación de autenticación y headers requeridos
+  - Todos los endpoints: Clientes, Pedidos, Camareros, Coordinadores, Asignaciones, Informes, Mensajería, Chat
+  - Formato de respuestas y códigos de error
+  - Ejemplos con curl
+
+- **[docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md)**: Guía de despliegue a producción
+  - Requisitos previos y configuración de variables de entorno
+  - Instrucciones para Vercel, Netlify, GitHub Pages y self-hosted
+  - Despliegue de Supabase Edge Functions
+  - Checklist completo de despliegue
+  - Guía de rollback
+
+- **[docs/TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md)**: Guía de solución de problemas
+  - Problemas de instalación y configuración
+  - Errores de API, autenticación y CORS
+  - Problemas con WhatsApp y Email
+  - Tests fallando y errores de build
+  - Pasos de diagnóstico general
+
+- **[docs/SECURITY.md](../docs/SECURITY.md)**: Guía de seguridad
+  - Modelo de seguridad con dos niveles de autenticación
+  - Clasificación y manejo de secretos
+  - Uso correcto del middleware de seguridad
+  - Rotación de claves
+  - Buenas prácticas y vulnerabilidades conocidas
+
+- **[docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md)**: Guía de contribución
+  - Flujo de trabajo con Git
+  - Estándares de código TypeScript/React
+  - Convención de commits (Conventional Commits)
+  - Plantilla de Pull Request
+  - Guías de testing y documentación
+
+#### README.md Principal Mejorado
+
+- `README.md` en la raíz del proyecto actualizado con badges, tabla de contenidos, descripción de características y links a toda la documentación
+
+---
+
 ## [2.1.1] - 2026-02-23
 
 ### 🔧 Correcciones Críticas de Bugs

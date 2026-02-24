@@ -1,6 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { ExcelValidator, ValidationError } from '../src/utils/excel-validators';
+import { normalizeRow } from '../src/utils/excel-normalizer';
+import { detectDuplicates, DuplicateConflict } from '../src/utils/excel-duplicate-detector';
+import { ExcelImportPreview } from './excel-import-preview';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -27,6 +31,15 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [editingCamarero, setEditingCamarero] = useState(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
+
+  // Estado para el preview de importación Excel
+  const [importPreview, setImportPreview] = useState<{
+    show: boolean;
+    validRows: any[];
+    invalidRows: Array<{ row: number; errors: ValidationError[] }>;
+    duplicates: DuplicateConflict[];
+    fileEvent: any;
+  }>({ show: false, validRows: [], invalidRows: [], duplicates: [], fileEvent: null });
 
   // Estados para calendario avanzado
   const [selectedCamarero, setSelectedCamarero] = useState(null);
@@ -358,6 +371,14 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     const file = event.target.files[0];
     if (!file) return;
 
+    // Validar archivo (tamaño y tipo)
+    const fileErrors = ExcelValidator.validateFile(file);
+    if (fileErrors.length > 0) {
+      alert('❌ Errores en el archivo:\n' + fileErrors.join('\n'));
+      event.target.value = '';
+      return;
+    }
+
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -366,92 +387,133 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
       if (jsonData.length === 0) {
         alert('❌ El archivo está vacío');
+        event.target.value = '';
         return;
       }
 
-      // Confirmar importación
-      if (!window.confirm(`¿Deseas importar ${jsonData.length} registros?\n\nEsto creará nuevos camareros. Los códigos duplicados serán ignorados.`)) {
+      // Validar número de filas
+      const rowCountError = ExcelValidator.validateRowCount(jsonData.length);
+      if (rowCountError) {
+        alert('❌ ' + rowCountError);
+        event.target.value = '';
         return;
       }
 
-      let importados = 0;
-      let errores = 0;
+      // Validar y clasificar filas
+      const validRows: any[] = [];
+      const invalidRows: Array<{ row: number; errors: ValidationError[] }> = [];
 
-      for (const row of jsonData) {
-        try {
-          // Validar campos requeridos
-          if (!row['Nombre'] || !row['Apellido']) {
-            console.warn('Fila sin nombre/apellido, omitida:', row);
-            errores++;
-            continue;
-          }
-
-          // Verificar si el código ya existe
-          const codigoExistente = camareros.find(c => c.codigo === row['Código']);
-          if (codigoExistente) {
-            console.warn('Código duplicado, omitido:', row['Código']);
-            errores++;
-            continue;
-          }
-
-          // Construir objeto camarero
-          const nuevoCamarero = {
-            codigo: row['Código'] || '',
-            tipoPerfil: row['Tipo Perfil'] || 'CAM',
-            nombre: row['Nombre'],
-            apellido: row['Apellido'],
-            telefono: row['Teléfono'] || '',
-            email: row['Email'] || '',
-            especialidades: row['Especialidades'] ? row['Especialidades'].split(',').map(e => e.trim()) : [],
-            experiencia: row['Experiencia (años)'] || '',
-            idiomas: row['Idiomas'] ? row['Idiomas'].split(',').map(i => i.trim()) : [],
-            otrosIdiomas: row['Otros Idiomas'] || '',
-            certificaciones: row['Certificaciones'] ? row['Certificaciones'].split(',').map(c => c.trim()) : [],
-            otrasCertificaciones: row['Otras Certificaciones'] || '',
-            coordinadorId: row['Coordinador ID'] || '',
-            comentarios: row['Comentarios'] || '',
-            estado: row['Estado'] || 'activo',
-            disponibilidad: []
-          };
-
-          // Crear en el servidor
-          const response = await fetch(`${baseUrl}/camareros`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${publicAnonKey}`
-            },
-            body: JSON.stringify(nuevoCamarero)
-          });
-
-          if (response.ok) {
-            importados++;
-          } else {
-            errores++;
-          }
-        } catch (error) {
-          console.error('Error al importar fila:', error);
-          errores++;
+      jsonData.forEach((row, index) => {
+        const rowNum = index + 2; // +2: row 1 = header, data starts at row 2
+        const errors = ExcelValidator.validateRow(row, rowNum);
+        if (errors.length === 0) {
+          validRows.push(row);
+        } else {
+          invalidRows.push({ row: rowNum, errors });
         }
-      }
+      });
 
-      // Recargar datos
-      await cargarDatos();
+      // Detectar duplicados (intra-archivo y contra datos existentes)
+      const duplicates = detectDuplicates(validRows, camareros);
 
-      // Mostrar resultado
-      alert(`✅ Importación completada\n\n• Importados: ${importados}\n• Errores/Omitidos: ${errores}`);
-
-      // Limpiar input file
-      event.target.value = '';
+      // Mostrar preview
+      setImportPreview({
+        show: true,
+        validRows,
+        invalidRows,
+        duplicates,
+        fileEvent: event,
+      });
     } catch (error) {
       console.error('Error al procesar archivo:', error);
       alert('❌ Error al procesar el archivo Excel');
+      event.target.value = '';
     }
+  };
+
+  const executeImport = async () => {
+    const { validRows, duplicates, fileEvent } = importPreview;
+
+    // Filas que son duplicadas deben excluirse (row2 values in conflicts)
+    const duplicateRowNums = new Set(duplicates.map(d => d.row2));
+    const rowsToImport = validRows.filter((_, index) => {
+      const rowNum = index + 2;
+      return !duplicateRowNums.has(rowNum);
+    });
+
+    let importados = 0;
+    let errores = 0;
+    const erroresDetalle: string[] = [];
+
+    for (const row of rowsToImport) {
+      try {
+        const nuevoCamarero = normalizeRow(row);
+
+        const response = await fetch(`${baseUrl}/camareros`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify(nuevoCamarero),
+        });
+
+        if (response.ok) {
+          importados++;
+        } else {
+          const errorText = await response.text().catch(() => 'Error desconocido');
+          console.error('Error al importar fila:', errorText);
+          erroresDetalle.push(`${nuevoCamarero.nombre} ${nuevoCamarero.apellido}: ${response.status}`);
+          errores++;
+        }
+      } catch (error) {
+        console.error('Error al importar fila:', error);
+        errores++;
+      }
+    }
+
+    // Recargar datos
+    await cargarDatos();
+
+    // Cerrar preview
+    setImportPreview({ show: false, validRows: [], invalidRows: [], duplicates: [], fileEvent: null });
+
+    // Limpiar input file
+    if (fileEvent?.target) {
+      fileEvent.target.value = '';
+    }
+
+    // Mostrar resultado
+    const omitidos = importPreview.invalidRows.length + duplicateRowNums.size;
+    let mensaje = `✅ Importación completada\n\n• Importados: ${importados}`;
+    if (errores > 0) mensaje += `\n• Errores: ${errores}`;
+    if (omitidos > 0) mensaje += `\n• Omitidos (inválidos/duplicados): ${omitidos}`;
+    if (erroresDetalle.length > 0) {
+      mensaje += `\n\nErrores:\n${erroresDetalle.slice(0, 5).join('\n')}`;
+      if (erroresDetalle.length > 5) mensaje += `\n... y ${erroresDetalle.length - 5} más`;
+    }
+    alert(mensaje);
   };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       
+      {/* Preview de importación Excel */}
+      {importPreview.show && (
+        <ExcelImportPreview
+          validRows={importPreview.validRows}
+          invalidRows={importPreview.invalidRows}
+          duplicates={importPreview.duplicates}
+          onConfirm={executeImport}
+          onCancel={() => {
+            if (importPreview.fileEvent?.target) {
+              importPreview.fileEvent.target.value = '';
+            }
+            setImportPreview({ show: false, validRows: [], invalidRows: [], duplicates: [], fileEvent: null });
+          }}
+        />
+      )}
+
       {/* Header y Botones Superiores */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -502,7 +564,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
               Importar desde Excel
               <input
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={importarDesdeExcel}
                 className="hidden"
               />

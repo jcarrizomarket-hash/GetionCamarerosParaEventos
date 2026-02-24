@@ -118,6 +118,14 @@ export interface EmailConfig {
   emailFrom?: string;
 }
 
+// Tipos para importación Excel
+export interface ExcelImportPreviewState {
+  show: boolean;
+  validRows: any[];
+  invalidRows: Array<{ row: number; errors: import('./utils/excel-validators').ValidationError[] }>;
+  duplicates: import('./utils/excel-duplicate-detector').DuplicateConflict[];
+}
+
 // Tipos para informes
 export interface InformeMetrics {
   totalEventos: number;

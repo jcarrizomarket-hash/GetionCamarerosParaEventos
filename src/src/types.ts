@@ -112,6 +112,35 @@ export interface WhatsAppConfig {
   hasApiKey?: boolean;
 }
 
+export interface WhatsAppConfigDetails {
+  configured: boolean;
+  suspiciousToken?: boolean;
+  duplicateValues?: boolean;
+  tokenLength?: number;
+  source?: string;
+  message?: string;
+}
+
+export interface WhatsAppStatus {
+  configured: boolean;
+  source?: string;
+  message?: string;
+}
+
+export interface EmailStatus {
+  configured: boolean;
+  provider?: string;
+  message?: string;
+}
+
+export interface TestResult {
+  test: string;
+  status: 'success' | 'error' | 'warning';
+  message: string;
+  details?: unknown;
+  timestamp: string; // Locale-formatted time string for display
+}
+
 export interface EmailConfig {
   configured: boolean;
   provider?: 'resend' | 'sendgrid' | 'mailgun';

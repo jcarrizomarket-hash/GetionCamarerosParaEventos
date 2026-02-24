@@ -10,6 +10,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
+    exclude: ['tests/e2e/**', 'tests/integration/whatsapp.spec.ts', 'node_modules/**'],
+    env: {
+      VITE_SUPABASE_PROJECT_ID: 'test-project-id',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      VITE_SUPABASE_FN_SECRET: 'test-secret',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

@@ -193,8 +193,9 @@ export function formatPhoneNumber(phone: string, defaultCountryCode: string = '3
   // Eliminar el + si existe
   cleaned = cleaned.replace('+', '');
   
-  // Si tiene 9 dígitos (formato español sin código de país), agregar código
-  if (cleaned.length === 9 && !cleaned.startsWith(defaultCountryCode)) {
+  // Si no empieza con el código de país y el número no es demasiado largo, agregar código
+  const maxLocalLength = defaultCountryCode === '34' ? 9 : 10;
+  if (cleaned.length <= maxLocalLength && !cleaned.startsWith(defaultCountryCode)) {
     cleaned = defaultCountryCode + cleaned;
   }
   

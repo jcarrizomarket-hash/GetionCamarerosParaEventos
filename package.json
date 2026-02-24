@@ -65,6 +65,9 @@
       },
       "scripts": {
           "dev": "vite",
-          "build": "vite build"
+          "build": "vite build",
+          "test": "cd src && npm test",
+          "test:coverage": "cd src && npm run test:coverage",
+          "test:unit": "cd src && npm run test:unit"
       }
   }

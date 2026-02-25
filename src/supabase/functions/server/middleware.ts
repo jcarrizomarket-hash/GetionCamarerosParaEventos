@@ -36,6 +36,8 @@ export function logAudit(
     details,
   }));
 }
+§=======
+import { createRateLimiter } from './rate-limiter.ts';
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
@@ -218,39 +220,36 @@ export function requireRole(...roles: string[]) {
 /**
  * Middleware para rate limiting simple (prevenir abuso)
  * NOTA: En producción, considera usar Redis o similar para un rate limiting más robusto
+ * Rate limiters respaldados por KV store (persistentes y distribuidos).
+ *
+ * globalRateLimiter  – protección contra burst en todas las rutas (200 req/min por IP)
+ * endpointRateLimiter – límite moderado para endpoints de modificación (500 req/min)
+ * authRateLimiter     – límite estricto para prevenir fuerza bruta (10 req/min)
  */
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
+export const globalRateLimiter = createRateLimiter({
+  maxRequests: 200,
+  windowMs: 60000, // 1 minuto — ventana corta para detectar burst attacks
+  softLimitPercent: 80,
+});
 
+export const endpointRateLimiter = createRateLimiter({
+  maxRequests: 500,
+  windowMs: 60000, // 1 minuto
+  softLimitPercent: 80,
+});
+
+export const authRateLimiter = createRateLimiter({
+  maxRequests: 10,
+  windowMs: 60000, // 1 minuto
+  softLimitPercent: 80,
+});
+
+/**
+ * @deprecated Usar globalRateLimiter / endpointRateLimiter / authRateLimiter en su lugar.
+ * Mantenido por compatibilidad; delega en el nuevo rate limiter KV-backed.
+ */
 export function rateLimit(maxRequests: number = 100, windowMs: number = 60000) {
-  return async (c: Context, next: () => Promise<void>) => {
-    // Usar IP o un identificador del cliente
-    const identifier = c.req.header('x-forwarded-for') || 'unknown';
-    const now = Date.now();
-    
-    const record = requestCounts.get(identifier);
-    
-    if (!record || now > record.resetAt) {
-      // Nuevo período o primer request
-      requestCounts.set(identifier, {
-        count: 1,
-        resetAt: now + windowMs,
-      });
-      return next();
-    }
-    
-    if (record.count >= maxRequests) {
-      return c.json(
-        {
-          success: false,
-          error: 'Demasiadas peticiones. Intenta más tarde.',
-        },
-        429
-      );
-    }
-    
-    record.count++;
-    return next();
-  };
+  return createRateLimiter({ maxRequests, windowMs });
 }
 
 /**

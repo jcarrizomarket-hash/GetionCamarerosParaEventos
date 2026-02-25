@@ -48,20 +48,22 @@ Para errores HTTP estándar, el código de estado HTTP refleja la categoría del
 ---
 
 ### `GET /camareros`
-| Error | Causa |
-|-------|-------|
-| `Error al obtener camareros: ...` | Fallo en lectura del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                  | Causa                         |
+|----------------------------------|-----------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al obtener camareros: <detalle error>` | Fallo en lectura del KV store |
 
 ### `POST /camareros`
-| Error | Causa |
-|-------|-------|
-| `Error al crear camarero: ...` | Fallo al escribir en KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                 | Causa                          |
+|----------------------------------|----------------------------------------------|--------------------------------|
+| Mensaje de error interno del KV | `Error al crear camarero: <detalle error>`  | Fallo al escribir en KV store |
 
 ### `PUT /camareros/:id`
-| Error | Causa |
-|-------|-------|
-| `Error al actualizar camarero: ...` | ID no encontrado o fallo de escritura |
 
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                     | Causa                                 |
+|----------------------------------|--------------------------------------------------|---------------------------------------|
+| Mensaje de error interno del KV | `Error al actualizar camarero: <detalle error>` | ID no encontrado o fallo de escritura |
 ### `DELETE /camareros/:id`
 | Error | Causa |
 |-------|-------|

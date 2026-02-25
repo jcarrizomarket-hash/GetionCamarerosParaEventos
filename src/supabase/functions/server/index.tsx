@@ -2,6 +2,7 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+import QRCode from 'npm:qrcode';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
 
@@ -1803,6 +1804,243 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
       success: false,
       error: String(error)
     }, 500);
+  }
+});
+
+// ============== QR PNG HELPERS ==============
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let i = 0; i < 8; i++) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function u32be(n: number): number[] {
+  return [(n >> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+  const total = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+function buildPngChunk(type: string, data: Uint8Array): Uint8Array {
+  const typeBytes = new TextEncoder().encode(type);
+  const lenBytes = new Uint8Array(u32be(data.length));
+  const crcInput = concatUint8Arrays([typeBytes, data]);
+  const crcBytes = new Uint8Array(u32be(crc32(crcInput)));
+  return concatUint8Arrays([lenBytes, typeBytes, data, crcBytes]);
+}
+
+async function generateQrPng(content: string): Promise<Uint8Array> {
+  const qr = QRCode.create(content, { errorCorrectionLevel: 'M' });
+  const modules = qr.modules;
+  const size: number = modules.size;
+  const scale = 8;
+  const margin = 4;
+  const totalSize = (size + 2 * margin) * scale;
+
+  // Build raw grayscale scanlines (filter byte 0 = None + pixels)
+  const raw = new Uint8Array(totalSize * (1 + totalSize));
+  let idx = 0;
+  for (let y = 0; y < totalSize; y++) {
+    raw[idx++] = 0; // filter: None
+    const qrY = Math.floor(y / scale) - margin;
+    for (let x = 0; x < totalSize; x++) {
+      const qrX = Math.floor(x / scale) - margin;
+      const isBlack = qrX >= 0 && qrX < size && qrY >= 0 && qrY < size && modules.get(qrY, qrX);
+      raw[idx++] = isBlack ? 0 : 255;
+    }
+  }
+
+  // Compress with zlib (deflate = zlib format as required by PNG)
+  const cs = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  await writer.write(raw);
+  await writer.close();
+
+  const compressedChunks: Uint8Array[] = [];
+  const reader = cs.readable.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) compressedChunks.push(value);
+  }
+  const compressed = concatUint8Arrays(compressedChunks);
+
+  // PNG signature
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  // IHDR: width, height, bit depth (8), color type (0 = grayscale), compression, filter, interlace
+  const ihdrData = new Uint8Array([
+    ...u32be(totalSize), ...u32be(totalSize),
+    8, 0, 0, 0, 0
+  ]);
+
+  const ihdr = buildPngChunk('IHDR', ihdrData);
+  const idat = buildPngChunk('IDAT', compressed);
+  const iend = buildPngChunk('IEND', new Uint8Array(0));
+
+  return concatUint8Arrays([signature, ihdr, idat, iend]);
+}
+
+// ============== CONFIRMAR CON QR ==============
+app.post('/make-server-25b11ac0/confirmar-con-qr', async (c) => {
+  try {
+    const { telefono, pedidoId, camareroId } = await c.req.json();
+
+    if (!telefono || !pedidoId) {
+      return c.json({ success: false, error: 'Faltan campos requeridos: telefono y pedidoId' }, 400);
+    }
+
+    const pedido = await kv.get(pedidoId);
+    if (!pedido) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+
+    if (!whatsappApiKey || !whatsappPhoneId) {
+      return c.json({
+        success: false,
+        needsConfiguration: true,
+        error: 'WhatsApp Business API no está configurado'
+      });
+    }
+
+    // Prepare event data
+    const fechaEvento = new Date(pedido.diaEvento);
+    const diaSemana = fechaEvento.toLocaleDateString('es-ES', { weekday: 'long' });
+    const fechaCompleta = fechaEvento.toLocaleDateString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+
+    // QR content: Fecha;día;cliente;evento;hora entrada
+    const qrContent = `${fechaCompleta};${diaSemana};${pedido.cliente};${pedido.lugar};${pedido.horaEntrada}`;
+
+    // Link del evento
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const projectId = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
+    const linkEvento = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0/pedidos/${pedidoId}`;
+
+    // Format WhatsApp confirmation message
+    const mensajeTexto = `✅ CONFIRMACIÓN DE SERVICIO\n\n📅 Fecha: ${diaSemana}\n📆 Fecha completa: ${fechaCompleta}\n👤 Cliente: ${pedido.cliente}\n🎯 Evento: ${pedido.lugar}\n🕐 Hora entrada: ${pedido.horaEntrada}\n\n🔗 Link del evento: ${linkEvento}\n\n⚠️ *ESTAR 15 MINUTOS ANTES PARA ESTAR A LA HORA EXACTA LISTO PARA EL SERVICIO*\n\nGRACIAS`;
+
+    // Normalize phone number
+    let numeroLimpio = telefono.replace(/\D/g, '');
+    if (numeroLimpio.length === 9) {
+      numeroLimpio = '34' + numeroLimpio;
+    }
+
+    // Send text message
+    const textRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: numeroLimpio,
+        type: 'text',
+        text: { body: mensajeTexto }
+      })
+    });
+
+    const textResult = await textRes.json();
+    if (!textRes.ok) {
+      console.log('❌ Error enviando mensaje de confirmación:', textResult);
+      return c.json({
+        success: false,
+        error: textResult.error?.message || 'Error al enviar mensaje de confirmación',
+        needsConfiguration: textResult.error?.code === 190
+      });
+    }
+
+    console.log('✅ Mensaje de confirmación enviado:', textResult);
+
+    // Generate QR code PNG and send as image
+    try {
+      const qrPng = await generateQrPng(qrContent);
+
+      // Upload QR image to WhatsApp Media API
+      const formData = new FormData();
+      formData.append('file', new Blob([qrPng], { type: 'image/png' }), 'qr-codigo.png');
+      formData.append('type', 'image/png');
+      formData.append('messaging_product', 'whatsapp');
+
+      const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/media`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${whatsappApiKey}` },
+        body: formData
+      });
+
+      if (uploadRes.ok) {
+        const uploadResult = await uploadRes.json();
+        const mediaId = uploadResult.id;
+
+        // Send QR image message
+        const imageRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${whatsappApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: numeroLimpio,
+            type: 'image',
+            image: { id: mediaId }
+          })
+        });
+
+        if (imageRes.ok) {
+          console.log('✅ Imagen QR enviada exitosamente');
+        } else {
+          console.log('❌ Error enviando imagen QR:', await imageRes.json());
+        }
+      } else {
+        console.log('❌ Error subiendo imagen QR:', await uploadRes.json());
+      }
+    } catch (qrError) {
+      console.log('⚠️ Error generando/enviando QR (el mensaje de texto sí fue enviado):', qrError);
+    }
+
+    // Update clientes record status from "Enviado" to "Confirmado" if applicable
+    if (camareroId) {
+      try {
+        const clientes = await kv.getByPrefix('cliente:');
+        const clienteRelacionado = clientes.find((cl: any) =>
+          cl.camareroId === camareroId || cl.nombre === pedido.cliente
+        );
+        if (clienteRelacionado && clienteRelacionado.estado === 'Enviado') {
+          await kv.set(clienteRelacionado.id, { ...clienteRelacionado, estado: 'Confirmado' });
+        }
+      } catch (clienteError) {
+        console.log('⚠️ Error actualizando estado del cliente:', clienteError);
+      }
+    }
+
+    return c.json({
+      success: true,
+      messageId: textResult.messages?.[0]?.id
+    });
+
+  } catch (error) {
+    console.log('❌ Error en confirmar-con-qr:', error);
+    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 

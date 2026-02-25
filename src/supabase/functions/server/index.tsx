@@ -2,7 +2,7 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
-import QRCode from 'npm:qrcode';
+import { generateQrPng, validateQrContent, clearQrCache, compressQrContent } from '../qr-generator.ts';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
 
@@ -1807,94 +1807,6 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
   }
 });
 
-// ============== QR PNG HELPERS ==============
-
-function crc32(data: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (const byte of data) {
-    crc ^= byte;
-    for (let i = 0; i < 8; i++) {
-      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function u32be(n: number): number[] {
-  return [(n >> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
-}
-
-function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
-  const total = arrays.reduce((sum, arr) => sum + arr.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const arr of arrays) {
-    result.set(arr, offset);
-    offset += arr.length;
-  }
-  return result;
-}
-
-function buildPngChunk(type: string, data: Uint8Array): Uint8Array {
-  const typeBytes = new TextEncoder().encode(type);
-  const lenBytes = new Uint8Array(u32be(data.length));
-  const crcInput = concatUint8Arrays([typeBytes, data]);
-  const crcBytes = new Uint8Array(u32be(crc32(crcInput)));
-  return concatUint8Arrays([lenBytes, typeBytes, data, crcBytes]);
-}
-
-async function generateQrPng(content: string): Promise<Uint8Array> {
-  const qr = QRCode.create(content, { errorCorrectionLevel: 'M' });
-  const modules = qr.modules;
-  const size: number = modules.size;
-  const scale = 8;
-  const margin = 4;
-  const totalSize = (size + 2 * margin) * scale;
-
-  // Build raw grayscale scanlines (filter byte 0 = None + pixels)
-  const raw = new Uint8Array(totalSize * (1 + totalSize));
-  let idx = 0;
-  for (let y = 0; y < totalSize; y++) {
-    raw[idx++] = 0; // filter: None
-    const qrY = Math.floor(y / scale) - margin;
-    for (let x = 0; x < totalSize; x++) {
-      const qrX = Math.floor(x / scale) - margin;
-      const isBlack = qrX >= 0 && qrX < size && qrY >= 0 && qrY < size && modules.get(qrY, qrX);
-      raw[idx++] = isBlack ? 0 : 255;
-    }
-  }
-
-  // Compress with zlib (deflate = zlib format as required by PNG)
-  const cs = new CompressionStream('deflate');
-  const writer = cs.writable.getWriter();
-  await writer.write(raw);
-  await writer.close();
-
-  const compressedChunks: Uint8Array[] = [];
-  const reader = cs.readable.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) compressedChunks.push(value);
-  }
-  const compressed = concatUint8Arrays(compressedChunks);
-
-  // PNG signature
-  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-
-  // IHDR: width, height, bit depth (8), color type (0 = grayscale), compression, filter, interlace
-  const ihdrData = new Uint8Array([
-    ...u32be(totalSize), ...u32be(totalSize),
-    8, 0, 0, 0, 0
-  ]);
-
-  const ihdr = buildPngChunk('IHDR', ihdrData);
-  const idat = buildPngChunk('IDAT', compressed);
-  const iend = buildPngChunk('IEND', new Uint8Array(0));
-
-  return concatUint8Arrays([signature, ihdr, idat, iend]);
-}
-
 // ============== CONFIRMAR CON QR ==============
 app.post('/make-server-25b11ac0/confirmar-con-qr', async (c) => {
   try {
@@ -1973,7 +1885,8 @@ app.post('/make-server-25b11ac0/confirmar-con-qr', async (c) => {
 
     // Generate QR code PNG and send as image
     try {
-      const qrPng = await generateQrPng(qrContent);
+      const qrOutput = await generateQrPng(qrContent);
+      const qrPng = qrOutput.png;
 
       // Upload QR image to WhatsApp Media API
       const formData = new FormData();
@@ -2040,6 +1953,35 @@ app.post('/make-server-25b11ac0/confirmar-con-qr', async (c) => {
 
   } catch (error) {
     console.log('❌ Error en confirmar-con-qr:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== GENERAR QR ==============
+app.post('/make-server-25b11ac0/generar-qr', async (c) => {
+  try {
+    const { content, errorCorrectionLevel, scale, margin } = await c.req.json();
+
+    const validation = validateQrContent(content);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.reason }, 400);
+    }
+
+    const qrOutput = await generateQrPng(content, {
+      errorCorrectionLevel: errorCorrectionLevel ?? 'M',
+      scale: scale ?? 8,
+      margin: margin ?? 4,
+    });
+
+    return c.json({
+      success: true,
+      dataUrl: qrOutput.dataUrl,
+      base64: qrOutput.base64,
+      dimensions: qrOutput.dimensions,
+      generatedAt: qrOutput.generatedAt.toISOString(),
+    });
+  } catch (error) {
+    console.log('❌ Error en generar-qr:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

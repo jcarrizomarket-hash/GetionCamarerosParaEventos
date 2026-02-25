@@ -22,7 +22,12 @@ global.import = {
 } as any;
 
 // Mock de fetch global para tests
-global.fetch = vi.fn();
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  status: 200,
+  json: () => Promise.resolve({ success: true, configured: false, message: 'Test mock' }),
+  text: () => Promise.resolve(''),
+}) as any;
 
 // Extender matchers si es necesario
 // expect.extend({ ... });

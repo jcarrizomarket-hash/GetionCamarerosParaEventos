@@ -5,17 +5,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import { generateQrPng, validateQrContent, clearQrCache, compressQrContent } from '../qr-generator.ts';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
-§=======
-import { globalRateLimiter, endpointRateLimiter } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
-app.use('*', globalRateLimiter);
 
-// Apply auth validation to all routes
-app.use('*', requireAuth);
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -34,8 +29,6 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
 });
 
 app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
-app.post('/make-server-25b11ac0/clientes', endpointRateLimiter, requireSecret, async (c) => {
-§>>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -51,11 +44,7 @@ app.post('/make-server-25b11ac0/clientes', endpointRateLimiter, requireSecret, a
   }
 });
 
-<<<<<<< HEAD
 app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
-=======
-app.put('/make-server-25b11ac0/clientes/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -67,11 +56,7 @@ app.put('/make-server-25b11ac0/clientes/:id', endpointRateLimiter, requireSecret
   }
 });
 
-<<<<<<< HEAD
 app.delete('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
-=======
-app.delete('/make-server-25b11ac0/clientes/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -93,11 +78,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-<<<<<<< HEAD
 app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => {
-=======
-app.post('/make-server-25b11ac0/camareros', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const data = await c.req.json();
     
@@ -128,11 +109,7 @@ app.post('/make-server-25b11ac0/camareros', endpointRateLimiter, requireSecret, 
   }
 });
 
-<<<<<<< HEAD
 app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
-=======
-app.put('/make-server-25b11ac0/camareros/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -144,11 +121,7 @@ app.put('/make-server-25b11ac0/camareros/:id', endpointRateLimiter, requireSecre
   }
 });
 
-<<<<<<< HEAD
 app.delete('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
-=======
-app.delete('/make-server-25b11ac0/camareros/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -170,11 +143,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-<<<<<<< HEAD
 app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c) => {
-=======
-app.post('/make-server-25b11ac0/coordinadores', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -202,11 +171,7 @@ app.post('/make-server-25b11ac0/coordinadores', endpointRateLimiter, requireSecr
   }
 });
 
-<<<<<<< HEAD
 app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
-=======
-app.put('/make-server-25b11ac0/coordinadores/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -218,11 +183,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', endpointRateLimiter, requireS
   }
 });
 
-<<<<<<< HEAD
 app.delete('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
-=======
-app.delete('/make-server-25b11ac0/coordinadores/:id', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -244,11 +205,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-<<<<<<< HEAD
 app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
-=======
-app.post('/make-server-25b11ac0/pedidos', endpointRateLimiter, requireSecret, async (c) => {
->>>>>>> 87569652 (Replace in-memory rate limiting with persistent KV-backed implementation)
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -289,7 +246,7 @@ app.post('/make-server-25b11ac0/pedidos', endpointRateLimiter, requireSecret, as
   }
 });
 
-app.put('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/pedidos/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -305,7 +262,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, requireSecret,
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', endpointRateLimiter, requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', requireFunctionSecret, async (c) => {
   try {
     const id = c.req.param('id');
     console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);

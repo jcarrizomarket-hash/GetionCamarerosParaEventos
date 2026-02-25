@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface CoordinadoresProps {
@@ -75,15 +75,15 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
     }
   };
 
-  const handleEdit = (coordinador) => {
+  const handleEdit = useCallback((coordinador) => {
     setEditingCoordinador(coordinador);
     setNombre(coordinador.nombre);
     setTelefono(coordinador.telefono || '');
     setEmail(coordinador.email || '');
     setShowForm(true);
-  };
+  }, []);
 
-  const handleDelete = async (coordinador) => {
+  const handleDelete = useCallback(async (coordinador) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`)) {
       return;
     }
@@ -103,15 +103,15 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
     } catch (error) {
       console.log('Error al eliminar coordinador:', error);
     }
-  };
+  }, [baseUrl, publicAnonKey, cargarDatos]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setShowForm(false);
     setNombre('');
     setTelefono('');
     setEmail('');
     setEditingCoordinador(null);
-  };
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto">

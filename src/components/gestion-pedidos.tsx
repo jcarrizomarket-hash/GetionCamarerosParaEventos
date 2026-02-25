@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
 
 // v1.0.3 - Verificación completa de React keys
@@ -94,10 +94,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     return { days, firstDay: adjustedFirstDay };
   };
 
-  const changeMonth = (offset) => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-    setCurrentDate(newDate);
-  };
+  const changeMonth = useCallback((offset) => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  }, []);
 
   const monthData = getDaysInMonth(currentDate);
 
@@ -113,14 +112,21 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   };
 
   // Filtrar pedidos del mes actual para el calendario
-  const pedidosMes = uniquePedidos.filter(p => {
+  const pedidosMes = useMemo(() => uniquePedidos.filter(p => {
     const fecha = new Date(p.diaEvento);
     return fecha.getMonth() === currentDate.getMonth() && 
            fecha.getFullYear() === currentDate.getFullYear();
-  });
+  }), [uniquePedidos, currentDate]);
 
   // --- Cálculos de Resumen ---
-  const getResumenData = () => {
+  const { 
+    totalEventos, 
+    totalCamarerosNecesarios,
+    totalEnviados,
+    totalConfirmados,
+    totalFaltantes,
+    totalDisponibles 
+  } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -166,9 +172,6 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       totalCamarerosNecesarios += req;
       totalEnviados += env;
       totalConfirmados += conf;
-      // Faltantes: huecos sin cubrir (req - assigned).
-      // Si se quiere "faltantes por confirmar" sería otra cosa.
-      // Pero para gestión, "faltantes" suele ser "aún no tengo a nadie ahí".
       totalFaltantes += Math.max(0, req - assignedTotal);
     });
 
@@ -183,20 +186,11 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       totalFaltantes,
       totalDisponibles
     };
-  };
-
-  const { 
-    totalEventos, 
-    totalCamarerosNecesarios,
-    totalEnviados,
-    totalConfirmados,
-    totalFaltantes,
-    totalDisponibles 
-  } = getResumenData();
+  }, [periodoFiltro, uniquePedidos, pedidosMes, uniqueCamareros]);
 
   // --- Acciones de Gestión ---
 
-  const agregarCamarero = async (camarero) => {
+  const agregarCamarero = useCallback(async (camarero) => {
     if (!selectedPedido || procesando) return;
     
     const asignaciones = selectedPedido.asignaciones || [];
@@ -251,11 +245,11 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } finally {
       setProcesando(false);
     }
-  };
+  }, [selectedPedido, procesando, baseUrl, publicAnonKey, cargarDatos]);
 
-  const cambiarEstado = async (camareroId, nuevoEstado) => {
+  const cambiarEstado = useCallback(async (camareroId, nuevoEstado) => {
     if (!selectedPedido) return;
-    
+
     const asignaciones = selectedPedido.asignaciones.map(a => {
       if (a.camareroId === camareroId) {
         // Si rechaza, programar eliminación en 5 horas
@@ -298,9 +292,9 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } catch (error) {
       console.error('Error al cambiar estado:', error);
     }
-  };
+  }, [selectedPedido, baseUrl, publicAnonKey, cargarDatos]);
 
-  const removerCamarero = async (camareroId) => {
+  const removerCamarero = useCallback(async (camareroId) => {
     if (!selectedPedido) return;
     
     const asignaciones = selectedPedido.asignaciones.filter(a => a.camareroId !== camareroId);
@@ -327,14 +321,14 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     } catch (error) {
       console.error('Error al remover camarero:', error);
     }
-  };
+  }, [selectedPedido, baseUrl, publicAnonKey, cargarDatos]);
 
   // Listas filtradas
-  const pedidosOrdenados = [...uniquePedidos].sort((a, b) => 
-    new Date(a.diaEvento) - new Date(b.diaEvento)
-  );
+  const pedidosOrdenados = useMemo(() => [...uniquePedidos].sort((a, b) => 
+    new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()
+  ), [uniquePedidos]);
 
-  const camarerosDisponibles = uniqueCamareros
+  const camarerosDisponibles = useMemo(() => uniqueCamareros
     .filter(c => {
       // Filtro de búsqueda por nombre/apellido
       const search = filtroCamarero.toLowerCase();
@@ -349,7 +343,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       if (!selectedPedido) return true;
       return !selectedPedido.asignaciones?.some(a => a.camareroId === c.id);
     })
-    .sort((a, b) => a.numero - b.numero);
+    .sort((a, b) => a.numero - b.numero), [uniqueCamareros, filtroCamarero, selectedPedido]);
 
   // --- TABLA GLOBAL DE ASIGNACIONES (SOLICITADA) ---
   const filasTabla = useMemo(() => {
@@ -560,7 +554,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   };
 
   // --- FUNCIÓN PARA ACTUALIZAR HORA DE SALIDA INDIVIDUAL ---
-  const actualizarHoraSalidaIndividual = async (pedidoId, camareroId, nuevaHoraSalida) => {
+  const actualizarHoraSalidaIndividual = useCallback(async (pedidoId, camareroId, nuevaHoraSalida) => {
     // Actualizar estado temporal inmediatamente
     const key = `${pedidoId}-${camareroId}`;
     setHoraSalidaTemporal(prev => ({
@@ -618,10 +612,10 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       ...prev,
       [key]: newTimer
     }));
-  };
+  }, [uniquePedidos, debounceTimers, baseUrl, publicAnonKey, cargarDatos]);
   
   // Función para obtener el valor actual de hora de salida individual (temporal o del servidor)
-  const getHoraSalidaIndividual = (pedidoId, camareroId) => {
+  const getHoraSalidaIndividual = useCallback((pedidoId, camareroId) => {
     const key = `${pedidoId}-${camareroId}`;
     
     // Si hay valor temporal, usarlo
@@ -635,7 +629,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     
     const asignacion = pedido.asignaciones?.find(a => a.camareroId === camareroId);
     return asignacion?.horaSalida || '';
-  };
+  }, [horaSalidaTemporal, uniquePedidos]);
   
   // --- VISTA PRINCIPAL (SIN SELECCIÓN) ---
   if (!selectedPedido) {

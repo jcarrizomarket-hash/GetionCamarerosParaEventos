@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { 
   Calendar, 
   Users, 
@@ -38,7 +38,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     cargarClientes();
   }, []);
 
-  const cargarClientes = async () => {
+  const cargarClientes = useCallback(async () => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }
@@ -48,7 +48,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     } catch (error) {
       console.log('Error al cargar clientes:', error);
     }
-  };
+  }, [baseUrl, publicAnonKey]);
 
   // Deduplicar datos
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
@@ -195,7 +195,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     };
   }, [uniquePedidos, uniqueCamareros, uniqueClientes]);
 
-  const quickAccessCards = [
+  const quickAccessCards = useMemo(() => [
     {
       title: 'Clientes',
       icon: Building2,
@@ -276,9 +276,9 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       color: 'pink',
       action: () => setActiveTab('informes')
     }
-  ];
+  ], [metrics]);
 
-  const getColorClasses = (color) => {
+  const getColorClasses = useCallback((color) => {
     const colors = {
       blue: 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
       purple: 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100',
@@ -294,7 +294,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       pink: 'bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100'
     };
     return colors[color] || colors.gray;
-  };
+  }, []);
 
   return (
     <div className="space-y-6">

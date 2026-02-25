@@ -139,7 +139,7 @@ Persiste un mensaje en el chat de un evento específico.
 | Error | Código HTTP | Causa |
 |-------|-------------|-------|
 | `eventoId y mensaje son requeridos` | 400 | Cuerpo de la petición incompleto |
-| `Error al persistir mensaje en chat-evento: ...` | 500 | Fallo en KV store |
+| `Mensaje interno del KV store (ver campo "error" en la respuesta)` | 500 | Fallo en KV store |
 
 ---
 

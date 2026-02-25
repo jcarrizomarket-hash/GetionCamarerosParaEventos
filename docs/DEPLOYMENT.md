@@ -86,8 +86,16 @@ npm run build
 ### Vercel (Recomendado)
 
 1. Conectar repositorio en [vercel.com](https://vercel.com)
-2. Configurar variables de entorno en Settings > Environment Variables
+2. Configurar variables de entorno en Settings > Environment Variables:
+   - `VITE_SUPABASE_PROJECT_ID`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_FN_SECRET`
 3. El despliegue es automático en cada push a `main`
+
+La configuración de Vercel está definida en `vercel.json`:
+- Build command: `npm run build`
+- Output directory: `dist`
+- SPA routing: todas las rutas redirigen a `index.html`
 
 ```bash
 # O con la CLI de Vercel

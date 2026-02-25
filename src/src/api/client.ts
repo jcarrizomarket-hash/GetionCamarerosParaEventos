@@ -427,6 +427,52 @@ export async function enviarEmailParte(params: {
   }
 }
 
+// ==================== CHAT EVENTO ====================
+
+export async function chatEvento(params: {
+  chatId: string;
+  mensaje: string;
+  remitente: string;
+  remitenteNombre: string;
+}): Promise<ApiResponse<any>> {
+  try {
+    const response = await fetch(`${getBaseUrl()}/chat-evento`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return handleResponse<any>(response);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al enviar mensaje de chat',
+    };
+  }
+}
+
+// ==================== ENVIAR PARTE ====================
+
+export async function enviarParte(params: {
+  eventoId: string;
+  clienteEmail?: string | null;
+  clienteTelefono?: string | null;
+  mensaje: string;
+}): Promise<ApiResponse<any>> {
+  try {
+    const response = await fetch(`${getBaseUrl()}/enviar-parte`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return handleResponse<any>(response);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al enviar parte de servicio',
+    };
+  }
+}
+
 // ==================== UTILIDADES ====================
 
 /**

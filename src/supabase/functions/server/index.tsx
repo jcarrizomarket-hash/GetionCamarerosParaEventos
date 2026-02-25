@@ -4,7 +4,7 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import { generateQrPng, validateQrContent, clearQrCache, compressQrContent } from '../qr-generator.ts';
 import * as kv from './kv_store.tsx';
-import { requireAuth, requireRole, logAudit, requireFunctionSecret, globalRateLimiter, endpointRateLimiter } from './middleware.ts';
+import { requireAuth, requireFunctionSecret, globalRateLimiter } from './middleware.ts';
 
 const app = new Hono();
 

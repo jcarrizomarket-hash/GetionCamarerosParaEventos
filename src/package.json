@@ -33,7 +33,7 @@
     "react-dom": "^18.2.0",
     "react-slick": "latest",
     "recharts": "latest",
-    "slick-carousel": "latest"
+    "slick-carousel": "1.8.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",

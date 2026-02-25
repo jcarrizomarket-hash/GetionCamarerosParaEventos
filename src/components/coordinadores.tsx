@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { logger } from '../utils/logger';
+
+const log = logger.forContext('Coordinadores');
 
 interface CoordinadoresProps {
   coordinadores: any[];
@@ -71,7 +74,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
         }
       }
     } catch (error) {
-      console.log('Error al guardar coordinador:', error);
+      log.error('Error al guardar coordinador', error);
     }
   };
 
@@ -101,7 +104,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
         await cargarDatos();
       }
     } catch (error) {
-      console.log('Error al eliminar coordinador:', error);
+      log.error('Error al eliminar coordinador', error);
     }
   }, [baseUrl, publicAnonKey, cargarDatos]);
 

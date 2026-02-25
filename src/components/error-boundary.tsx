@@ -1,4 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { logger } from '../utils/logger';
+
+const log = logger.forContext('ErrorBoundary');
+const isDev = import.meta.env?.DEV ?? false;
 
 interface Props {
   children: ReactNode;
@@ -25,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Error capturado:', {
+    log.error('Error capturado', {
       message: error.message,
       componentStack: info.componentStack,
     });
@@ -46,13 +50,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="text-red-600 text-xl mb-2">⚠️ Algo salió mal</div>
           <p className="text-red-700 text-sm mb-4 text-center max-w-md">
             Se produjo un error inesperado en esta sección.
-            {this.state.error && (
+            {isDev && this.state.error && (
               <span className="block mt-1 font-mono text-xs text-red-500">
                 {this.state.error.message}
               </span>
             )}
           </p>
           <button
+            type="button"
             onClick={this.handleReset}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm transition-colors"
           >

@@ -2042,11 +2042,15 @@ app.post('/make-server-25b11ac0/chat-evento', async (c) => {
       return c.json({ success: false, error: 'eventoId y mensaje son requeridos' }, 400);
     }
 
+    if (typeof mensaje !== 'object' || Array.isArray(mensaje)) {
+      return c.json({ success: false, error: 'mensaje debe ser un objeto' }, 400);
+    }
+
     const id = `chat-evento:${eventoId}:${Date.now()}`;
     const entry = {
       id,
       eventoId,
-      ...mensaje,
+      mensaje,
       timestamp: new Date().toISOString()
     };
 

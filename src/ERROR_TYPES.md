@@ -65,55 +65,64 @@ Para errores HTTP estándar, el código de estado HTTP refleja la categoría del
 |----------------------------------|--------------------------------------------------|---------------------------------------|
 | Mensaje de error interno del KV | `Error al actualizar camarero: <detalle error>` | ID no encontrado o fallo de escritura |
 ### `DELETE /camareros/:id`
-| Error | Causa |
-|-------|-------|
-| `Error al eliminar camarero: ...` | Fallo al eliminar del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                   | Causa                          |
+|----------------------------------|------------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al eliminar camarero: <detalle error>` | Fallo al eliminar del KV store |
 
 ---
 
 ### `GET /pedidos`
-| Error | Causa |
-|-------|-------|
-| `Error al obtener pedidos: ...` | Fallo en lectura del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                | Causa                         |
+|----------------------------------|---------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al obtener pedidos: <detalle error>` | Fallo en lectura del KV store |
 
 ### `POST /pedidos`
-| Error | Causa |
-|-------|-------|
-| `Error al crear pedido: ...` | Datos inválidos o fallo de escritura |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor              | Causa                                |
+|----------------------------------|-------------------------------------------|--------------------------------------|
+| Mensaje de error interno del KV | `Error al crear pedido: <detalle error>` | Datos inválidos o fallo de escritura |
 
 ### `PUT /pedidos/:id`
-| Error | Causa |
-|-------|-------|
-| `Error al actualizar pedido: ...` | ID no encontrado o fallo de escritura |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                  | Causa                                 |
+|----------------------------------|-----------------------------------------------|---------------------------------------|
+| Mensaje de error interno del KV | `Error al actualizar pedido: <detalle error>` | ID no encontrado o fallo de escritura |
 
 ### `DELETE /pedidos/:id`
-| Error | Causa |
-|-------|-------|
-| `Error al eliminar pedido: ...` | Fallo al eliminar del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                | Causa                          |
+|----------------------------------|---------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al eliminar pedido: <detalle error>` | Fallo al eliminar del KV store |
 
 ---
 
 ### `GET /coordinadores`
-| Error | Causa |
-|-------|-------|
-| `Error al obtener coordinadores: ...` | Fallo en lectura del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                      | Causa                         |
+|----------------------------------|---------------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al obtener coordinadores: <detalle error>` | Fallo en lectura del KV store |
 
 ### `POST /coordinadores`
-| Error | Causa |
-|-------|-------|
-| `Error al crear coordinador: ...` | Datos inválidos o fallo de escritura |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                  | Causa                                |
+|----------------------------------|-----------------------------------------------|--------------------------------------|
+| Mensaje de error interno del KV | `Error al crear coordinador: <detalle error>` | Datos inválidos o fallo de escritura |
 
 ---
 
 ### `GET /clientes`
-| Error | Causa |
-|-------|-------|
-| `Error al obtener clientes: ...` | Fallo en lectura del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                | Causa                         |
+|----------------------------------|---------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al obtener clientes: <detalle error>` | Fallo en lectura del KV store |
 
 ### `POST /clientes`
-| Error | Causa |
-|-------|-------|
-| `Error al crear cliente: ...` | Datos inválidos o fallo de escritura |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor              | Causa                                |
+|----------------------------------|-------------------------------------------|--------------------------------------|
+| Mensaje de error interno del KV | `Error al crear cliente: <detalle error>` | Datos inválidos o fallo de escritura |
 
 ---
 
@@ -136,12 +145,13 @@ Envía un parte de servicio por WhatsApp y/o Email.
 
 Persiste un mensaje en el chat de un evento específico.
 
-**Parámetros requeridos:** `eventoId`, `mensaje`
+**Parámetros requeridos:** `eventoId` (string), `mensaje` (objeto plano)
 
-| Error | Código HTTP | Causa |
-|-------|-------------|-------|
+| Respuesta JSON (campo `"error"`) | Código HTTP | Causa |
+|----------------------------------|-------------|-------|
 | `eventoId y mensaje son requeridos` | 400 | Cuerpo de la petición incompleto |
-| `Mensaje interno del KV store (ver campo "error" en la respuesta)` | 500 | Fallo en KV store |
+| `mensaje debe ser un objeto` | 400 | `mensaje` es un string, array u otro tipo no-objeto |
+| Mensaje de error interno del KV | 500 | Fallo en KV store |
 
 ---
 
@@ -151,14 +161,15 @@ Persiste un mensaje en un chat grupal.
 
 **Parámetros requeridos:** `chatId`, `id` (en el objeto mensaje)
 
-| Error | Causa |
-|-------|-------|
-| `Error al crear mensaje en chat: ...` | Fallo en KV store |
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                     | Causa        |
+|----------------------------------|--------------------------------------------------|--------------|
+| Mensaje de error interno del KV | `Error al crear mensaje en chat: <detalle error>` | Fallo en KV store |
 
 ### `GET /chat-mensajes/:chatId`
-| Error | Causa |
-|-------|-------|
-| `Error al obtener mensajes del chat: ...` | Fallo en lectura del KV store |
+
+| Respuesta JSON (campo `"error"`) | Mensaje de log del servidor                        | Causa                         |
+|----------------------------------|-----------------------------------------------------|-------------------------------|
+| Mensaje de error interno del KV | `Error al obtener mensajes del chat: <detalle error>` | Fallo en lectura del KV store |
 
 ---
 

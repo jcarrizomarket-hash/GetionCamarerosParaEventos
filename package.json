@@ -1,16 +1,16 @@
 {
-  "name": "your-project-name",
+  "name": "gestion-camareros-para-eventos",
   "version": "1.0.0",
   "scripts": {
-    "start": "node src/index.js",
-    "build": "your build command",
-    "test": "your test command"
+    "start": "cd src && npm run dev",
+    "build": "cd src && npm run build",
+    "test": "cd src && npx vitest run",
+    "test:unit": "cd src && npx vitest run tests/unit",
+    "test:integration": "cd src && npx vitest run tests/integration",
+    "test:e2e": "cd src && npx playwright test",
+    "test:coverage": "cd src && npx vitest run --coverage",
+    "test:watch": "cd src && npx vitest"
   },
-  "dependencies": {
-    "express": "^4.17.1",
-    "mongoose": "^5.10.9"
-  },
-  "devDependencies": {
-    "jest": "^26.6.0"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

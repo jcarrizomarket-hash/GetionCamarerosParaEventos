@@ -36,8 +36,6 @@ export function logAudit(
     details,
   }));
 }
-§=======
-import { createRateLimiter } from './rate-limiter.ts';
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes

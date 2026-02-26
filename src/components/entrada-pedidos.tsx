@@ -1,8 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
-import { logger } from '../utils/logger';
-
-const log = logger.forContext('EntradaPedidos');
 
 export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
@@ -60,18 +57,19 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     return { days, firstDay: adjustedFirstDay };
   };
 
-  const changeMonth = useCallback((offset) => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
-  }, []);
+  const changeMonth = (offset) => {
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
+    setCurrentDate(newDate);
+  };
 
   const monthData = getDaysInMonth(currentDate);
   
   // Filtrar pedidos del mes actual (para calendario)
-  const pedidosMes = useMemo(() => uniquePedidos.filter(p => {
+  const pedidosMes = uniquePedidos.filter(p => {
     const fecha = new Date(p.diaEvento);
     return fecha.getMonth() === currentDate.getMonth() && 
            fecha.getFullYear() === currentDate.getFullYear();
-  }), [uniquePedidos, currentDate]);
+  });
 
   // Verificar si un pedido está completo (todos confirmados y número correcto)
   const isPedidoCompleto = (pedido) => {
@@ -178,31 +176,29 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     return `${horas}h ${minutos > 0 ? minutos + 'm' : ''}`;
   };
 
-  const handleTimeChange = useCallback((field, value, type) => {
-    setFormData(prev => {
-      const newFormData = { ...prev, [field]: value };
-      
-      if (type === 1) {
-        if (field === 'horaEntrada' && newFormData.horaSalida) {
-          newFormData.totalHoras = calcularHoras(value, newFormData.horaSalida);
-        } else if (field === 'horaSalida' && newFormData.horaEntrada) {
-          newFormData.totalHoras = calcularHoras(newFormData.horaEntrada, value);
-        }
-      } else {
-        if (field === 'horaEntrada2' && newFormData.horaSalida2) {
-          newFormData.totalHoras2 = calcularHoras(value, newFormData.horaSalida2);
-        } else if (field === 'horaSalida2' && newFormData.horaEntrada2) {
-          newFormData.totalHoras2 = calcularHoras(newFormData.horaEntrada2, value);
-        }
+  const handleTimeChange = (field, value, type) => {
+    const newFormData = { ...formData, [field]: value };
+    
+    if (type === 1) {
+      if (field === 'horaEntrada' && newFormData.horaSalida) {
+        newFormData.totalHoras = calcularHoras(value, newFormData.horaSalida);
+      } else if (field === 'horaSalida' && newFormData.horaEntrada) {
+        newFormData.totalHoras = calcularHoras(newFormData.horaEntrada, value);
       }
-      
-      return newFormData;
-    });
-  }, []);
+    } else {
+      if (field === 'horaEntrada2' && newFormData.horaSalida2) {
+        newFormData.totalHoras2 = calcularHoras(value, newFormData.horaSalida2);
+      } else if (field === 'horaSalida2' && newFormData.horaEntrada2) {
+        newFormData.totalHoras2 = calcularHoras(newFormData.horaEntrada2, value);
+      }
+    }
+    
+    setFormData(newFormData);
+  };
 
   const handleEdit = (pedido) => {
-    log.debug('Editando pedido', { id: pedido.id, numero: pedido.numero });
-    log.debug('Datos completos del pedido', pedido);
+    console.log('📝 Editando pedido:', pedido.id, pedido.numero);
+    console.log('📋 Datos completos del pedido:', pedido);
     
     // Primero cerrar el formulario si está abierto
     setShowForm(false);
@@ -233,16 +229,16 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
         coordinadorId: pedido.coordinadorId || '',
         coordinadorNombre: pedido.coordinadorNombre || ''
       });
-      log.debug('Estado editingId configurado', { id: pedido.id });
+      console.log('✅ Estado editingId configurado a:', pedido.id);
       setShowForm(true);
     }, 50);
   };
 
-  const handleDelete = useCallback(async (id) => {
+  const handleDelete = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
     
     try {
-      log.debug('Eliminando pedido', { id });
+      console.log(`🗑️ Eliminando pedido con ID: ${id}`);
       
       const response = await fetch(`${baseUrl}/pedidos/${id}`, {
         method: 'DELETE',
@@ -250,29 +246,29 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       });
       
       const result = await response.json();
-      log.debug('Respuesta del servidor', { status: response.status, result });
+      console.log('📝 Respuesta del servidor:', response.status, result);
       
       if (response.ok && result.success) {
-        log.info('Pedido eliminado', { id });
+        console.log('✅ Pedido eliminado, recargando datos...');
         await cargarDatos();
         alert('✅ Pedido eliminado correctamente');
       } else {
-        log.error('Error del servidor al eliminar pedido', result);
+        console.error('❌ Error del servidor:', result);
         alert(`❌ Error: ${result.error || 'No se pudo eliminar el pedido'}`);
       }
     } catch (error) {
-      log.error('Error al eliminar pedido', error);
+      console.error('❌ Error al eliminar:', error);
       alert(`❌ Error: ${error.message}`);
     }
-  }, [baseUrl, publicAnonKey, cargarDatos]);
+  };
 
   // --- Lógica de Alertas y Sonido ---
   const playNotificationSound = () => {
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Sonido de campana/notificación
-      audio.play().catch(e => log.warn('Audio autoplay blocked', e));
+      audio.play().catch(e => console.log('Audio autoplay blocked', e));
     } catch (error) {
-      log.error('Error al reproducir sonido', error);
+      console.error('Error playing sound', error);
     }
   };
 
@@ -357,7 +353,7 @@ _Por favor confirme recepción de este mensaje._`;
         setFormData(initialFormState);
       }
     } catch (error) {
-      log.error('Error al guardar pedido', error);
+      console.error('Error al guardar:', error);
     }
   };
 

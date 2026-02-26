@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Key, CheckCircle, XCircle, RefreshCw, ExternalLink, AlertTriangle, Copy, Check } from 'lucide-react';
-import type { WhatsAppConfigDetails } from '../src/types';
 
 interface WhatsAppConfigProps {
   baseUrl: string;
@@ -10,7 +9,7 @@ interface WhatsAppConfigProps {
 export function WhatsAppConfig({ baseUrl, publicAnonKey }: WhatsAppConfigProps) {
   const [isConfigured, setIsConfigured] = useState(false);
   const [message, setMessage] = useState('');
-  const [configDetails, setConfigDetails] = useState<WhatsAppConfigDetails | null>(null);
+  const [configDetails, setConfigDetails] = useState<any>(null);
   const [checking, setChecking] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 

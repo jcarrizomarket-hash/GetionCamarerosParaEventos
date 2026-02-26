@@ -211,26 +211,6 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         timestamp: new Date().toISOString(),
         estado: 'confirmado'
       }]);
-
-      // Enviar mensaje de confirmación con QR al camarero
-      if (camareroSeleccionado.telefono) {
-        try {
-          await fetch(`${baseUrl}/confirmar-con-qr`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${publicAnonKey}`
-            },
-            body: JSON.stringify({
-              telefono: camareroSeleccionado.telefono,
-              pedidoId: eventoSeleccionado.id,
-              camareroId: camareroSeleccionado.id
-            })
-          });
-        } catch (qrError) {
-          console.log('Error al enviar confirmación con QR:', qrError);
-        }
-      }
       
       await cargarDatos();
     } catch (error) {

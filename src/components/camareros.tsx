@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -123,20 +123,20 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   };
 
   // --- Helpers de Formulario ---
-  const toggleListValue = useCallback((field, value) => {
+  const toggleListValue = (field, value) => {
     setFormData(prev => {
       const list = prev[field] || [];
       if (list.includes(value)) return { ...prev, [field]: list.filter(item => item !== value) };
       return { ...prev, [field]: [...list, value] };
     });
-  }, []);
+  };
 
-  const toggleDiaSemana = useCallback((diaIndex) => {
+  const toggleDiaSemana = (diaIndex) => {
     setDiasSeleccionados(prev => {
       if (prev.includes(diaIndex)) return prev.filter(d => d !== diaIndex);
       return [...prev, diaIndex];
     });
-  }, []);
+  };
 
   // --- Gestión de Disponibilidad Avanzada ---
   const generarFechas = () => {
@@ -297,7 +297,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     } catch (error) { console.log(error); }
   };
 
-  const toggleApercibido = useCallback(async (camarero) => {
+  const toggleApercibido = async (camarero) => {
     const nuevoEstado = camarero.estado === 'apercibido' ? 'activo' : 'apercibido';
     try {
       const response = await fetch(`${baseUrl}/camareros/${camarero.id}`, {
@@ -307,14 +307,14 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       });
       if (response.ok) await cargarDatos();
     } catch (error) { console.log(error); }
-  }, [baseUrl, publicAnonKey, cargarDatos]);
+  };
 
-  const listaCamareros = useMemo(() => camareros
+  const listaCamareros = camareros
     .filter(c => verApercibidos ? c.estado === 'apercibido' : (c.estado !== 'apercibido' || !c.estado))
     .sort((a, b) => {
         if (a.codigo && b.codigo) return a.codigo.localeCompare(b.codigo);
         return a.numero - b.numero;
-    }), [camareros, verApercibidos]);
+    });
 
   // --- Funciones de Exportación e Importación Excel ---
   const exportarAExcel = () => {

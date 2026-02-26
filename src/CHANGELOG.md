@@ -1,50 +1,50 @@
 # 📝 Changelog - Sistema de Gestión de Camareros
 
-## [2.1.2] - 2026-02-24
+## [2.2.0] - 24 de febrero de 2026
 
-### 📚 Documentación Completa del Proyecto
+### Códigos QR para Control de Entrada/Salida ✨ NUEVO
 
-Esta versión añade documentación completa del proyecto, incluyendo referencia de API, guía de deployment, troubleshooting, seguridad y guía de contribución.
+**Sistema completo de códigos QR para gestión de asistencia:**
 
-#### Nuevos Documentos en `docs/`
+**Ubicación:**
+- Pedidos → Gestión de Pedidos → [Seleccionar pedido] → Botón "Código QR"
 
-- **[docs/API.md](../docs/API.md)**: Referencia completa de todos los endpoints de la API REST
-  - Documentación de autenticación y headers requeridos
-  - Todos los endpoints: Clientes, Pedidos, Camareros, Coordinadores, Asignaciones, Informes, Mensajería, Chat
-  - Formato de respuestas y códigos de error
-  - Ejemplos con curl
+**Funcionalidades:**
+- ✅ Generación automática de tokens únicos por pedido
+- ✅ Código QR visual de 300x300 píxeles
+- ✅ Modal profesional con diseño degradado
+- ✅ **Copiar Link**: Copia URL de escaneo al portapapeles
+- ✅ **Descargar QR**: Descarga imagen PNG (QR-Cliente-Numero.png)
+- ✅ **Regenerar**: Invalida el código anterior y genera uno nuevo
 
-- **[docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md)**: Guía de despliegue a producción
-  - Requisitos previos y configuración de variables de entorno
-  - Instrucciones para Vercel, Netlify, GitHub Pages y self-hosted
-  - Despliegue de Supabase Edge Functions
-  - Checklist completo de despliegue
-  - Guía de rollback
+**Backend (4 nuevas rutas API):**
+- GET `/pedidos/:id/qr-token` - Obtener/generar token
+- POST `/pedidos/:id/qr-regenerate` - Regenerar token
+- GET `/qr-scan/:token` - Validar token y obtener datos del evento
+- POST `/qr-scan/:token/registro` - Registrar entrada/salida de personal
 
-- **[docs/TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md)**: Guía de solución de problemas
-  - Problemas de instalación y configuración
-  - Errores de API, autenticación y CORS
-  - Problemas con WhatsApp y Email
-  - Tests fallando y errores de build
-  - Pasos de diagnóstico general
+**Datos Guardados:**
+- `qrToken`: Token único del pedido
+- `qrGeneratedAt`: Fecha de generación
+- `qrRegeneratedAt`: Fecha de regeneración (si aplica)
+- `registroEntrada/Salida`: Timestamps de entrada/salida
+- `entradaRegistrada/salidaRegistrada`: Flags booleanos
 
-- **[docs/SECURITY.md](../docs/SECURITY.md)**: Guía de seguridad
-  - Modelo de seguridad con dos niveles de autenticación
-  - Clasificación y manejo de secretos
-  - Uso correcto del middleware de seguridad
-  - Rotación de claves
-  - Buenas prácticas y vulnerabilidades conocidas
+**Componente:**
+- `/components/qr-control.tsx` - Modal completo de gestión de QR
+- Librería: `qrcode` para generación de imágenes QR
 
-- **[docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md)**: Guía de contribución
-  - Flujo de trabajo con Git
-  - Estándares de código TypeScript/React
-  - Convención de commits (Conventional Commits)
-  - Plantilla de Pull Request
-  - Guías de testing y documentación
+**Instrucciones de Uso:**
+1. Enviar el código QR o link al cliente del evento
+2. El cliente escanea o accede al link
+3. Permite registrar entrada y salida de cada camarero asignado
+4. Si se regenera, el código anterior deja de funcionar
 
-#### README.md Principal Mejorado
-
-- `README.md` en la raíz del proyecto actualizado con badges, tabla de contenidos, descripción de características y links a toda la documentación
+**Archivos nuevos/modificados:**
+- ✅ `/components/qr-control.tsx` (NUEVO)
+- ✅ `/components/gestion-pedidos.tsx` (botón y modal)
+- ✅ `/supabase/functions/server/index.tsx` (4 rutas API)
+- ✅ `/CODIGOS_QR_CONTROL.md` (documentación completa)
 
 ---
 

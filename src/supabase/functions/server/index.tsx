@@ -2,18 +2,29 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
-import { generateQrPng, validateQrContent, clearQrCache, compressQrContent } from '../qr-generator.ts';
 import * as kv from './kv_store.tsx';
-import { requireAuth, requireFunctionSecret, globalRateLimiter } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
-app.use('*', globalRateLimiter);
 
-// Apply auth validation to all routes
-app.use('*', requireAuth);
+// Middleware de seguridad simple
+const requireSecret = async (c, next) => {
+  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
+  const providedSecret = c.req.header('x-fn-secret');
+  
+  // Solo validar en métodos mutantes
+  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (methodsToProtect.includes(c.req.method)) {
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+      return c.json({ success: false, error: 'No autorizado' }, 401);
+    }
+  }
+  
+  await next();
+};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -31,7 +42,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -47,7 +58,7 @@ app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -59,7 +70,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) =
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -81,7 +92,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -112,7 +123,7 @@ app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => 
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -124,7 +135,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) 
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -146,7 +157,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -174,7 +185,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c)
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -186,7 +197,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async 
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -208,7 +219,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -249,7 +260,7 @@ app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/pedidos/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -265,7 +276,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', requireFunctionSecret, async (c) =>
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
   try {
     const id = c.req.param('id');
     console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);
@@ -1808,185 +1819,6 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
   }
 });
 
-// ============== CONFIRMAR CON QR ==============
-app.post('/make-server-25b11ac0/confirmar-con-qr', async (c) => {
-  try {
-    const { telefono, pedidoId, camareroId } = await c.req.json();
-
-    if (!telefono || !pedidoId) {
-      return c.json({ success: false, error: 'Faltan campos requeridos: telefono y pedidoId' }, 400);
-    }
-
-    const pedido = await kv.get(pedidoId);
-    if (!pedido) {
-      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
-    }
-
-    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
-    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
-
-    if (!whatsappApiKey || !whatsappPhoneId) {
-      return c.json({
-        success: false,
-        needsConfiguration: true,
-        error: 'WhatsApp Business API no está configurado'
-      });
-    }
-
-    // Prepare event data
-    const fechaEvento = new Date(pedido.diaEvento);
-    const diaSemana = fechaEvento.toLocaleDateString('es-ES', { weekday: 'long' });
-    const fechaCompleta = fechaEvento.toLocaleDateString('es-ES', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-
-    // QR content: Fecha;día;cliente;evento;hora entrada
-    const qrContent = `${fechaCompleta};${diaSemana};${pedido.cliente};${pedido.lugar};${pedido.horaEntrada}`;
-
-    // Link del evento
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const projectId = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
-    const linkEvento = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0/pedidos/${pedidoId}`;
-
-    // Format WhatsApp confirmation message
-    const mensajeTexto = `✅ CONFIRMACIÓN DE SERVICIO\n\n📅 Fecha: ${diaSemana}\n📆 Fecha completa: ${fechaCompleta}\n👤 Cliente: ${pedido.cliente}\n🎯 Evento: ${pedido.lugar}\n🕐 Hora entrada: ${pedido.horaEntrada}\n\n🔗 Link del evento: ${linkEvento}\n\n⚠️ *ESTAR 15 MINUTOS ANTES PARA ESTAR A LA HORA EXACTA LISTO PARA EL SERVICIO*\n\nGRACIAS`;
-
-    // Normalize phone number
-    let numeroLimpio = telefono.replace(/\D/g, '');
-    if (numeroLimpio.length === 9) {
-      numeroLimpio = '34' + numeroLimpio;
-    }
-
-    // Send text message
-    const textRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: numeroLimpio,
-        type: 'text',
-        text: { body: mensajeTexto }
-      })
-    });
-
-    const textResult = await textRes.json();
-    if (!textRes.ok) {
-      console.log('❌ Error enviando mensaje de confirmación:', textResult);
-      return c.json({
-        success: false,
-        error: textResult.error?.message || 'Error al enviar mensaje de confirmación',
-        needsConfiguration: textResult.error?.code === 190
-      });
-    }
-
-    console.log('✅ Mensaje de confirmación enviado:', textResult);
-
-    // Generate QR code PNG and send as image
-    try {
-      const qrOutput = await generateQrPng(qrContent);
-      const qrPng = qrOutput.png;
-
-      // Upload QR image to WhatsApp Media API
-      const formData = new FormData();
-      formData.append('file', new Blob([qrPng], { type: 'image/png' }), 'qr-codigo.png');
-      formData.append('type', 'image/png');
-      formData.append('messaging_product', 'whatsapp');
-
-      const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/media`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${whatsappApiKey}` },
-        body: formData
-      });
-
-      if (uploadRes.ok) {
-        const uploadResult = await uploadRes.json();
-        const mediaId = uploadResult.id;
-
-        // Send QR image message
-        const imageRes = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${whatsappApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: numeroLimpio,
-            type: 'image',
-            image: { id: mediaId }
-          })
-        });
-
-        if (imageRes.ok) {
-          console.log('✅ Imagen QR enviada exitosamente');
-        } else {
-          console.log('❌ Error enviando imagen QR:', await imageRes.json());
-        }
-      } else {
-        console.log('❌ Error subiendo imagen QR:', await uploadRes.json());
-      }
-    } catch (qrError) {
-      console.log('⚠️ Error generando/enviando QR (el mensaje de texto sí fue enviado):', qrError);
-    }
-
-    // Update clientes record status from "Enviado" to "Confirmado" if applicable
-    if (camareroId) {
-      try {
-        const clientes = await kv.getByPrefix('cliente:');
-        const clienteRelacionado = clientes.find((cl: any) =>
-          cl.camareroId === camareroId || cl.nombre === pedido.cliente
-        );
-        if (clienteRelacionado && clienteRelacionado.estado === 'Enviado') {
-          await kv.set(clienteRelacionado.id, { ...clienteRelacionado, estado: 'Confirmado' });
-        }
-      } catch (clienteError) {
-        console.log('⚠️ Error actualizando estado del cliente:', clienteError);
-      }
-    }
-
-    return c.json({
-      success: true,
-      messageId: textResult.messages?.[0]?.id
-    });
-
-  } catch (error) {
-    console.log('❌ Error en confirmar-con-qr:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-// ============== GENERAR QR ==============
-app.post('/make-server-25b11ac0/generar-qr', async (c) => {
-  try {
-    const { content, errorCorrectionLevel, scale, margin } = await c.req.json();
-
-    const validation = validateQrContent(content);
-    if (!validation.valid) {
-      return c.json({ success: false, error: validation.reason }, 400);
-    }
-
-    const qrOutput = await generateQrPng(content, {
-      errorCorrectionLevel: errorCorrectionLevel ?? 'M',
-      scale: scale ?? 8,
-      margin: margin ?? 4,
-    });
-
-    return c.json({
-      success: true,
-      dataUrl: qrOutput.dataUrl,
-      base64: qrOutput.base64,
-      dimensions: qrOutput.dimensions,
-      generatedAt: qrOutput.generatedAt.toISOString(),
-    });
-  } catch (error) {
-    console.log('❌ Error en generar-qr:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
 // ============== CHAT GRUPAL ==============
 // Obtener mensajes de un chat grupal
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
@@ -2030,36 +1862,6 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
       success: false,
       error: String(error)
     }, 500);
-  }
-});
-
-// Persistir mensaje en chat de evento
-app.post('/make-server-25b11ac0/chat-evento', async (c) => {
-  try {
-    const { eventoId, mensaje } = await c.req.json();
-
-    if (!eventoId || !mensaje) {
-      return c.json({ success: false, error: 'eventoId y mensaje son requeridos' }, 400);
-    }
-
-    if (typeof mensaje !== 'object' || Array.isArray(mensaje)) {
-      return c.json({ success: false, error: 'mensaje debe ser un objeto' }, 400);
-    }
-
-    const id = `chat-evento:${eventoId}:${Date.now()}`;
-    const entry = {
-      id,
-      eventoId,
-      mensaje,
-      timestamp: new Date().toISOString()
-    };
-
-    await kv.set(id, entry);
-
-    return c.json({ success: true, data: entry });
-  } catch (error) {
-    console.log('Error al persistir mensaje en chat-evento:', error);
-    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
@@ -2375,7 +2177,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2634,6 +2436,159 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
     });
   } catch (error) {
     console.log('❌ Error al enviar parte:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== CÓDIGOS QR PARA CONTROL DE ENTRADA/SALIDA ==============
+
+// Generar o obtener token QR para un pedido
+app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Si ya tiene token, devolverlo
+    if (pedidoData.qrToken) {
+      return c.json({ 
+        success: true, 
+        token: pedidoData.qrToken,
+        url: `${c.req.url.split('/pedidos/')[0]}/qr-scan/${pedidoData.qrToken}`
+      });
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al generar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Regenerar token QR para un pedido
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar nuevo token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    pedidoData.qrRegeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al regenerar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Validar token QR y obtener información del pedido
+app.get('/make-server-25b11ac0/qr-scan/:token', async (c) => {
+  try {
+    const token = c.req.param('token');
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido o expirado' }, 404);
+    }
+    
+    return c.json({ 
+      success: true, 
+      pedido: {
+        id: pedido.id,
+        numero: pedido.numero,
+        cliente: pedido.cliente,
+        tipoEvento: pedido.tipoEvento,
+        diaEvento: pedido.diaEvento,
+        horaEntrada: pedido.horaEntrada,
+        horaSalida: pedido.horaSalida,
+        lugar: pedido.lugar,
+        asignaciones: pedido.asignaciones || []
+      }
+    });
+  } catch (error) {
+    console.log('Error al validar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Registrar entrada/salida mediante QR
+app.post('/make-server-25b11ac0/qr-scan/:token/registro', async (c) => {
+  try {
+    const token = c.req.param('token');
+    const { camareroId, tipo } = await c.req.json(); // tipo: 'entrada' | 'salida'
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido' }, 404);
+    }
+    
+    // Registrar entrada/salida
+    const asignaciones = pedido.asignaciones || [];
+    const asignacionIndex = asignaciones.findIndex(a => a.camareroId === camareroId);
+    
+    if (asignacionIndex === -1) {
+      return c.json({ success: false, error: 'Camarero no asignado a este evento' }, 404);
+    }
+    
+    const timestamp = new Date().toISOString();
+    
+    if (tipo === 'entrada') {
+      asignaciones[asignacionIndex].registroEntrada = timestamp;
+      asignaciones[asignacionIndex].entradaRegistrada = true;
+    } else if (tipo === 'salida') {
+      asignaciones[asignacionIndex].registroSalida = timestamp;
+      asignaciones[asignacionIndex].salidaRegistrada = true;
+    }
+    
+    pedido.asignaciones = asignaciones;
+    await kv.set(`pedido:${pedido.id.replace('pedido:', '')}`, pedido);
+    
+    return c.json({ 
+      success: true, 
+      mensaje: `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`,
+      timestamp
+    });
+  } catch (error) {
+    console.log('Error al registrar entrada/salida:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

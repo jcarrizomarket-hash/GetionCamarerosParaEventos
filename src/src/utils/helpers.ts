@@ -134,11 +134,7 @@ export function formatearFecha(
 ): string {
   try {
     const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-
-    if (isNaN(fechaObj.getTime())) {
-      return '';
-    }
-
+    
     const opcionesPorDefecto: Intl.DateTimeFormatOptions = {
       weekday: 'long',
       year: 'numeric',
@@ -168,12 +164,7 @@ export function generarId(): string {
  * @returns Array sin duplicados
  */
 export function deduplicarPorId<T extends { id: string }>(array: T[]): T[] {
-  const seen = new Set<string>();
-  return array.filter(item => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+  return Array.from(new Map(array.map(item => [item.id, item])).values());
 }
 
 /**

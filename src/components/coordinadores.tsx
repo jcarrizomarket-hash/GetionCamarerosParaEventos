@@ -1,8 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { logger } from '../utils/logger';
-
-const log = logger.forContext('Coordinadores');
 
 interface CoordinadoresProps {
   coordinadores: any[];
@@ -74,19 +71,19 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
         }
       }
     } catch (error) {
-      log.error('Error al guardar coordinador', error);
+      console.log('Error al guardar coordinador:', error);
     }
   };
 
-  const handleEdit = useCallback((coordinador) => {
+  const handleEdit = (coordinador) => {
     setEditingCoordinador(coordinador);
     setNombre(coordinador.nombre);
     setTelefono(coordinador.telefono || '');
     setEmail(coordinador.email || '');
     setShowForm(true);
-  }, []);
+  };
 
-  const handleDelete = useCallback(async (coordinador) => {
+  const handleDelete = async (coordinador) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`)) {
       return;
     }
@@ -104,17 +101,17 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
         await cargarDatos();
       }
     } catch (error) {
-      log.error('Error al eliminar coordinador', error);
+      console.log('Error al eliminar coordinador:', error);
     }
-  }, [baseUrl, publicAnonKey, cargarDatos]);
+  };
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = () => {
     setShowForm(false);
     setNombre('');
     setTelefono('');
     setEmail('');
     setEditingCoordinador(null);
-  }, []);
+  };
 
   return (
     <div className="max-w-4xl mx-auto">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
@@ -30,7 +30,7 @@ export function Pedidos({
     cargarClientes();
   }, []);
 
-  const cargarClientes = useCallback(async () => {
+  const cargarClientes = async () => {
     try {
       const response = await fetch(`${baseUrl}/clientes`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` }
@@ -40,7 +40,7 @@ export function Pedidos({
     } catch (error) {
       console.log('Error al cargar clientes:', error);
     }
-  }, [baseUrl, publicAnonKey]);
+  };
 
   const subTabs = [
     { id: 'clientes', label: 'Clientes', icon: Building2 },

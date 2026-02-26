@@ -33,7 +33,7 @@ export function useFetch<T>(
   const fetchFnRef = useRef(fetchFn);
   useEffect(() => {
     fetchFnRef.current = fetchFn;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- it's safe to ignore exhaustive-deps here because we only want to keep fetchFnRef in sync with the latest fetchFn implementation
   }, [fetchFn]);
 
   const refetch = useCallback(async () => {

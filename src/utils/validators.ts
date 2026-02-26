@@ -1,5 +1,17 @@
 /**
- * Validators reutilizables para validación de entradas de usuario y datos de API.
+ * Validators reutilizables para validación de entradas de usuario.
+ *
+ * Uso típico: llamar a las funciones de validación específicas (validarCamarero,
+ * validarCoordinador, validarCliente) desde los manejadores de formulario o desde
+ * los métodos CRUD del AppContext antes de realizar llamadas a la API.
+ *
+ * @example
+ * ```ts
+ * const { isValid, errors } = validarCamarero({ nombre, email, telefono });
+ * if (!isValid) {
+ *   // mostrar errors al usuario antes de llamar a la API
+ * }
+ * ```
  */
 
 export const validators = {
@@ -21,7 +33,14 @@ export const validators = {
     return codigo.length >= 2 && /^[A-Z0-9-]+$/.test(codigo);
   },
 
+  /** Returns true if the value is a valid date string (past or future). */
   fecha: (fecha: string): boolean => {
+    const date = new Date(fecha);
+    return !isNaN(date.getTime());
+  },
+
+  /** Returns true if the value is a valid date string representing a future date. */
+  fechaFutura: (fecha: string): boolean => {
     const date = new Date(fecha);
     return !isNaN(date.getTime()) && date > new Date();
   },

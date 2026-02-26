@@ -3,23 +3,36 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
-import {
+import type {
   Camarero,
   Pedido,
   Coordinador,
   Cliente,
+} from '../src/types';
+import type {
   ApiError,
   LoadingState,
   ErrorState,
 } from '../types';
 import { createApiClient } from '../api/client';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { projectId } from '../utils/supabase/info';
 import { useAuth } from '../hooks/useAuth';
 import { toApiError } from '../utils/errorHandler';
+import { validarCamarero, validarCoordinador } from '../utils/validators';
 
 const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
+
+/** Result type for CRUD operations that run client-side validation first. */
+interface MutationResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  /** Field-level validation errors, populated before the API call is made. */
+  validationErrors?: Record<string, string>;
+}
 
 interface AppContextType {
   // State
@@ -44,6 +57,10 @@ interface AppContextType {
   cargarCoordinadores: () => Promise<void>;
   cargarClientes: () => Promise<void>;
   cargarTodosDatos: () => Promise<void>;
+
+  // CRUD operations (validate → API call → update local state)
+  crearCamarero: (data: Record<string, string>) => Promise<MutationResult<Camarero>>;
+  crearCoordinador: (data: Record<string, string>) => Promise<MutationResult<Coordinador>>;
 }
 
 const initialLoading: LoadingState = {
@@ -73,6 +90,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const { getAuthHeaders } = useAuth();
 
+  /**
+   * Create a fresh API client using the current auth token.
+   * Recreated automatically whenever the auth session changes.
+   */
+  const apiClient = useMemo(() => {
+    const authValue = getAuthHeaders()?.Authorization ?? '';
+    const token = authValue.startsWith('Bearer ')
+      ? authValue.slice('Bearer '.length)
+      : authValue;
+    return createApiClient(baseUrl, token);
+  }, [getAuthHeaders]);
+
   const setLoading = useCallback(
     (key: keyof LoadingState, value: boolean) => {
       setLoadingState((prev) => ({ ...prev, [key]: value }));
@@ -91,73 +120,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoading('camareros', true);
     setError('camareros', null);
     try {
-      const client = createApiClient(baseUrl, getAuthHeaders().Authorization.replace('Bearer ', ''));
-      const res = await client.get<Camarero[]>('/camareros');
+      const res = await apiClient.get<Camarero[]>('/camareros');
       if (res.success && res.data) {
         setCamareros(res.data);
-      } else if (res.error) {
-        setError('camareros', { code: 'API_ERROR', message: res.error, status: 400 });
+      } else {
+        setError('camareros', res.apiError ?? { code: 'API_ERROR', message: res.error ?? 'Error al cargar camareros', status: 400 });
       }
     } catch (err: unknown) {
       setError('camareros', toApiError(err));
     } finally {
       setLoading('camareros', false);
     }
-  }, [getAuthHeaders, setLoading, setError]);
+  }, [apiClient, setLoading, setError]);
 
   const cargarPedidos = useCallback(async () => {
     setLoading('pedidos', true);
     setError('pedidos', null);
     try {
-      const client = createApiClient(baseUrl, getAuthHeaders().Authorization.replace('Bearer ', ''));
-      const res = await client.get<Pedido[]>('/pedidos');
+      const res = await apiClient.get<Pedido[]>('/pedidos');
       if (res.success && res.data) {
         setPedidos(res.data);
-      } else if (res.error) {
-        setError('pedidos', { code: 'API_ERROR', message: res.error, status: 400 });
+      } else {
+        setError('pedidos', res.apiError ?? { code: 'API_ERROR', message: res.error ?? 'Error al cargar pedidos', status: 400 });
       }
     } catch (err: unknown) {
       setError('pedidos', toApiError(err));
     } finally {
       setLoading('pedidos', false);
     }
-  }, [getAuthHeaders, setLoading, setError]);
+  }, [apiClient, setLoading, setError]);
 
   const cargarCoordinadores = useCallback(async () => {
     setLoading('coordinadores', true);
     setError('coordinadores', null);
     try {
-      const client = createApiClient(baseUrl, getAuthHeaders().Authorization.replace('Bearer ', ''));
-      const res = await client.get<Coordinador[]>('/coordinadores');
+      const res = await apiClient.get<Coordinador[]>('/coordinadores');
       if (res.success && res.data) {
         setCoordinadores(res.data);
-      } else if (res.error) {
-        setError('coordinadores', { code: 'API_ERROR', message: res.error, status: 400 });
+      } else {
+        setError('coordinadores', res.apiError ?? { code: 'API_ERROR', message: res.error ?? 'Error al cargar coordinadores', status: 400 });
       }
     } catch (err: unknown) {
       setError('coordinadores', toApiError(err));
     } finally {
       setLoading('coordinadores', false);
     }
-  }, [getAuthHeaders, setLoading, setError]);
+  }, [apiClient, setLoading, setError]);
 
   const cargarClientes = useCallback(async () => {
     setLoading('clientes', true);
     setError('clientes', null);
     try {
-      const client = createApiClient(baseUrl, getAuthHeaders().Authorization.replace('Bearer ', ''));
-      const res = await client.get<Cliente[]>('/clientes');
+      const res = await apiClient.get<Cliente[]>('/clientes');
       if (res.success && res.data) {
         setClientes(res.data);
-      } else if (res.error) {
-        setError('clientes', { code: 'API_ERROR', message: res.error, status: 400 });
+      } else {
+        setError('clientes', res.apiError ?? { code: 'API_ERROR', message: res.error ?? 'Error al cargar clientes', status: 400 });
       }
     } catch (err: unknown) {
       setError('clientes', toApiError(err));
     } finally {
       setLoading('clientes', false);
     }
-  }, [getAuthHeaders, setLoading, setError]);
+  }, [apiClient, setLoading, setError]);
 
   const cargarTodosDatos = useCallback(async () => {
     await Promise.all([
@@ -167,6 +192,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cargarClientes(),
     ]);
   }, [cargarCamareros, cargarPedidos, cargarCoordinadores, cargarClientes]);
+
+  /**
+   * Validates camarero data using field validators, then creates the record
+   * via the API and appends it to local state on success.
+   */
+  const crearCamarero = useCallback(
+    async (data: Record<string, string>): Promise<MutationResult<Camarero>> => {
+      const validation = validarCamarero(data);
+      if (!validation.isValid) {
+        return { success: false, validationErrors: validation.errors };
+      }
+      try {
+        const res = await apiClient.post<Camarero>('/camareros', data);
+        if (res.success && res.data) {
+          setCamareros((prev) => [...prev, res.data]);
+          return { success: true, data: res.data };
+        }
+        return { success: false, error: res.error ?? 'Error al crear camarero' };
+      } catch (err: unknown) {
+        return { success: false, error: toApiError(err).message };
+      }
+    },
+    [apiClient]
+  );
+
+  /**
+   * Validates coordinador data using field validators, then creates the record
+   * via the API and appends it to local state on success.
+   */
+  const crearCoordinador = useCallback(
+    async (data: Record<string, string>): Promise<MutationResult<Coordinador>> => {
+      const validation = validarCoordinador(data);
+      if (!validation.isValid) {
+        return { success: false, validationErrors: validation.errors };
+      }
+      try {
+        const res = await apiClient.post<Coordinador>('/coordinadores', data);
+        if (res.success && res.data) {
+          setCoordinadores((prev) => [...prev, res.data]);
+          return { success: true, data: res.data };
+        }
+        return { success: false, error: res.error ?? 'Error al crear coordinador' };
+      } catch (err: unknown) {
+        return { success: false, error: toApiError(err).message };
+      }
+    },
+    [apiClient]
+  );
 
   return (
     <AppContext.Provider
@@ -188,6 +261,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cargarCoordinadores,
         cargarClientes,
         cargarTodosDatos,
+        crearCamarero,
+        crearCoordinador,
       }}
     >
       {children}

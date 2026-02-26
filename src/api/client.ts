@@ -63,7 +63,7 @@ class ApiClient {
           status: response.status,
           details: parsed.details,
         };
-        return { success: false, error: err.message };
+        return { success: false, error: err.message, apiError: err };
       }
 
       const data = await response.json();
@@ -71,7 +71,7 @@ class ApiClient {
     } catch (error: unknown) {
       clearTimeout(timerId);
       const apiError = toApiError(error);
-      return { success: false, error: apiError.message };
+      return { success: false, error: apiError.message, apiError };
     }
   }
 

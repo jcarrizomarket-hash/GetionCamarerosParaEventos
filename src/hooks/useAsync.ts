@@ -17,7 +17,23 @@ interface UseAsyncResult<T, Args extends unknown[]> extends UseAsyncState<T> {
  * Custom hook for executing async operations imperatively (e.g. form submissions,
  * CRUD mutations). Returns an `execute` function that the caller invokes manually.
  *
- * @param asyncFn - The async function to wrap
+ * This hook is a reusable utility for components that trigger async work in
+ * response to user interactions (button clicks, form submits). For background
+ * data loading, prefer `useFetch`. For global CRUD operations, use the methods
+ * provided by `AppContext` (e.g. `crearCamarero`, `crearCoordinador`).
+ *
+ * @param asyncFn - The async function to wrap. Must be memoized (useCallback) by
+ *   the caller to avoid unnecessary re-creation of `execute` on every render.
+ *
+ * @example
+ * ```ts
+ * const guardarCamarero = useCallback(
+ *   (data: Record<string, string>) => apiClient.post<Camarero>('/camareros', data),
+ *   [apiClient]
+ * );
+ * const { loading, error, execute } = useAsync(guardarCamarero);
+ * // then: await execute(formData);
+ * ```
  */
 export function useAsync<T, Args extends unknown[] = []>(
   asyncFn: (...args: Args) => Promise<T>

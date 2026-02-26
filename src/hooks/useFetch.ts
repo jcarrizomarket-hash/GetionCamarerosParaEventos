@@ -16,8 +16,20 @@ interface UseFetchResult<T> extends UseFetchState<T> {
  * Custom hook for data fetching with loading/error state management.
  * Automatically fetches on mount and whenever `deps` change.
  *
+ * This hook is a reusable utility for components that need to load data
+ * declaratively. AppContext uses its own fetch logic for global state; use
+ * this hook inside leaf components that need ad-hoc data loading.
+ *
  * @param fetchFn - Async function that returns an ApiResponse<T>
- * @param deps - Dependency array (like useEffect deps)
+ * @param deps - Dependency array (like useEffect deps) that triggers a refetch
+ *
+ * @example
+ * ```ts
+ * const { data, loading, error, refetch } = useFetch(
+ *   () => apiClient.get<Camarero[]>('/camareros'),
+ *   []
+ * );
+ * ```
  */
 export function useFetch<T>(
   fetchFn: () => Promise<ApiResponse<T>>,
@@ -64,7 +76,8 @@ export function useFetch<T>(
 
   useEffect(() => {
     refetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `deps` is the caller-controlled
+    // dependency array; `refetch` is stable (empty useCallback deps) so omitting it is safe.
   }, deps);
 
   return { ...state, refetch };

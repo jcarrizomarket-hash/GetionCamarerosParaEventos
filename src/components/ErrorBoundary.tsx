@@ -7,7 +7,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error: Error | null;
+  error: unknown;
 }
 
 /**
@@ -20,11 +20,11 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: unknown): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
     console.error('Error capturado por ErrorBoundary:', error, errorInfo);
   }
 
@@ -38,7 +38,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <h2 className="text-xl font-bold text-gray-900">Error inesperado</h2>
             </div>
             <p className="text-gray-600 mb-4">
-              {this.state.error?.message ?? 'Algo salió mal'}
+              {String(
+                this.state.error instanceof Error
+                  ? this.state.error.message
+                  : (this.state.error ?? 'Algo salió mal')
+              )}
             </p>
             <button
               onClick={() => window.location.reload()}

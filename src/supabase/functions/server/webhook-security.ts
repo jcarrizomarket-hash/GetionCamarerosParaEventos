@@ -1,121 +1,92 @@
 /**
- * Seguridad para webhooks de WhatsApp
- * Valida la firma HMAC-SHA256 para verificar autenticidad de los mensajes
+ * Webhook signature validation utilities
  */
-
-import type { Context } from 'npm:hono';
 
 /**
- * Verifica la firma del webhook de WhatsApp Meta
- * 
- * WhatsApp envía el header 'x-hub-signature-256' con el HMAC-SHA256
- * del cuerpo del request, firmado con el App Secret de Meta.
- *
- * Referencia: https://developers.facebook.com/docs/messenger-platform/webhooks#validate-payloads
+ * Computes an HMAC-SHA256 signature for the given payload using the provided secret
  */
-export async function verifyWhatsAppWebhookSignature(
-  c: Context,
-  rawBody: string
-): Promise<boolean> {
-  const appSecret = Deno.env.get('WHATSAPP_APP_SECRET');
+async function computeHmacSha256(secret: string, payload: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(payload);
 
-  if (!appSecret) {
-    console.warn('⚠️ WHATSAPP_APP_SECRET no configurado. Validación de firma omitida.');
-    return true;
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Performs a constant-time string comparison to prevent timing attacks
+ */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
+  return mismatch === 0;
+}
 
-  const signature = c.req.header('x-hub-signature-256');
+export interface WebhookValidationResult {
+  valid: boolean;
+  error?: string;
+}
 
+/**
+ * Validates an incoming webhook request signature.
+ * Expects the signature in the `x-webhook-signature` header as `sha256=<hex>`.
+ *
+ * @param body     - Raw request body string
+ * @param signature - Value of the `x-webhook-signature` header
+ * @param secret   - The shared webhook secret
+ */
+export async function validateWebhookSignature(
+  body: string,
+  signature: string | undefined | null,
+  secret: string
+): Promise<WebhookValidationResult> {
   if (!signature) {
-    console.warn('❌ Webhook sin header x-hub-signature-256');
-    return false;
+    return { valid: false, error: 'Falta la firma del webhook (x-webhook-signature)' };
   }
+
+  const prefix = 'sha256=';
+  if (!signature.startsWith(prefix)) {
+    return { valid: false, error: 'Formato de firma inválido. Se esperaba sha256=<hex>' };
+  }
+
+  const providedHex = signature.slice(prefix.length);
 
   try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(appSecret);
-    const messageData = encoder.encode(rawBody);
+    const expectedHex = await computeHmacSha256(secret, body);
+    const isValid = safeEqual(providedHex, expectedHex);
 
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
+    if (!isValid) {
+      return { valid: false, error: 'Firma del webhook inválida' };
+    }
 
-    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-    const expectedSignature = 'sha256=' + Array.from(new Uint8Array(signatureBuffer))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    return timingSafeEqual(signature, expectedSignature);
-  } catch (error) {
-    console.error('❌ Error al verificar firma del webhook:', error);
-    return false;
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Error al verificar la firma del webhook' };
   }
 }
 
 /**
- * Comparación de strings a tiempo constante para evitar timing attacks
+ * Generates a webhook signature for a given payload and secret.
+ * Useful for testing or generating signatures to send to other services.
  */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
-/**
- * Valida el token de verificación del webhook de WhatsApp
- * Usado cuando Meta verifica el endpoint por primera vez (GET request)
- */
-export function verifyWhatsAppWebhookToken(
-  c: Context
-): { valid: boolean; challenge?: string } {
-  const mode = c.req.query('hub.mode');
-  const token = c.req.query('hub.verify_token');
-  const challenge = c.req.query('hub.challenge');
-
-  const expectedToken = Deno.env.get('WHATSAPP_VERIFY_TOKEN');
-
-  if (!expectedToken) {
-    console.warn('⚠️ WHATSAPP_VERIFY_TOKEN no configurado.');
-    return { valid: false };
-  }
-
-  if (mode === 'subscribe' && token === expectedToken) {
-    return { valid: true, challenge: challenge ?? '' };
-  }
-
-  console.warn(`❌ Token de verificación inválido. Recibido: ${token}`);
-  return { valid: false };
-}
-
-/**
- * Middleware para proteger el endpoint del webhook de WhatsApp (POST)
- * Almacena el cuerpo en el contexto para que los handlers posteriores puedan accederlo
- */
-export async function requireWhatsAppWebhookSignature(
-  c: Context,
-  next: () => Promise<void>
-) {
-  if (c.req.method !== 'POST') {
-    return next();
-  }
-
-  const rawBody = await c.req.text();
-  const isValid = await verifyWhatsAppWebhookSignature(c, rawBody);
-
-  if (!isValid) {
-    return c.json({ success: false, error: 'Firma de webhook inválida' }, 401);
-  }
-
-  // Preservar el cuerpo en el contexto para el handler posterior
-  c.set('rawBody', rawBody);
-
-  return next();
+export async function generateWebhookSignature(
+  body: string,
+  secret: string
+): Promise<string> {
+  const hex = await computeHmacSha256(secret, body);
+  return `sha256=${hex}`;
 }

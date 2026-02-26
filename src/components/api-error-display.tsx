@@ -1,30 +1,31 @@
+import { AlertCircle, RefreshCw } from 'lucide-react';
+
 interface ApiErrorDisplayProps {
-  error: string | null | undefined;
+  error: string;
   onRetry?: () => void;
   className?: string;
 }
 
-/**
- * Componente para mostrar errores de la API de forma amigable
- */
 export function ApiErrorDisplay({ error, onRetry, className = '' }: ApiErrorDisplayProps) {
-  if (!error) return null;
-
   return (
-    <div className={`flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg ${className}`}>
-      <span className="text-red-500 text-xl flex-shrink-0">❌</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-red-700 text-sm font-medium">Error</p>
-        <p className="text-red-600 text-sm mt-1">{error}</p>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="mt-2 text-sm text-red-700 underline hover:text-red-900 transition-colors"
-          >
-            Intentar de nuevo
-          </button>
-        )}
+    <div
+      className={`flex flex-col items-center gap-3 p-4 rounded-md border border-destructive/30 bg-destructive/10 text-destructive ${className}`}
+      role="alert"
+    >
+      <div className="flex items-center gap-2">
+        <AlertCircle className="h-5 w-5 shrink-0" />
+        <p className="text-sm font-medium">{error}</p>
       </div>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-1 text-xs underline opacity-80 hover:opacity-100"
+          type="button"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Reintentar
+        </button>
+      )}
     </div>
   );
 }

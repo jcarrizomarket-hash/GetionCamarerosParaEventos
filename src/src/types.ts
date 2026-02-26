@@ -121,6 +121,10 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   pageSize?: number;
 }
 
+export interface StandardApiResponse<T = unknown> extends ApiResponse<T> {
+  timestamp: string;
+}
+
 // Tipos para configuración
 export interface WhatsAppConfig {
   configured: boolean;

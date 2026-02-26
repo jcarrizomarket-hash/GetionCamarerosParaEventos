@@ -1,65 +1,50 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import logger from '../src/utils/logger';
+import { useState, useCallback } from 'react';
+import { getErrorMessage } from '../utils/error-handler';
 
-export interface UseAsyncState<T> {
+interface AsyncState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
 }
 
-export interface UseAsyncResult<T> extends UseAsyncState<T> {
-  execute: () => Promise<void>;
+interface UseAsyncReturn<T, Args extends unknown[]> extends AsyncState<T> {
+  execute: (...args: Args) => Promise<T | null>;
   reset: () => void;
 }
 
 /**
- * Hook para operaciones asincrónicas con estados automáticos
- * Ejecuta la función al montar el componente y permite re-ejecución manual
- *
- * @example
- * const { data, loading, error, execute } = useAsync(() => getPedidos());
+ * Hook for managing async operations with loading and error state
  */
-export function useAsync<T>(
-  asyncFn: () => Promise<T>,
-  immediate: boolean = true
-): UseAsyncResult<T> {
-  const [state, setState] = useState<UseAsyncState<T>>({
+export function useAsync<T, Args extends unknown[] = []>(
+  asyncFn: (...args: Args) => Promise<T>
+): UseAsyncReturn<T, Args> {
+  const [state, setState] = useState<AsyncState<T>>({
     data: null,
-    loading: immediate,
+    loading: false,
     error: null,
   });
 
-  const asyncFnRef = useRef(asyncFn);
-  asyncFnRef.current = asyncFn;
+  const execute = useCallback(
+    async (...args: Args): Promise<T | null> => {
+      setState(prev => ({ ...prev, loading: true, error: null }));
 
-  const execute = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    try {
-      const result = await asyncFnRef.current();
-      setState({ data: result, loading: false, error: null });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error inesperado';
-      logger.error('useAsync: excepción capturada', { error: message });
-      setState(prev => ({ ...prev, loading: false, error: message }));
-    }
-  }, []);
+      try {
+        const result = await asyncFn(...args);
+        setState({ data: result, loading: false, error: null });
+        return result;
+      } catch (error) {
+        const message = getErrorMessage(error);
+        setState(prev => ({ ...prev, loading: false, error: message }));
+        return null;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [asyncFn]
+  );
 
   const reset = useCallback(() => {
     setState({ data: null, loading: false, error: null });
   }, []);
 
-  const immediateRef = useRef(immediate);
-
-  useEffect(() => {
-    if (immediateRef.current) {
-      execute();
-    }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return { ...state, execute, reset };
 }
-
-export default useAsync;

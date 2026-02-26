@@ -1,6 +1,5 @@
 /**
- * Helpers para respuestas API consistentes en el servidor
- * Estandariza el formato de todas las respuestas del backend
+ * Standard API response helpers for Supabase Edge Functions
  */
 
 import type { Context } from 'npm:hono';
@@ -10,68 +9,108 @@ export interface StandardApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
-  timestamp?: string;
-  requestId?: string;
+  timestamp: string;
+}
+
+export interface StandardPaginatedResponse<T> extends StandardApiResponse<T[]> {
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+function timestamp(): string {
+  return new Date().toISOString();
 }
 
 /**
- * Genera un ID único para el request
+ * Sends a successful JSON response (200)
  */
-function generateRequestId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
- * Crea una respuesta exitosa estandarizada
- */
-export function successResponse<T>(
-  data: T,
-  message?: string,
-  requestId?: string
-): StandardApiResponse<T> {
-  return {
+export function successResponse<T>(c: Context, data: T, message?: string) {
+  const body: StandardApiResponse<T> = {
     success: true,
     data,
     message,
-    timestamp: new Date().toISOString(),
-    requestId: requestId ?? generateRequestId(),
+    timestamp: timestamp(),
   };
+  return c.json(body, 200);
 }
 
 /**
- * Crea una respuesta de error estandarizada
+ * Sends a created JSON response (201)
  */
-export function errorResponse(
-  error: string,
-  requestId?: string
-): StandardApiResponse<never> {
-  return {
+export function createdResponse<T>(c: Context, data: T, message?: string) {
+  const body: StandardApiResponse<T> = {
+    success: true,
+    data,
+    message,
+    timestamp: timestamp(),
+  };
+  return c.json(body, 201);
+}
+
+/**
+ * Sends a paginated JSON response (200)
+ */
+export function paginatedResponse<T>(
+  c: Context,
+  data: T[],
+  meta: { total?: number; page?: number; pageSize?: number }
+) {
+  const body: StandardPaginatedResponse<T> = {
+    success: true,
+    data,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    timestamp: timestamp(),
+  };
+  return c.json(body, 200);
+}
+
+/**
+ * Sends a bad request error response (400)
+ */
+export function badRequestResponse(c: Context, error: string) {
+  const body: StandardApiResponse = {
     success: false,
     error,
-    timestamp: new Date().toISOString(),
-    requestId: requestId ?? generateRequestId(),
+    timestamp: timestamp(),
   };
+  return c.json(body, 400);
 }
 
 /**
- * Envía una respuesta JSON exitosa desde un contexto Hono
+ * Sends an unauthorized error response (401)
  */
-export function jsonSuccess<T>(
-  c: Context,
-  data: T,
-  message?: string,
-  status: 200 | 201 | 202 | 204 = 200
-) {
-  return c.json(successResponse(data, message), status);
+export function unauthorizedResponse(c: Context, error = 'No autorizado') {
+  const body: StandardApiResponse = {
+    success: false,
+    error,
+    timestamp: timestamp(),
+  };
+  return c.json(body, 401);
 }
 
 /**
- * Envía una respuesta JSON de error desde un contexto Hono
+ * Sends a not found error response (404)
  */
-export function jsonError(
-  c: Context,
-  error: string,
-  status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503 = 500
-) {
-  return c.json(errorResponse(error), status);
+export function notFoundResponse(c: Context, error = 'Recurso no encontrado') {
+  const body: StandardApiResponse = {
+    success: false,
+    error,
+    timestamp: timestamp(),
+  };
+  return c.json(body, 404);
+}
+
+/**
+ * Sends an internal server error response (500)
+ */
+export function serverErrorResponse(c: Context, error = 'Error interno del servidor') {
+  const body: StandardApiResponse = {
+    success: false,
+    error,
+    timestamp: timestamp(),
+  };
+  return c.json(body, 500);
 }

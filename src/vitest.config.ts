@@ -30,7 +30,7 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, './utils'),
       // Deno-style npm: imports used by supabase/functions/server files
       'npm:hono': path.resolve(__dirname, './node_modules/hono'),
-      'npm:@supabase/supabase-js@2.39.3': path.resolve(__dirname, './node_modules/@supabase/supabase-js'),
+      'npm:@supabase/supabase-js': path.resolve(__dirname, './node_modules/@supabase/supabase-js'),
     },
   },
 });

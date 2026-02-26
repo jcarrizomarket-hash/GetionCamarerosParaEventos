@@ -1,5 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X, ChevronLeft, ChevronRight, Check, AlertCircle, BarChart3, TrendingUp, UserCheck, AlertTriangle, Send, Mail } from 'lucide-react';
+import { logger } from '../utils/logger';
+
+const log = logger.forContext('EntradaPedidos');
 
 export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
@@ -198,8 +201,8 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
   }, []);
 
   const handleEdit = (pedido) => {
-    console.log('📝 Editando pedido:', pedido.id, pedido.numero);
-    console.log('📋 Datos completos del pedido:', pedido);
+    log.debug('Editando pedido', { id: pedido.id, numero: pedido.numero });
+    log.debug('Datos completos del pedido', pedido);
     
     // Primero cerrar el formulario si está abierto
     setShowForm(false);
@@ -230,7 +233,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
         coordinadorId: pedido.coordinadorId || '',
         coordinadorNombre: pedido.coordinadorNombre || ''
       });
-      console.log('✅ Estado editingId configurado a:', pedido.id);
+      log.debug('Estado editingId configurado', { id: pedido.id });
       setShowForm(true);
     }, 50);
   };
@@ -239,7 +242,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
     
     try {
-      console.log(`🗑️ Eliminando pedido con ID: ${id}`);
+      log.debug('Eliminando pedido', { id });
       
       const response = await fetch(`${baseUrl}/pedidos/${id}`, {
         method: 'DELETE',
@@ -247,18 +250,18 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       });
       
       const result = await response.json();
-      console.log('📝 Respuesta del servidor:', response.status, result);
+      log.debug('Respuesta del servidor', { status: response.status, result });
       
       if (response.ok && result.success) {
-        console.log('✅ Pedido eliminado, recargando datos...');
+        log.info('Pedido eliminado', { id });
         await cargarDatos();
         alert('✅ Pedido eliminado correctamente');
       } else {
-        console.error('❌ Error del servidor:', result);
+        log.error('Error del servidor al eliminar pedido', result);
         alert(`❌ Error: ${result.error || 'No se pudo eliminar el pedido'}`);
       }
     } catch (error) {
-      console.error('❌ Error al eliminar:', error);
+      log.error('Error al eliminar pedido', error);
       alert(`❌ Error: ${error.message}`);
     }
   }, [baseUrl, publicAnonKey, cargarDatos]);
@@ -267,9 +270,9 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
   const playNotificationSound = () => {
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Sonido de campana/notificación
-      audio.play().catch(e => console.log('Audio autoplay blocked', e));
+      audio.play().catch(e => log.warn('Audio autoplay blocked', e));
     } catch (error) {
-      console.error('Error playing sound', error);
+      log.error('Error al reproducir sonido', error);
     }
   };
 
@@ -354,7 +357,7 @@ _Por favor confirme recepción de este mensaje._`;
         setFormData(initialFormState);
       }
     } catch (error) {
-      console.error('Error al guardar:', error);
+      log.error('Error al guardar pedido', error);
     }
   };
 

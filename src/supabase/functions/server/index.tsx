@@ -4,13 +4,16 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import { generateQrPng, validateQrContent, clearQrCache, compressQrContent } from '../qr-generator.ts';
 import * as kv from './kv_store.tsx';
-import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
+import { requireAuth, requireRole, logAudit, requireFunctionSecret, globalRateLimiter, endpointRateLimiter } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
+app.use('*', globalRateLimiter);
 
+// Apply auth validation to all routes
+app.use('*', requireAuth);
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -2027,6 +2030,36 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
       success: false,
       error: String(error)
     }, 500);
+  }
+});
+
+// Persistir mensaje en chat de evento
+app.post('/make-server-25b11ac0/chat-evento', async (c) => {
+  try {
+    const { eventoId, mensaje } = await c.req.json();
+
+    if (!eventoId || !mensaje) {
+      return c.json({ success: false, error: 'eventoId y mensaje son requeridos' }, 400);
+    }
+
+    if (typeof mensaje !== 'object' || Array.isArray(mensaje)) {
+      return c.json({ success: false, error: 'mensaje debe ser un objeto' }, 400);
+    }
+
+    const id = `chat-evento:${eventoId}:${Date.now()}`;
+    const entry = {
+      id,
+      eventoId,
+      mensaje,
+      timestamp: new Date().toISOString()
+    };
+
+    await kv.set(id, entry);
+
+    return c.json({ success: true, data: entry });
+  } catch (error) {
+    console.log('Error al persistir mensaje en chat-evento:', error);
+    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 

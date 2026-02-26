@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send } from 'lucide-react';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { useAuth } from './hooks/useAuth';
+import { ErrorBoundary } from './components/error-boundary';
 
 const Dashboard = lazy(() => import('./components/dashboard').then(m => ({ default: m.Dashboard })));
 const Pedidos = lazy(() => import('./components/pedidos').then(m => ({ default: m.Pedidos })));
@@ -118,6 +119,7 @@ export default function App() {
 
       {/* Content */}
       <div className="p-6">
+        <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
         {activeTab === 'dashboard' && (
           <Dashboard
@@ -196,6 +198,7 @@ export default function App() {
 
         {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
         </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   );

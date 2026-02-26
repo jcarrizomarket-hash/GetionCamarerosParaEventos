@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Send, Users, ChevronDown, MessageCircle, Check, CheckCheck } from 'lucide-react';
+import { logger } from '../utils/logger';
+
+const log = logger.forContext('ChatGrupal');
 
 interface ChatGrupalProps {
   pedidos: any[];
@@ -83,7 +86,7 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
           setMensajes(data.mensajes || []);
         }
       } catch (error) {
-        console.error('Error al cargar mensajes del chat:', error);
+        log.error('Error al cargar mensajes del chat', error);
       }
     };
 
@@ -128,7 +131,7 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
         setNuevoMensaje('');
       }
     } catch (error) {
-      console.error('Error al enviar mensaje:', error);
+      log.error('Error al enviar mensaje', error);
     }
   };
 

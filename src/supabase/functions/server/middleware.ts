@@ -5,6 +5,7 @@
 
 import type { Context } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+import { createRateLimiter } from './rate-limiter.ts';
 
 // Lazily-initialized Supabase client for token validation (reused across requests)
 let _authClient: ReturnType<typeof createClient> | null = null;

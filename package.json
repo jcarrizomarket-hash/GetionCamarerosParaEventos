@@ -1,1 +1,19 @@
-{\n  "name": "your-project-name",\n  "version": "1.0.0",\n  "description": "Your project description",\n  "main": "index.js",\n  "scripts": {\n    "test": "echo 'Error: no test specified' && exit 1"\n  },\n  "dependencies": {\n    "jspdf": "4.0.0",\n    "jspdf-autotable": "3.5.31",\n    "vitest": "1.0.4",\n    "hono": "4.0.0",\n    "react": "18.3.1"\n  },\n  "devDependencies": {}\n}
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Your project description",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo 'Error: no test specified' && exit 1",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jspdf": "4.0.0",
+    "jspdf-autotable": "3.5.31",
+    "vitest": "1.0.4",
+    "hono": "4.0.0",
+    "react": "18.3.1"
+  },
+  "devDependencies": {}
+}

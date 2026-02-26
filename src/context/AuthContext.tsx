@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { AuthContextType, User, LoginCredentials, AuthResponse } from '../types/auth';
+import type { AuthContextType, User, LoginCredentials, SignUpCredentials, AuthResponse } from '../types/auth';
 import * as authService from '../utils/authService';
 import { saveToken, getToken, removeToken, getTokenPayload, isTokenExpired } from '../utils/tokenManager';
 
@@ -42,6 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const signup = useCallback(async (credentials: SignUpCredentials): Promise<AuthResponse> => {
+    return authService.signup(credentials);
+  }, []);
+
   const socialLogin = useCallback(async (provider: string, idToken: string): Promise<AuthResponse> => {
     const result = await authService.socialLogin(provider, idToken);
     if (result.success && result.token) {
@@ -75,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     role: user?.role ?? null,
     login,
+    signup,
     socialLogin,
     logout,
     forgotPassword,

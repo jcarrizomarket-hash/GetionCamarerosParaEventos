@@ -14,6 +14,7 @@ import type { AuthResponse } from '../types/auth';
 vi.mock('../utils/authService', () => ({
   forgotPassword: vi.fn(),
   login: vi.fn(),
+  signup: vi.fn(),
   socialLogin: vi.fn(),
   logout: vi.fn(),
   changePassword: vi.fn(),

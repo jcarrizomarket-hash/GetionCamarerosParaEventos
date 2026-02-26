@@ -13,6 +13,7 @@ import React from 'react';
 
 vi.mock('../utils/authService', () => ({
   login: vi.fn(),
+  signup: vi.fn(),
   socialLogin: vi.fn(),
   logout: vi.fn(),
   forgotPassword: vi.fn(),
@@ -340,5 +341,82 @@ describe('Full login flow', () => {
     expect(getToken()).toBeNull();
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
+  });
+});
+
+// ============================================================
+// GROUP 5: Signup flow (4 tests)
+// ============================================================
+
+describe('Signup flow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(authService.logout).mockResolvedValue({ success: true });
+  });
+
+  it('signup success calls authService.signup with correct credentials', async () => {
+    vi.mocked(authService.signup).mockResolvedValue({ success: true, user: makeUser({ email: 'new@test.com' }) });
+
+    const { result } = renderHook(() => useAuthContext(), { wrapper: authWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.signup({ email: 'new@test.com', password: 'SecureP@ss1', nombre: 'Nuevo' });
+    });
+
+    expect(authService.signup).toHaveBeenCalledWith({ email: 'new@test.com', password: 'SecureP@ss1', nombre: 'Nuevo' });
+    expect(res.success).toBe(true);
+  });
+
+  it('signup does NOT set the user in context (admin-created accounts need separate login)', async () => {
+    vi.mocked(authService.signup).mockResolvedValue({ success: true, user: makeUser() });
+
+    const { result } = renderHook(() => useAuthContext(), { wrapper: authWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.signup({ email: 'new@test.com', password: 'SecureP@ss1', nombre: 'Nuevo' });
+    });
+
+    // Signup alone should NOT log the user in; they must call login after
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+
+  it('signup failure returns error response', async () => {
+    vi.mocked(authService.signup).mockResolvedValue({ success: false, error: 'Email already exists' });
+
+    const { result } = renderHook(() => useAuthContext(), { wrapper: authWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.signup({ email: 'existing@test.com', password: 'SecureP@ss1', nombre: 'Test' });
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe('Email already exists');
+  });
+
+  it('signup with role sets role correctly in credentials', async () => {
+    vi.mocked(authService.signup).mockResolvedValue({ success: true, user: makeUser({ role: 'Admin' }) });
+
+    const { result } = renderHook(() => useAuthContext(), { wrapper: authWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.signup({
+        email: 'coord@test.com',
+        password: 'SecureP@ss1',
+        nombre: 'Coord',
+        role: 'coordinador',
+      });
+    });
+
+    expect(authService.signup).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'coordinador' })
+    );
   });
 });

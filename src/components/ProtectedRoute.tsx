@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useAuthContext } from '../context/AuthContext';
+import type { UserRole } from '../types/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'User' | 'Admin';
+  requiredRole?: UserRole | UserRole[];
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
@@ -27,14 +28,17 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return null;
   }
 
-  if (requiredRole === 'Admin' && role !== 'Admin') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <div className="text-6xl font-bold text-gray-300">403</div>
-        <h1 className="text-xl font-semibold text-gray-700">Acceso denegado</h1>
-        <p className="text-sm text-gray-500">No tienes permisos suficientes para acceder a esta página.</p>
-      </div>
-    );
+  if (requiredRole) {
+    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!role || !allowedRoles.includes(role as UserRole)) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+          <div className="text-6xl font-bold text-gray-300">403</div>
+          <h1 className="text-xl font-semibold text-gray-700">Acceso denegado</h1>
+          <p className="text-sm text-gray-500">No tienes permisos suficientes para acceder a esta página.</p>
+        </div>
+      );
+    }
   }
 
   return <>{children}</>;

@@ -1,6 +1,6 @@
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { getToken } from './tokenManager';
-import type { LoginCredentials, AuthResponse } from '../types/auth';
+import type { LoginCredentials, SignUpCredentials, AuthResponse } from '../types/auth';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -30,6 +30,19 @@ async function handleResponse<T>(res: Response): Promise<T> {
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
     const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(credentials),
+    });
+    return handleResponse<AuthResponse>(res);
+  } catch (err) {
+    return { success: false, error: 'Error de conexión' };
+  }
+}
+
+export async function signup(credentials: SignUpCredentials): Promise<AuthResponse> {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/signup`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(credentials),

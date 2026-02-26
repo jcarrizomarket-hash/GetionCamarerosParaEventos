@@ -12,32 +12,23 @@ import type {
   WhatsAppConfig,
   EmailConfig 
 } from '../types';
+import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../../config/env';
 
 // Configuración de la API - lee de variables de entorno
 const getApiConfig = () => {
-  // Intentar obtener de import.meta.env (Vite) o de window global
-  const projectId = 
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_PROJECT_ID) ||
-    (typeof window !== 'undefined' && (window as any).VITE_SUPABASE_PROJECT_ID);
-    
-  const publicAnonKey = 
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
-    (typeof window !== 'undefined' && (window as any).VITE_SUPABASE_ANON_KEY);
-
   return {
-    projectId: projectId || '',
-    publicAnonKey: publicAnonKey || '',
+    projectId: supabaseProjectId,
+    publicAnonKey: supabaseAnonKey,
   };
 };
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    console.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
+  if (!supabaseFunctionEndpoint) {
+    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
     return '';
   }
-  return `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
+  return supabaseFunctionEndpoint;
 };
 
 // Headers comunes para todas las peticiones

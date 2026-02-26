@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Dependencias npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+
+    # Priorizar seguridad
+    open-pull-requests-limit: 10
+    reviewers:
+      - "jcarrizomarket-hash"
+
+    # Ignorar dependencias sin importancia
+    ignore:
+      - dependency-name: "legacy-package"
+
+    # Requerir actualización de semver
+    versioning-strategy: "increase"
+
+    # Grupos de actualización
+    groups:
+      security:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
+    allow:
+      - dependency-type: "all"

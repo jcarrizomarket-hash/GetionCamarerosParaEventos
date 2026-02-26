@@ -57,7 +57,8 @@
           "tailwind-merge": "*",
           "vaul": "^1.1.2",
           "vitest": "*",
-          "xlsx": "*"
+          "xlsx": "*",
+          "zod": "^3.22.4"
       },
       "devDependencies": {
           "@types/node": "^20.10.0",

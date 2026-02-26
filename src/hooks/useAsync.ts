@@ -56,7 +56,6 @@ export function useAsync<T>(
       execute();
     }
     // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { ...state, execute, reset };

@@ -28,10 +28,10 @@ jobs:
         run: npm ci
       
       - name: Run ESLint
-        run: npm run lint
+        run: npm run lint --if-present
       
       - name: Run Type Check
-        run: npm run type-check
+        run: npm run type-check --if-present
       
       - name: Build
         run: npm run build

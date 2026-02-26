@@ -39,8 +39,8 @@ jobs:
       
       - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-output-${{ matrix.node-version }}
-          path: dist/
+          path: build/
           retention-days: 5

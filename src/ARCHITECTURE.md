@@ -12,11 +12,12 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 │  - Types (TypeScript)                   │
 └──────────────┬──────────────────────────┘
                │
-               │ HTTPS + Auth + Secret
+               │ HTTPS + Auth (no secret)
                │
 ┌──────────────▼──────────────────────────┐
 │     SERVER (Supabase Edge Functions)    │
 │  - Hono Web Framework                   │
+│  - /proxy: agrega x-fn-secret           │
 │  - Middleware (Security)                │
 │  - Business Logic                       │
 └──────────────┬──────────────────────────┘
@@ -81,11 +82,12 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 
 1. **Frontend**: 
    - Solo usa `SUPABASE_ANON_KEY` (pública)
-   - Opcionalmente `VITE_SUPABASE_FN_SECRET` para operaciones mutantes
+   - Operaciones mutantes se enrutan al proxy del servidor — el `SUPABASE_FN_SECRET` nunca llega al navegador
 
 2. **Backend (Edge Functions)**:
-   - Middleware `requireFunctionSecret`: Valida header `x-fn-secret` para POST/PUT/DELETE
-   - `SUPABASE_SERVICE_ROLE_KEY`: Solo en servidor, NUNCA expuesta al frontend
+   - `/proxy`: recibe solicitudes del frontend sin `x-fn-secret` y lo agrega desde `SUPABASE_FN_SECRET` (Supabase Secrets)
+   - Middleware `requireFunctionSecret`: valida header `x-fn-secret` para POST/PUT/DELETE
+   - `SUPABASE_SERVICE_ROLE_KEY`: solo en servidor, NUNCA expuesta al frontend
    - Validación de tokens de autenticación
 
 3. **Database**:
@@ -95,16 +97,18 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 ### Headers de Seguridad
 
 ```typescript
-// Operaciones de lectura (GET)
+// Operaciones de lectura (GET) — desde el frontend directamente
 headers: {
   'Authorization': 'Bearer SUPABASE_ANON_KEY'
 }
 
-// Operaciones mutantes (POST/PUT/DELETE)
+// Operaciones mutantes (POST/PUT/DELETE) — frontend llama al proxy
 headers: {
   'Authorization': 'Bearer SUPABASE_ANON_KEY',
-  'x-fn-secret': 'SUPABASE_FN_SECRET'  // Validado por middleware
+  'x-proxy-path': '/pedidos',   // Ruta destino
+  'x-proxy-method': 'POST',     // Método destino
 }
+// El proxy agrega 'x-fn-secret' desde SUPABASE_FN_SECRET (entorno servidor)
 ```
 
 ## 🎯 Tipos de Datos
@@ -297,7 +301,6 @@ app.delete('/pedidos/:id', requireFunctionSecret, handler);
    ```
    VITE_SUPABASE_PROJECT_ID=...
    VITE_SUPABASE_ANON_KEY=...
-   VITE_SUPABASE_FN_SECRET=...  # Opcional
    ```
 
 2. **Backend** (Supabase Functions):

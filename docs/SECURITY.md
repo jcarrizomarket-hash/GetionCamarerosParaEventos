@@ -24,16 +24,27 @@ La API usa dos niveles de protección:
 | Nivel | Mecanismo | Endpoints |
 |-------|-----------|-----------|
 | **Básico** | `Authorization: Bearer <ANON_KEY>` | Todos (GET) |
-| **Mutante** | `x-fn-secret: <FN_SECRET>` | POST, PUT, DELETE |
+| **Mutante** | Proxy seguro del servidor (agrega `x-fn-secret`) | POST, PUT, DELETE |
 
 ```
-Request → Supabase Edge Function
-             │
-             ├─ Verificar Authorization header (ANON_KEY)
-             │    └─ 401 si inválido
-             │
-             └─ Si POST/PUT/DELETE: Verificar x-fn-secret
-                  └─ 401 si inválido o faltante
+Frontend (sin secret)
+       │
+       │ POST /proxy  (Authorization: Bearer ANON_KEY,
+       │               x-proxy-path: /pedidos,
+       │               x-proxy-method: POST)
+       ▼
+Proxy endpoint (servidor)
+       │
+       │ Agrega x-fn-secret desde SUPABASE_FN_SECRET (env del servidor)
+       │
+       ▼
+Endpoint real (/pedidos POST)
+       │
+       ├─ Verificar Authorization header (ANON_KEY)
+       │    └─ 401 si inválido
+       │
+       └─ Verificar x-fn-secret
+            └─ 401 si inválido o faltante
 ```
 
 ---
@@ -46,7 +57,7 @@ Request → Supabase Edge Function
 |----------|-------|-------------|
 | `VITE_SUPABASE_ANON_KEY` | 🟡 Semipúblico | Clave pública de Supabase. Visible en el frontend pero sin permisos de escritura directa. |
 | `VITE_SUPABASE_PROJECT_ID` | 🟡 Semipúblico | ID del proyecto. No es un secreto pero no debe compartirse innecesariamente. |
-| `VITE_SUPABASE_FN_SECRET` | 🔴 Secreto | Protege operaciones de escritura. **Nunca exponer públicamente.** |
+| `SUPABASE_FN_SECRET` | 🔴 Secreto | Protege operaciones de escritura. **Solo en Supabase Secrets (servidor). Nunca exponer en variables `VITE_*`.** |
 | `SUPABASE_SERVICE_ROLE_KEY` | 🔴 Crítico | Solo para el servidor. **Nunca usar en el frontend.** |
 | `WHATSAPP_API_KEY` | 🔴 Secreto | Token de Meta. Solo en Supabase Secrets. |
 | `RESEND_API_KEY` | 🔴 Secreto | Token de Resend. Solo en Supabase Secrets. |
@@ -56,7 +67,8 @@ Request → Supabase Edge Function
 1. **Nunca** commitear archivos `.env` con valores reales al repositorio
 2. El archivo `.env.example` es el único permitido en el repositorio (con valores de ejemplo)
 3. `SUPABASE_SERVICE_ROLE_KEY` **nunca** debe estar en variables `VITE_*` (quedaría expuesto en el bundle del frontend)
-4. Usar `.gitignore` para excluir `.env` y variantes
+4. `SUPABASE_FN_SECRET` **nunca** debe estar en variables `VITE_*`; usar únicamente en Supabase Secrets
+5. Usar `.gitignore` para excluir `.env` y variantes
 
 ---
 
@@ -79,20 +91,30 @@ const headers = {
 };
 ```
 
-### Protección de Operaciones Mutantes
+### Protección de Operaciones Mutantes via Proxy
 
-Todos los endpoints que modifican datos requieren el header `x-fn-secret`:
+Todas las operaciones que modifican datos se enrutan a través del proxy seguro en el servidor. El frontend **nunca** envía `x-fn-secret`; el proxy lo agrega desde el entorno del servidor.
 
 ```typescript
-// ✅ Correcto: incluir x-fn-secret para operaciones mutantes
-const headers = {
-  'Authorization': `Bearer ${anonKey}`,
-  'x-fn-secret': fnSecret,
-  'Content-Type': 'application/json'
-};
+// ✅ Correcto: usar el proxy para operaciones mutantes (sin secret en el frontend)
+fetch(`${baseUrl}/proxy`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${anonKey}`,
+    'x-proxy-path': '/pedidos',
+    'x-proxy-method': 'POST',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(payload),
+});
 
-// ❌ Incorrecto: POST sin x-fn-secret
-fetch('/pedidos', { method: 'POST', ... }); // Fallará con 401
+// ❌ Incorrecto: exponer x-fn-secret desde una variable VITE_ del frontend
+fetch('/pedidos', {
+  method: 'POST',
+  headers: {
+    'x-fn-secret': import.meta.env.VITE_SUPABASE_FN_SECRET, // NUNCA HACER ESTO
+  },
+});
 ```
 
 ---
@@ -128,14 +150,11 @@ Previene abuso con rate limiting configurable.
 # Generar un secret criptográficamente seguro (mínimo 32 caracteres)
 openssl rand -hex 32
 
-# Configurar en Supabase Edge Functions
+# Configurar en Supabase Edge Functions (NUNCA como variable VITE_*)
 supabase secrets set SUPABASE_FN_SECRET=<secret-generado> --project-ref <PROJECT_ID>
 ```
 
-Y en el frontend (`.env`):
-```bash
-VITE_SUPABASE_FN_SECRET=<mismo-secret-generado>
-```
+El frontend no necesita ni debe tener acceso a este secret. El proxy del servidor lo agrega automáticamente.
 
 ---
 
@@ -156,16 +175,15 @@ openssl rand -hex 32
 supabase secrets set SUPABASE_FN_SECRET=abc123... --project-ref <PROJECT_ID>
 ```
 
-### 3. Actualizar en el frontend
+### 3. Verificar funcionamiento
 
-Actualizar `VITE_SUPABASE_FN_SECRET` en el panel de variables de entorno de Vercel/Netlify y hacer un nuevo deploy.
-
-### 4. Verificar funcionamiento
+La rotación del secret **no requiere redeploy del frontend**, ya que el secret solo reside en el servidor.
 
 ```bash
-curl -X POST https://<PROJECT_ID>.supabase.co/functions/v1/make-server-25b11ac0/pedidos \
+curl -X POST https://<PROJECT_ID>.supabase.co/functions/v1/make-server-25b11ac0/proxy \
   -H "Authorization: Bearer <ANON_KEY>" \
-  -H "x-fn-secret: abc123..." \
+  -H "x-proxy-path: /pedidos" \
+  -H "x-proxy-method: POST" \
   -H "Content-Type: application/json" \
   -d '{"test": true}'
 ```
@@ -177,11 +195,12 @@ curl -X POST https://<PROJECT_ID>.supabase.co/functions/v1/make-server-25b11ac0/
 ### En el Frontend
 
 - ✅ Usar solo `VITE_SUPABASE_ANON_KEY` para llamadas a la API
-- ✅ Incluir `x-fn-secret` solo para operaciones que lo requieran
+- ✅ Usar el proxy (`/proxy`) para operaciones mutantes — el secret nunca llega al navegador
 - ✅ Validar datos en el frontend antes de enviarlos a la API
 - ✅ Manejar errores de autenticación (401) mostrando mensaje al usuario
 - ❌ Nunca loggear secretos en la consola del navegador
 - ❌ Nunca hardcodear claves en el código fuente
+- ❌ Nunca usar variables `VITE_SUPABASE_FN_SECRET` — el secret debe estar solo en Supabase Secrets
 
 ### En el Servidor (Edge Functions)
 

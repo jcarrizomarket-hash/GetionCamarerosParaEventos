@@ -2638,4 +2638,50 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
   }
 });
 
+// ============== SECURE PROXY ==============
+// Accepts mutation requests from frontend (without x-fn-secret) and forwards them
+// to the target endpoint with the server-side secret added.
+// This prevents VITE_SUPABASE_FN_SECRET from being exposed in the frontend bundle.
+app.post('/make-server-25b11ac0/proxy', async (c) => {
+  try {
+    const proxyPath = c.req.header('x-proxy-path');
+    if (!proxyPath) {
+      return c.json({ success: false, error: 'Header x-proxy-path requerido' }, 400);
+    }
+
+    const proxyMethod = (c.req.header('x-proxy-method') ?? 'POST').toUpperCase();
+    const allowedMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+    if (!allowedMethods.includes(proxyMethod)) {
+      return c.json({ success: false, error: 'Método no permitido en proxy' }, 405);
+    }
+
+    const fnSecret = Deno.env.get('SUPABASE_FN_SECRET');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const authHeader = c.req.header('Authorization') ?? '';
+    const targetUrl = `${supabaseUrl}/functions/v1/make-server-25b11ac0${proxyPath}`;
+
+    const requestBody = await c.req.text();
+
+    const forwardHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': authHeader,
+    };
+    if (fnSecret) {
+      forwardHeaders['x-fn-secret'] = fnSecret;
+    }
+
+    const response = await fetch(targetUrl, {
+      method: proxyMethod,
+      headers: forwardHeaders,
+      body: requestBody || undefined,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    return c.json(data, response.status as any);
+  } catch (error) {
+    console.log('❌ Error en proxy:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

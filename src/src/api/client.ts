@@ -41,23 +41,39 @@ const getBaseUrl = (): string => {
 };
 
 // Headers comunes para todas las peticiones
-const getHeaders = (includeSecret: boolean = false): HeadersInit => {
+const getHeaders = (): HeadersInit => {
   const { publicAnonKey } = getApiConfig();
-  const headers: HeadersInit = {
+  return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${publicAnonKey}`,
   };
-
-  // Agregar secret header si se requiere (para operaciones mutantes)
-  if (includeSecret && typeof import.meta !== 'undefined') {
-    const fnSecret = import.meta.env?.VITE_SUPABASE_FN_SECRET;
-    if (fnSecret) {
-      headers['x-fn-secret'] = fnSecret;
-    }
-  }
-
-  return headers;
 };
+
+// Proxy URL for mutation operations — keeps SUPABASE_FN_SECRET server-side only
+const getProxyUrl = (): string => `${getBaseUrl()}/proxy`;
+
+// Helper for mutation operations (POST/PUT/DELETE) via secure proxy
+async function proxyMutate<T>(path: string, method: string, body?: object): Promise<ApiResponse<T>> {
+  try {
+    const { publicAnonKey } = getApiConfig();
+    const response = await fetch(getProxyUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'x-proxy-path': path,
+        'x-proxy-method': method,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse<T>(response);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al conectar con el servidor',
+    };
+  }
+}
 
 // Función auxiliar para manejar respuestas
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -113,50 +129,15 @@ export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
 }
 
 export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiResponse<Pedido>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/pedidos`, {
-      method: 'POST',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(pedido),
-    });
-    return handleResponse<Pedido>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al crear pedido',
-    };
-  }
+  return proxyMutate<Pedido>('/pedidos', 'POST', pedido);
 }
 
 export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise<ApiResponse<Pedido>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/pedidos/${id}`, {
-      method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(pedido),
-    });
-    return handleResponse<Pedido>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al actualizar pedido',
-    };
-  }
+  return proxyMutate<Pedido>(`/pedidos/${id}`, 'PUT', pedido);
 }
 
 export async function deletePedido(id: string): Promise<ApiResponse<void>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/pedidos/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
-    });
-    return handleResponse<void>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al eliminar pedido',
-    };
-  }
+  return proxyMutate<void>(`/pedidos/${id}`, 'DELETE');
 }
 
 // ==================== CAMAREROS ====================
@@ -192,50 +173,15 @@ export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
 }
 
 export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<ApiResponse<Camarero>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/camareros`, {
-      method: 'POST',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(camarero),
-    });
-    return handleResponse<Camarero>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al crear camarero',
-    };
-  }
+  return proxyMutate<Camarero>('/camareros', 'POST', camarero);
 }
 
 export async function updateCamarero(id: string, camarero: Partial<Camarero>): Promise<ApiResponse<Camarero>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
-      method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(camarero),
-    });
-    return handleResponse<Camarero>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al actualizar camarero',
-    };
-  }
+  return proxyMutate<Camarero>(`/camareros/${id}`, 'PUT', camarero);
 }
 
 export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
-    });
-    return handleResponse<void>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al eliminar camarero',
-    };
-  }
+  return proxyMutate<void>(`/camareros/${id}`, 'DELETE');
 }
 
 // ==================== COORDINADORES ====================
@@ -271,50 +217,15 @@ export async function getCoordinador(id: string): Promise<ApiResponse<Coordinado
 }
 
 export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): Promise<ApiResponse<Coordinador>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores`, {
-      method: 'POST',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(coordinador),
-    });
-    return handleResponse<Coordinador>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al crear coordinador',
-    };
-  }
+  return proxyMutate<Coordinador>('/coordinadores', 'POST', coordinador);
 }
 
 export async function updateCoordinador(id: string, coordinador: Partial<Coordinador>): Promise<ApiResponse<Coordinador>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores/${id}`, {
-      method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(coordinador),
-    });
-    return handleResponse<Coordinador>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al actualizar coordinador',
-    };
-  }
+  return proxyMutate<Coordinador>(`/coordinadores/${id}`, 'PUT', coordinador);
 }
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
-    });
-    return handleResponse<void>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al eliminar coordinador',
-    };
-  }
+  return proxyMutate<void>(`/coordinadores/${id}`, 'DELETE');
 }
 
 // ==================== CLIENTES ====================
@@ -335,19 +246,7 @@ export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
 }
 
 export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiResponse<Cliente>> {
-  try {
-    const response = await fetch(`${getBaseUrl()}/clientes`, {
-      method: 'POST',
-      headers: getHeaders(true), // Requiere secret
-      body: JSON.stringify(cliente),
-    });
-    return handleResponse<Cliente>(response);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al crear cliente',
-    };
-  }
+  return proxyMutate<Cliente>('/clientes', 'POST', cliente);
 }
 
 // ==================== WHATSAPP ====================

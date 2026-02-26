@@ -3,15 +3,28 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
-import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Apply auth validation to all routes
-app.use('*', requireAuth);
+// Middleware de seguridad simple
+const requireSecret = async (c, next) => {
+  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
+  const providedSecret = c.req.header('x-fn-secret');
+  
+  // Solo validar en métodos mutantes
+  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (methodsToProtect.includes(c.req.method)) {
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+      return c.json({ success: false, error: 'No autorizado' }, 401);
+    }
+  }
+  
+  await next();
+};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,7 +42,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -45,7 +58,7 @@ app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -57,7 +70,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) =
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -79,7 +92,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -110,7 +123,7 @@ app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => 
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -122,7 +135,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) 
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -144,7 +157,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -172,7 +185,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c)
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -184,7 +197,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async 
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -206,7 +219,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -2164,7 +2177,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2423,6 +2436,159 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
     });
   } catch (error) {
     console.log('❌ Error al enviar parte:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== CÓDIGOS QR PARA CONTROL DE ENTRADA/SALIDA ==============
+
+// Generar o obtener token QR para un pedido
+app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Si ya tiene token, devolverlo
+    if (pedidoData.qrToken) {
+      return c.json({ 
+        success: true, 
+        token: pedidoData.qrToken,
+        url: `${c.req.url.split('/pedidos/')[0]}/qr-scan/${pedidoData.qrToken}`
+      });
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al generar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Regenerar token QR para un pedido
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar nuevo token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    pedidoData.qrRegeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al regenerar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Validar token QR y obtener información del pedido
+app.get('/make-server-25b11ac0/qr-scan/:token', async (c) => {
+  try {
+    const token = c.req.param('token');
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido o expirado' }, 404);
+    }
+    
+    return c.json({ 
+      success: true, 
+      pedido: {
+        id: pedido.id,
+        numero: pedido.numero,
+        cliente: pedido.cliente,
+        tipoEvento: pedido.tipoEvento,
+        diaEvento: pedido.diaEvento,
+        horaEntrada: pedido.horaEntrada,
+        horaSalida: pedido.horaSalida,
+        lugar: pedido.lugar,
+        asignaciones: pedido.asignaciones || []
+      }
+    });
+  } catch (error) {
+    console.log('Error al validar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Registrar entrada/salida mediante QR
+app.post('/make-server-25b11ac0/qr-scan/:token/registro', async (c) => {
+  try {
+    const token = c.req.param('token');
+    const { camareroId, tipo } = await c.req.json(); // tipo: 'entrada' | 'salida'
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido' }, 404);
+    }
+    
+    // Registrar entrada/salida
+    const asignaciones = pedido.asignaciones || [];
+    const asignacionIndex = asignaciones.findIndex(a => a.camareroId === camareroId);
+    
+    if (asignacionIndex === -1) {
+      return c.json({ success: false, error: 'Camarero no asignado a este evento' }, 404);
+    }
+    
+    const timestamp = new Date().toISOString();
+    
+    if (tipo === 'entrada') {
+      asignaciones[asignacionIndex].registroEntrada = timestamp;
+      asignaciones[asignacionIndex].entradaRegistrada = true;
+    } else if (tipo === 'salida') {
+      asignaciones[asignacionIndex].registroSalida = timestamp;
+      asignaciones[asignacionIndex].salidaRegistrada = true;
+    }
+    
+    pedido.asignaciones = asignaciones;
+    await kv.set(`pedido:${pedido.id.replace('pedido:', '')}`, pedido);
+    
+    return c.json({ 
+      success: true, 
+      mensaje: `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`,
+      timestamp
+    });
+  } catch (error) {
+    console.log('Error al registrar entrada/salida:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

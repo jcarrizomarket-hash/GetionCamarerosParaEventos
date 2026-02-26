@@ -162,7 +162,7 @@ export function generarId(): string {
 
 /**
  * Deduplica un array de objetos por ID
- * Keeps the first occurrence of each ID (insertion-order preserving).
+ * keeps the first occurrence of each ID (insertion-order preserving).
  * @param array - Array a deduplicar
  * @returns Array sin duplicados
  */

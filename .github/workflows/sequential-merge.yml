@@ -1,0 +1,104 @@
+name: Sequential PR Merge
+
+on:
+  workflow_dispatch:
+    inputs:
+      merge_group:
+        description: 'Select merge group'
+        required: true
+        type: choice
+        options:
+          - '1 - CRITICAL (PRs #49, #48, #50, #64)'
+          - '2 - INFRASTRUCTURE (PRs #52, #53, #55, #24)'
+          - '3 - QUALITY (PRs #58, #23, #27, #28)'
+          - '4 - ARCHITECTURE (PRs #30, #45, #46, #47)'
+          - '5 - ADVANCED (PRs #42, #41)'
+
+jobs:
+  sequential-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Set merge group variables
+        id: set-group
+        run: |
+          case "${{ github.event.inputs.merge_group }}" in
+            "1 - CRITICAL (PRs #49, #48, #50, #64)")
+              echo "group_name=CRITICAL" >> $GITHUB_OUTPUT
+              echo "group_color=🔴" >> $GITHUB_OUTPUT
+              echo "pr_list=49 48 50 64" >> $GITHUB_OUTPUT
+              ;;
+            "2 - INFRASTRUCTURE (PRs #52, #53, #55, #24)")
+              echo "group_name=INFRASTRUCTURE" >> $GITHUB_OUTPUT
+              echo "group_color=🟡" >> $GITHUB_OUTPUT
+              echo "pr_list=52 53 55 24" >> $GITHUB_OUTPUT
+              ;;
+            "3 - QUALITY (PRs #58, #23, #27, #28)")
+              echo "group_name=QUALITY" >> $GITHUB_OUTPUT
+              echo "group_color=🟢" >> $GITHUB_OUTPUT
+              echo "pr_list=58 23 27 28" >> $GITHUB_OUTPUT
+              ;;
+            "4 - ARCHITECTURE (PRs #30, #45, #46, #47)")
+              echo "group_name=ARCHITECTURE" >> $GITHUB_OUTPUT
+              echo "group_color=🔵" >> $GITHUB_OUTPUT
+              echo "pr_list=30 45 46 47" >> $GITHUB_OUTPUT
+              ;;
+            "5 - ADVANCED (PRs #42, #41)")
+              echo "group_name=ADVANCED" >> $GITHUB_OUTPUT
+              echo "group_color=🟣" >> $GITHUB_OUTPUT
+              echo "pr_list=42 41" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Merge PRs sequentially
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GROUP_NAME="${{ steps.set-group.outputs.group_name }}"
+          GROUP_COLOR="${{ steps.set-group.outputs.group_color }}"
+          PR_LIST="${{ steps.set-group.outputs.pr_list }}"
+          REPO="${{ github.repository }}"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          echo "## ${GROUP_COLOR} Sequential Merge – Group: ${GROUP_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Started:** ${TIMESTAMP}" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${REPO}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| PR | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|----|--------|---------|" >> $GITHUB_STEP_SUMMARY
+
+          for PR in $PR_LIST; do
+            echo "::group::Merging PR #${PR}"
+            echo "Merging PR #${PR} at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+            set +e
+            MERGE_OUTPUT=$(gh pr merge "$PR" --repo "$REPO" --admin --squash 2>&1)
+            MERGE_STATUS=$?
+            set -e
+
+            if [ $MERGE_STATUS -eq 0 ]; then
+              echo "✅ PR #${PR} merged successfully"
+              echo "| #${PR} | ✅ Merged | ${MERGE_OUTPUT} |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ PR #${PR} could not be merged: ${MERGE_OUTPUT}"
+              echo "| #${PR} | ⚠️ Skipped | ${MERGE_OUTPUT} |" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "::endgroup::"
+            sleep 3
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Completed:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

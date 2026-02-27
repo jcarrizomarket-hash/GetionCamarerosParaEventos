@@ -49,11 +49,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
       // Log to service
       logErrorToService(error, errorInfo, this.props.section);
-
-      // Call custom handler if provided
-      this.props.onError?.(error, errorInfo);
     }
 
+    // Call custom handler if provided (no throttling)
+    this.props.onError?.(error, errorInfo);
     // Log to console en desarrollo
     if (import.meta.env.DEV) {
       console.error('Error caught by boundary:', error, errorInfo);

@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { autoTable } from 'jspdf-autotable';
 
 export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
   const [tipoInforme, setTipoInforme] = useState('cliente');
@@ -288,7 +288,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: startY + 35,
             head: [tableColumn],
             body: tableRows,
@@ -333,7 +333,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: 80,
             head: [tableColumn],
             body: tableRows,

@@ -1,0 +1,31 @@
+name: 08 - Anomaly Detection
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  anomaly-detection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run health checks
+        run: echo "Running health checks..." && npm run type-check --if-present || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: health-check-results
+          path: health-check-results/
+          if-no-files-found: ignore

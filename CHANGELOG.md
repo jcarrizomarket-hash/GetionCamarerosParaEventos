@@ -41,8 +41,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   - `rateLimit` – configurable rate limiting
   - `errorLogger` – contextual error logging
   - `corsMiddleware` – configurable CORS with multiple origins
-- **Unit tests** (Vitest) – 50+ tests for helper functions (`tests/unit/helpers.spec.ts`)
-- **E2E tests** (Playwright) – main user flows, multi-browser (Chromium, Firefox, Safari), responsive (mobile, tablet, desktop) (`tests/e2e/create-pedido.spec.ts`)
+- **Unit tests** (Vitest) – 50+ tests for helper functions (`src/tests/unit/helpers.spec.ts`)
+- **E2E tests** (Playwright) – main user flows, multi-browser (Chromium, Firefox, Safari), responsive (mobile, tablet, desktop) (`src/tests/e2e/create-pedido.spec.ts`)
 - **Email multi-provider support** – Resend, SendGrid, Mailgun with automatic fallback
 - **WhatsApp Business API** – enhanced integration with Phone Number ID validation
 - **Environment variable template** (`.env.example`) – fully documented

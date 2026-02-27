@@ -1,0 +1,107 @@
+name: 04 - Anomaly Detection
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    name: Application Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Supabase project status
+        id: supabase_health
+        run: |
+          PROJECT_ID="${{ secrets.SUPABASE_PROJECT_ID }}"
+          if [ -z "$PROJECT_ID" ]; then
+            echo "SUPABASE_PROJECT_ID secret not configured — skipping health check"
+            echo "healthy=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            "https://${PROJECT_ID}.supabase.co/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 10 || echo "000")
+          echo "http_status=$HTTP_STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report unhealthy Supabase endpoint
+        if: steps.supabase_health.outputs.healthy == 'false'
+        run: |
+          echo "::error::Supabase health check failed (HTTP ${{ steps.supabase_health.outputs.http_status }})"
+          exit 1
+
+  error-rate-monitor:
+    name: Error Rate Monitor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Query recent error count from Supabase
+        id: error_count
+        run: |
+          PROJECT_ID="${{ secrets.SUPABASE_PROJECT_ID }}"
+          ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          if [ -z "$PROJECT_ID" ] || [ -z "$ANON_KEY" ]; then
+            echo "Secrets not configured — skipping error rate check"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SINCE=$(date -u -d '15 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+            || date -u -v-15M +%Y-%m-%dT%H:%M:%SZ)
+          CONTENT_RANGE=$(curl -s -o /dev/null \
+            -w "%{header_json}" \
+            "https://${PROJECT_ID}.supabase.co/rest/v1/error_logs?select=id&severity=eq.critical&created_at=gte.${SINCE}" \
+            -H "apikey: ${ANON_KEY}" \
+            -H "Authorization: Bearer ${ANON_KEY}" \
+            -H "Prefer: count=exact" \
+            --max-time 10 || echo '{}')
+          COUNT=$(echo "$CONTENT_RANGE" | python3 -c \
+            "import sys,json; h=json.load(sys.stdin); cr=h.get('content-range','0/0'); print(cr.split('/')[-1])" \
+            2>/dev/null || echo "0")
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
+      - name: Alert on high error rate
+        if: steps.error_count.outputs.count != '0' && steps.error_count.outputs.count != ''
+        run: |
+          echo "::warning::${{ steps.error_count.outputs.count }} critical errors in the last 15 minutes"
+
+  notify-anomaly:
+    name: Slack Anomaly Alert
+    runs-on: ubuntu-latest
+    needs: [health-check, error-rate-monitor]
+    if: failure()
+    steps:
+      - name: Send Slack alert
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "text": "⚠️ *Anomaly detected* in `${{ github.repository }}`\nCheck: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true

@@ -4,6 +4,7 @@
  */
 
 import type { Context } from 'npm:hono';
+import { serverLogger } from './logger.ts';
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
@@ -32,7 +33,7 @@ export async function requireFunctionSecret(c: Context, next: () => Promise<void
   // Si no hay secret configurado, registrar advertencia pero permitir la petición
   // (útil para desarrollo local)
   if (!expectedSecret) {
-    console.warn('⚠️ SUPABASE_FN_SECRET no está configurado. Se recomienda configurarlo en producción.');
+    serverLogger.warn('⚠️ SUPABASE_FN_SECRET no está configurado. Se recomienda configurarlo en producción.');
     return next();
   }
 
@@ -41,7 +42,7 @@ export async function requireFunctionSecret(c: Context, next: () => Promise<void
 
   // Validar que coincidan
   if (providedSecret !== expectedSecret) {
-    console.warn(`❌ Intento de acceso no autorizado al endpoint ${c.req.method} ${c.req.url}`);
+    serverLogger.warn(`❌ Intento de acceso no autorizado al endpoint ${c.req.method} ${c.req.url}`);
     return c.json(
       {
         success: false,
@@ -64,7 +65,7 @@ export async function logFunctionAccess(c: Context, next: () => Promise<void>) {
   const url = c.req.url;
   const hasSecret = Boolean(c.req.header('x-fn-secret'));
   
-  console.log(`📡 ${method} ${url} - Secret: ${hasSecret ? '✅' : '❌'}`);
+  serverLogger.info(`📡 ${method} ${url} - Secret: ${hasSecret ? '✅' : '❌'}`);
   
   return next();
 }
@@ -138,7 +139,7 @@ export async function errorLogger(c: Context, next: () => Promise<void>) {
   try {
     await next();
   } catch (error) {
-    console.error('❌ Error en request:', {
+    serverLogger.error('❌ Error en request:', {
       method: c.req.method,
       url: c.req.url,
       error: error instanceof Error ? error.message : String(error),

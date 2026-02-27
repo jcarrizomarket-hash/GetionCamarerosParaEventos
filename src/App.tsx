@@ -23,8 +23,12 @@ export default function App() {
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
   useEffect(() => {
     cargarDatos();
+    const interval = setInterval(cargarDatos, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const cargarDatos = async () => {
@@ -53,6 +57,7 @@ export default function App() {
       if (pedidosData.success) setPedidos(pedidosData.data);
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
+      setLastUpdated(new Date());
     } catch (error) {
       logger.error('Error al cargar datos', error);
     }
@@ -74,6 +79,11 @@ export default function App() {
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-4">
           <h1 className="text-gray-900">Gestión de Camareros para Eventos</h1>
+          {lastUpdated && (
+            <p className="text-xs text-gray-400 mt-1">
+              Última actualización: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
         </div>
       </div>
 

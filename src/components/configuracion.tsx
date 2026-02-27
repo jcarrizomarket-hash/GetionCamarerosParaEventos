@@ -65,14 +65,9 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
         logger.error('❌ Error al eliminar:', result);
         alert(`❌ Error al eliminar el pedido: ${result.error || 'Error desconocido'}`);
       }
-<<<<<<< copilot/implement-centralized-logging
     } catch (error) {
       logger.error('Error al eliminar pedido:', error);
-=======
-    } catch (error: any) {
-      console.error('Error al eliminar pedido:', error);
->>>>>>> main
-      alert(`❌ Error: ${error.message}`);
+      alert(`❌ Error: ${(error as Error).message}`);
     }
   };
 

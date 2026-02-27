@@ -1,13 +1,57 @@
 import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
-import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
+import { serverLogger } from './logger.ts';
+
+// Allowed origins for CORS – extend as needed
+const ALLOWED_ORIGINS = [
+  'https://tudominio.com',
+  'https://www.tudominio.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
 
 const app = new Hono();
 
-app.use('*', cors());
-app.use('*', logger(console.log));
+// CORS – restricted to approved origins
+app.use('*', cors({
+  origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]),
+  allowHeaders: ['Content-Type', 'Authorization', 'x-fn-secret'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
+
+// Security headers
+app.use('*', async (c, next) => {
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('X-XSS-Protection', '1; mode=block');
+  return next();
+});
+
+// Request logging
+app.use('*', async (c, next) => {
+  serverLogger.info(`${c.req.method} ${c.req.url}`);
+  return next();
+});
+
+// Rate limiting (100 req/min per IP)
+const _requestCounts = new Map<string, { count: number; resetAt: number }>();
+app.use('*', async (c, next) => {
+  const identifier = c.req.header('x-forwarded-for') ?? 'unknown';
+  const now = Date.now();
+  const record = _requestCounts.get(identifier);
+  if (!record || now > record.resetAt) {
+    _requestCounts.set(identifier, { count: 1, resetAt: now + 60000 });
+    return next();
+  }
+  if (record.count >= 100) {
+    return c.json({ success: false, error: 'Demasiadas peticiones. Intenta más tarde.' }, 429);
+  }
+  record.count++;
+  return next();
+});
 
 // Middleware de seguridad simple
 const requireSecret = async (c, next) => {
@@ -18,7 +62,7 @@ const requireSecret = async (c, next) => {
   const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
   if (methodsToProtect.includes(c.req.method)) {
     if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+      serverLogger.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
       return c.json({ success: false, error: 'No autorizado' }, 401);
     }
   }
@@ -37,7 +81,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
     const clientes = await kv.getByPrefix('cliente:');
     return c.json({ success: true, data: clientes });
   } catch (error) {
-    console.error('Error al obtener clientes:', error);
+    serverLogger.error('Error al obtener clientes:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -53,7 +97,7 @@ app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
     await kv.set(id, cliente);
     return c.json({ success: true, data: cliente });
   } catch (error) {
-    console.error('Error al crear cliente:', error);
+    serverLogger.error('Error al crear cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -65,7 +109,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.error('Error al actualizar cliente:', error);
+    serverLogger.error('Error al actualizar cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -76,7 +120,7 @@ app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.error('Error al eliminar cliente:', error);
+    serverLogger.error('Error al eliminar cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -87,7 +131,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
     const camareros = await kv.getByPrefix('camarero:');
     return c.json({ success: true, data: camareros });
   } catch (error) {
-    console.error('Error al obtener camareros:', error);
+    serverLogger.error('Error al obtener camareros:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -118,7 +162,7 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
     await kv.set(id, camarero);
     return c.json({ success: true, data: camarero });
   } catch (error) {
-    console.error('Error al crear camarero:', error);
+    serverLogger.error('Error al crear camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -130,7 +174,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.error('Error al actualizar camarero:', error);
+    serverLogger.error('Error al actualizar camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -141,7 +185,7 @@ app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.error('Error al eliminar camarero:', error);
+    serverLogger.error('Error al eliminar camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -152,7 +196,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
     const coordinadores = await kv.getByPrefix('coordinador:');
     return c.json({ success: true, data: coordinadores });
   } catch (error) {
-    console.error('Error al obtener coordinadores:', error);
+    serverLogger.error('Error al obtener coordinadores:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -180,7 +224,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
     await kv.set(id, coordinador);
     return c.json({ success: true, data: coordinador });
   } catch (error) {
-    console.error('Error al crear coordinador:', error);
+    serverLogger.error('Error al crear coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -192,7 +236,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.error('Error al actualizar coordinador:', error);
+    serverLogger.error('Error al actualizar coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -203,7 +247,7 @@ app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) =
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.error('Error al eliminar coordinador:', error);
+    serverLogger.error('Error al eliminar coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -214,7 +258,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
     const pedidos = await kv.getByPrefix('pedido:');
     return c.json({ success: true, data: pedidos });
   } catch (error) {
-    console.error('Error al obtener pedidos:', error);
+    serverLogger.error('Error al obtener pedidos:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -255,7 +299,7 @@ app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
     await kv.set(id, pedido);
     return c.json({ success: true, data: pedido });
   } catch (error) {
-    console.error('Error al crear pedido:', error);
+    serverLogger.error('Error al crear pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -265,13 +309,13 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
     const id = c.req.param('id');
     const data = await c.req.json();
     
-    console.log('📝 Actualizando pedido:', id);
-    console.log('   Estado asignaciones:', data.asignaciones?.map(a => ({ num: a.camareroNumero, estado: a.estado })));
+    serverLogger.info('📝 Actualizando pedido:', id);
+    serverLogger.info('   Estado asignaciones:', data.asignaciones?.map(a => ({ num: a.camareroNumero, estado: a.estado })));
     
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.error('❌ Error al actualizar pedido:', error);
+    serverLogger.error('❌ Error al actualizar pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -279,12 +323,12 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
 app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);
+    serverLogger.info(`🗑️ Intentando eliminar pedido con ID: ${id}`);
     await kv.del(id);
-    console.log(`✅ Pedido ${id} eliminado correctamente`);
+    serverLogger.info(`✅ Pedido ${id} eliminado correctamente`);
     return c.json({ success: true });
   } catch (error) {
-    console.error('❌ Error al eliminar pedido:', error);
+    serverLogger.error('❌ Error al eliminar pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -303,7 +347,7 @@ app.get('/make-server-25b11ac0/informes/cliente', async (c) => {
     
     return c.json({ success: true, data: filtrados });
   } catch (error) {
-    console.error('Error al obtener informe de cliente:', error);
+    serverLogger.error('Error al obtener informe de cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -336,7 +380,7 @@ app.get('/make-server-25b11ac0/informes/camarero', async (c) => {
     
     return c.json({ success: true, data: eventos });
   } catch (error) {
-    console.error('Error al obtener informe de camarero:', error);
+    serverLogger.error('Error al obtener informe de camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -355,7 +399,7 @@ app.post('/make-server-25b11ac0/guardar-token', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    console.error('Error al guardar token:', error);
+    serverLogger.error('Error al guardar token:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -365,7 +409,7 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
   try {
     const coordinador = await kv.get(coordinadorId);
     if (!coordinador || !coordinador.telefono) {
-      console.log('Coordinador sin teléfono configurado');
+      serverLogger.info('Coordinador sin teléfono configurado');
       return;
     }
 
@@ -374,7 +418,7 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
     const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
     
     if (!whatsappApiKey || !whatsappPhoneId) {
-      console.log('WhatsApp API no configurada. Mensaje que se enviaría:', mensaje);
+      serverLogger.info('WhatsApp API no configurada. Mensaje que se enviaría:', mensaje);
       return;
     }
 
@@ -402,9 +446,9 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
     });
 
     const result = await response.json();
-    console.log('Notificación enviada al coordinador:', result);
+    serverLogger.info('Notificación enviada al coordinador:', result);
   } catch (error) {
-    console.error('Error al notificar coordinador:', error);
+    serverLogger.error('Error al notificar coordinador:', error);
   }
 }
 
@@ -472,9 +516,9 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
     
     await kv.set(pedidoId, { ...pedido, asignaciones });
     
-    console.log(`✅ CONFIRMACIÓN: Camarero ${camarero?.nombre} ${camarero?.apellido} confirmó asistencia al evento "${pedido.cliente}"`);
-    console.log(`   Estado actualizado: confirmado`);
-    console.log(`   Asignaciones totales: ${asignaciones.length}`);
+    serverLogger.info(`✅ CONFIRMACIÓN: Camarero ${camarero?.nombre} ${camarero?.apellido} confirmó asistencia al evento "${pedido.cliente}"`);
+    serverLogger.info(`   Estado actualizado: confirmado`);
+    serverLogger.info(`   Asignaciones totales: ${asignaciones.length}`);
     
     // Verificar si todos han confirmado y crear chat grupal automáticamente
     const todosConfirmados = asignaciones.length > 0 && asignaciones.every(a => a.estado === 'confirmado');
@@ -530,7 +574,7 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
         await kv.set(chatId, chat);
         await kv.set(`${chatId}:mensajes`, []);
         
-        console.log(`✅ Chat grupal creado automáticamente para pedido: ${pedido.cliente} (Expira: ${fechaEliminacion.toISOString()})`);
+        serverLogger.info(`✅ Chat grupal creado automáticamente para pedido: ${pedido.cliente} (Expira: ${fechaEliminacion.toISOString()})`);
       }
     }
     
@@ -579,7 +623,7 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       </html>
     `);
   } catch (error) {
-    console.error('Error al confirmar asistencia:', error);
+    serverLogger.error('Error al confirmar asistencia:', error);
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -648,9 +692,9 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       );
       await kv.set(pedidoId, { ...pedido, asignaciones });
       
-      console.log(`❌ RECHAZO: Camarero ${camarero?.nombre} ${camarero?.apellido} rechazó el evento "${pedido.cliente}"`);
-      console.log(`   Estado actualizado: rechazado`);
-      console.log(`   Eliminación programada: ${new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()}`);
+      serverLogger.info(`❌ RECHAZO: Camarero ${camarero?.nombre} ${camarero?.apellido} rechazó el evento "${pedido.cliente}"`);
+      serverLogger.info(`   Estado actualizado: rechazado`);
+      serverLogger.info(`   Eliminación programada: ${new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()}`);
       
       // Notificar al coordinador
       const nombreCamarero = camarero ? `${camarero.nombre} ${camarero.apellido}` : 'Camarero';
@@ -695,7 +739,7 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       </html>
     `);
   } catch (error) {
-    console.error('Error al procesar no confirmación:', error);
+    serverLogger.error('Error al procesar no confirmación:', error);
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -800,7 +844,7 @@ app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
     
     return c.json({ success: true, chatId, chat });
   } catch (error) {
-    console.error('Error al crear chat grupal:', error);
+    serverLogger.error('Error al crear chat grupal:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -808,7 +852,7 @@ app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
 // Diagnóstico completo de chats
 app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
   try {
-    console.log('🔍 === EJECUTANDO DIAGNÓSTICO COMPLETO DE CHATS ===');
+    serverLogger.info('🔍 === EJECUTANDO DIAGNÓSTICO COMPLETO DE CHATS ===');
     
     // Obtener todos los datos relevantes
     const todosLosChats = await kv.getByPrefix('chat:');
@@ -957,11 +1001,11 @@ app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
       }
     }
     
-    console.log('📊 DIAGNÓSTICO COMPLETO:', JSON.stringify(diagnostico, null, 2));
+    serverLogger.info('📊 DIAGNÓSTICO COMPLETO:', JSON.stringify(diagnostico, null, 2));
     
     return c.json({ success: true, diagnostico });
   } catch (error) {
-    console.log('❌ Error en diagnóstico:', error);
+    serverLogger.info('❌ Error en diagnóstico:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -969,7 +1013,7 @@ app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
 // Reparar chats faltantes automáticamente
 app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
   try {
-    console.log('🔧 === INICIANDO REPARACIÓN DE CHATS ===');
+    serverLogger.info('🔧 === INICIANDO REPARACIÓN DE CHATS ===');
     
     const { pedidosIds, coordinadorIdPorDefecto } = await c.req.json();
     
@@ -1078,7 +1122,7 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
         await kv.set(chatId, chat);
         await kv.set(`${chatId}:mensajes`, []);
         
-        console.log(`✅ Chat creado para pedido ${pedidoId}: ${pedido.cliente}`);
+        serverLogger.info(`✅ Chat creado para pedido ${pedidoId}: ${pedido.cliente}`);
         
         resultados.push({
           pedidoId,
@@ -1105,7 +1149,7 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
       fallidos: resultados.filter(r => !r.success).length
     };
     
-    console.log('🔧 RESUMEN DE REPARACIÓN:', resumen);
+    serverLogger.info('🔧 RESUMEN DE REPARACIÓN:', resumen);
     
     return c.json({ 
       success: true, 
@@ -1113,7 +1157,7 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
       resultados 
     });
   } catch (error) {
-    console.error('❌ Error al reparar chats:', error);
+    serverLogger.error('❌ Error al reparar chats:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1122,18 +1166,18 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
 app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
   try {
     const coordinadorId = c.req.param('coordinadorId');
-    console.log(`🔍 Buscando chats para coordinadorId: ${coordinadorId}`);
+    serverLogger.info(`🔍 Buscando chats para coordinadorId: ${coordinadorId}`);
     
     const todosLosChats = await kv.getByPrefix('chat:');
-    console.log(`🔍 Total de chats en base de datos: ${todosLosChats.length}`);
+    serverLogger.info(`🔍 Total de chats en base de datos: ${todosLosChats.length}`);
     
     if (todosLosChats.length > 0) {
-      console.log('🔍 IDs de coordinadores en todos los chats:', todosLosChats.map(c => ({ chatId: c.id, coordinadorId: c.coordinadorId })));
+      serverLogger.info('🔍 IDs de coordinadores en todos los chats:', todosLosChats.map(c => ({ chatId: c.id, coordinadorId: c.coordinadorId })));
     }
     
     // Filtrar por coordinador
     let chatsDelCoordinador = todosLosChats.filter(chat => chat.coordinadorId === coordinadorId);
-    console.log(`🔍 Chats filtrados por coordinadorId: ${chatsDelCoordinador.length}`);
+    serverLogger.info(`🔍 Chats filtrados por coordinadorId: ${chatsDelCoordinador.length}`);
     
     // Limpiar chats expirados (24 horas después del evento + hora de salida)
     const ahora = new Date();
@@ -1161,15 +1205,15 @@ app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
         // Eliminar chat y sus mensajes
         await kv.del(chat.id);
         await kv.del(`${chat.id}:mensajes`);
-        console.log(`🗑️ Chat eliminado por expiración: ${chat.id} - Expiró el ${fechaExpiracion.toISOString()}`);
+        serverLogger.info(`🗑️ Chat eliminado por expiración: ${chat.id} - Expiró el ${fechaExpiracion.toISOString()}`);
       }
     }
     
-    console.log(`📊 Chats activos para coordinador ${coordinadorId}: ${chatsActivos.length} de ${chatsDelCoordinador.length}`);
+    serverLogger.info(`📊 Chats activos para coordinador ${coordinadorId}: ${chatsActivos.length} de ${chatsDelCoordinador.length}`);
     
     return c.json({ success: true, data: chatsActivos });
   } catch (error) {
-    console.error('Error al obtener chats:', error);
+    serverLogger.error('Error al obtener chats:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1195,7 +1239,7 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
     
     return c.json({ success: true, mensaje: nuevoMensaje });
   } catch (error) {
-    console.error('Error al enviar mensaje:', error);
+    serverLogger.error('Error al enviar mensaje:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1209,7 +1253,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
     
     return c.json({ success: true, data: mensajes });
   } catch (error) {
-    console.error('Error al obtener mensajes:', error);
+    serverLogger.error('Error al obtener mensajes:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1359,7 +1403,7 @@ async function generarPDFParte(pedido: any, parteHTML: string): Promise<string> 
     const pdfBase64 = doc.output('datauristring').split(',')[1];
     return pdfBase64;
   } catch (error) {
-    console.log('⚠️ Error al generar PDF, usando fallback...', error);
+    serverLogger.info('⚠️ Error al generar PDF, usando fallback...', error);
     // Retornar vacío si falla, el email se enviará sin adjunto
     return '';
   }
@@ -1379,17 +1423,17 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
   const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
   const emailFrom = Deno.env.get('EMAIL_FROM') || 'onboarding@resend.dev';
   
-  console.log('🔍 Diagnóstico de variables de entorno:');
-  console.log(`  RESEND_API_KEY: ${resendApiKey ? `configurada (${resendApiKey.length} chars)` : 'NO CONFIGURADA'}`);
-  console.log(`  SENDGRID_API_KEY: ${sendgridApiKey ? `configurada (${sendgridApiKey.length} chars)` : 'NO CONFIGURADA'}`);
-  console.log(`  MAILGUN_API_KEY: ${mailgunApiKey ? `configurada (${mailgunApiKey.length} chars)` : 'NO CONFIGURADA'}`);
-  console.log(`  EMAIL_FROM: ${emailFrom}`);
-  console.log(`  Adjuntos: ${attachments ? attachments.length : 0}`);
+  serverLogger.info('🔍 Diagnóstico de variables de entorno:');
+  serverLogger.info(`  RESEND_API_KEY: ${resendApiKey ? `configurada (${resendApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  serverLogger.info(`  SENDGRID_API_KEY: ${sendgridApiKey ? `configurada (${sendgridApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  serverLogger.info(`  MAILGUN_API_KEY: ${mailgunApiKey ? `configurada (${mailgunApiKey.length} chars)` : 'NO CONFIGURADA'}`);
+  serverLogger.info(`  EMAIL_FROM: ${emailFrom}`);
+  serverLogger.info(`  Adjuntos: ${attachments ? attachments.length : 0}`);
   
   // 1. Intentar con Resend (prioridad 1)
   if (resendApiKey) {
     try {
-      console.log('📧 Intentando enviar con Resend...');
+      serverLogger.info('📧 Intentando enviar con Resend...');
       const resendBody: any = {
         from: emailFrom,
         to: [destinatario],
@@ -1418,21 +1462,21 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
       const result = await response.json();
       
       if (response.ok) {
-        console.log('✅ Email enviado con Resend:', result);
+        serverLogger.info('✅ Email enviado con Resend:', result);
         return { success: true, provider: 'Resend', messageId: result.id };
       } else {
-        console.log('❌ Error de Resend:', result);
+        serverLogger.info('❌ Error de Resend:', result);
         throw new Error(result.message || 'Error al enviar con Resend');
       }
     } catch (error) {
-      console.log('⚠️ Resend falló, intentando siguiente proveedor...', error);
+      serverLogger.info('⚠️ Resend falló, intentando siguiente proveedor...', error);
     }
   }
   
   // 2. Intentar con SendGrid (prioridad 2)
   if (sendgridApiKey) {
     try {
-      console.log('📧 Intentando enviar con SendGrid...');
+      serverLogger.info('📧 Intentando enviar con SendGrid...');
       const sendgridBody: any = {
         personalizations: [{
           to: [{ email: destinatario }],
@@ -1469,15 +1513,15 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
       });
       
       if (response.ok) {
-        console.log('✅ Email enviado con SendGrid');
+        serverLogger.info('✅ Email enviado con SendGrid');
         return { success: true, provider: 'SendGrid' };
       } else {
         const errorText = await response.text();
-        console.log('❌ Error de SendGrid:', errorText);
+        serverLogger.info('❌ Error de SendGrid:', errorText);
         throw new Error('Error al enviar con SendGrid');
       }
     } catch (error) {
-      console.log('⚠️ SendGrid falló, intentando siguiente proveedor...', error);
+      serverLogger.info('⚠️ SendGrid falló, intentando siguiente proveedor...', error);
     }
   }
   
@@ -1486,7 +1530,7 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
   
   if (mailgunApiKey && mailgunDomain) {
     try {
-      console.log('📧 Intentando enviar con Mailgun...');
+      serverLogger.info('📧 Intentando enviar con Mailgun...');
       
       const formData = new FormData();
       formData.append('from', emailFrom);
@@ -1517,14 +1561,14 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
       const result = await response.json();
       
       if (response.ok) {
-        console.log('✅ Email enviado con Mailgun:', result);
+        serverLogger.info('✅ Email enviado con Mailgun:', result);
         return { success: true, provider: 'Mailgun', messageId: result.id };
       } else {
-        console.log('❌ Error de Mailgun:', result);
+        serverLogger.info('❌ Error de Mailgun:', result);
         throw new Error(result.message || 'Error al enviar con Mailgun');
       }
     } catch (error) {
-      console.log('⚠️ Mailgun falló:', error);
+      serverLogger.info('⚠️ Mailgun falló:', error);
     }
   }
   
@@ -1545,12 +1589,12 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
     const emailFrom = Deno.env.get('EMAIL_FROM') || 'onboarding@resend.dev';
     
     // Log detallado para debugging
-    console.log('🔍 DIAGNÓSTICO COMPLETO DE EMAIL:');
-    console.log(`  RESEND_API_KEY: ${resendApiKey ? `✓ configurada (${resendApiKey.length} chars, inicia con: ${resendApiKey.substring(0, 5)}...)` : '✗ NO CONFIGURADA'}`);
-    console.log(`  SENDGRID_API_KEY: ${sendgridApiKey ? `✓ configurada (${sendgridApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
-    console.log(`  MAILGUN_API_KEY: ${mailgunApiKey ? `✓ configurada (${mailgunApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
-    console.log(`  MAILGUN_DOMAIN: ${mailgunDomain ? `✓ configurado: ${mailgunDomain}` : '✗ NO CONFIGURADO'}`);
-    console.log(`  EMAIL_FROM: ${emailFrom}`);
+    serverLogger.info('🔍 DIAGNÓSTICO COMPLETO DE EMAIL:');
+    serverLogger.info(`  RESEND_API_KEY: ${resendApiKey ? `✓ configurada (${resendApiKey.length} chars, inicia con: ${resendApiKey.substring(0, 5)}...)` : '✗ NO CONFIGURADA'}`);
+    serverLogger.info(`  SENDGRID_API_KEY: ${sendgridApiKey ? `✓ configurada (${sendgridApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
+    serverLogger.info(`  MAILGUN_API_KEY: ${mailgunApiKey ? `✓ configurada (${mailgunApiKey.length} chars)` : '✗ NO CONFIGURADA'}`);
+    serverLogger.info(`  MAILGUN_DOMAIN: ${mailgunDomain ? `✓ configurado: ${mailgunDomain}` : '✗ NO CONFIGURADO'}`);
+    serverLogger.info(`  EMAIL_FROM: ${emailFrom}`);
     
     const servicios = {
       resend: !!resendApiKey,
@@ -1558,14 +1602,14 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
       mailgun: !!(mailgunApiKey && mailgunDomain)
     };
     
-    console.log(`📊 Servicios detectados:`, servicios);
+    serverLogger.info(`📊 Servicios detectados:`, servicios);
     
     let servicioActivo = null;
     if (servicios.resend) servicioActivo = 'Resend';
     else if (servicios.sendgrid) servicioActivo = 'SendGrid';
     else if (servicios.mailgun) servicioActivo = 'Mailgun';
     
-    console.log(`🎯 Servicio activo seleccionado: ${servicioActivo}`);
+    serverLogger.info(`🎯 Servicio activo seleccionado: ${servicioActivo}`);
     
     const configured = servicioActivo !== null;
     
@@ -1575,7 +1619,7 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
     if (servicios.sendgrid) serviciosDisponiblesList.push('SendGrid');
     if (servicios.mailgun) serviciosDisponiblesList.push('Mailgun');
     
-    console.log(`✅ Configurado: ${configured}, Servicios disponibles:`, serviciosDisponiblesList);
+    serverLogger.info(`✅ Configurado: ${configured}, Servicios disponibles:`, serviciosDisponiblesList);
     
     return c.json({
       configured,
@@ -1594,7 +1638,7 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
         : '⚠️ No hay ningún servicio de email configurado. Si acabas de configurar las variables, espera 1-2 minutos y recarga la página para que el servidor actualice la configuración.'
     });
   } catch (error) {
-    console.error('Error al verificar configuración de email:', error);
+    serverLogger.error('Error al verificar configuración de email:', error);
     return c.json({
       configured: false,
       error: String(error),
@@ -1615,9 +1659,9 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
       });
     }
     
-    console.log('📧 Procesando envío de parte de servicio...');
-    console.log(`   Cliente: ${pedido?.cliente}`);
-    console.log(`   Fecha: ${pedido?.fecha}`);
+    serverLogger.info('📧 Procesando envío de parte de servicio...');
+    serverLogger.info(`   Cliente: ${pedido?.cliente}`);
+    serverLogger.info(`   Fecha: ${pedido?.fecha}`);
     
     // Construir el cuerpo del email
     const emailBody = `
@@ -1644,7 +1688,7 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
     `;
     
     // Generar PDF del parte de servicio
-    console.log('📄 Generando PDF del parte de servicio...');
+    serverLogger.info('📄 Generando PDF del parte de servicio...');
     const pdfBase64 = await generarPDFParte(pedido, parteHTML);
     
     // Preparar adjuntos si hay PDF
@@ -1656,13 +1700,13 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
         content: pdfBase64,
         encoding: 'base64'
       });
-      console.log(`✅ PDF generado exitosamente: ${nombreArchivo} (${Math.round(pdfBase64.length / 1024)} KB)`);
+      serverLogger.info(`✅ PDF generado exitosamente: ${nombreArchivo} (${Math.round(pdfBase64.length / 1024)} KB)`);
     } else {
-      console.log('⚠️ No se pudo generar el PDF, el email se enviará sin adjunto');
+      serverLogger.info('⚠️ No se pudo generar el PDF, el email se enviará sin adjunto');
     }
     
     // Enviar usando la función genérica
-    console.log('📤 Enviando email...');
+    serverLogger.info('📤 Enviando email...');
     const result = await enviarEmailGenerico({
       destinatario,
       cc,
@@ -1672,12 +1716,12 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
     });
     
     if (result.success) {
-      console.log(`✅ Email enviado exitosamente con ${attachments.length} adjunto(s)`);
+      serverLogger.info(`✅ Email enviado exitosamente con ${attachments.length} adjunto(s)`);
     }
     
     return c.json(result);
   } catch (error) {
-    console.error('❌ Error al enviar email:', error);
+    serverLogger.error('❌ Error al enviar email:', error);
     return c.json({ 
       success: false, 
       error: String(error) 
@@ -1737,7 +1781,7 @@ app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
       configSource: 'environment'
     });
   } catch (error) {
-    console.error('Error al verificar configuración WhatsApp:', error);
+    serverLogger.error('Error al verificar configuración WhatsApp:', error);
     return c.json({
       configured: false,
       error: String(error),
@@ -1782,7 +1826,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
       numeroLimpio = '34' + numeroLimpio;
     }
     
-    console.log(`📱 Enviando WhatsApp a ${numeroLimpio}`);
+    serverLogger.info(`📱 Enviando WhatsApp a ${numeroLimpio}`);
     
     // Enviar mensaje usando WhatsApp Business API
     const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
@@ -1804,7 +1848,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
     const result = await response.json();
     
     if (!response.ok) {
-      console.log('❌ Error de WhatsApp API:', result);
+      serverLogger.info('❌ Error de WhatsApp API:', result);
       return c.json({
         success: false,
         error: result.error?.message || 'Error al enviar mensaje por WhatsApp',
@@ -1819,7 +1863,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
       });
     }
     
-    console.log('✅ WhatsApp enviado exitosamente:', result);
+    serverLogger.info('✅ WhatsApp enviado exitosamente:', result);
     return c.json({
       success: true,
       messageId: result.messages?.[0]?.id,
@@ -1827,7 +1871,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
     });
     
   } catch (error) {
-    console.error('❌ Error al enviar WhatsApp:', error);
+    serverLogger.error('❌ Error al enviar WhatsApp:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -1852,7 +1896,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
       data: mensajesOrdenados
     });
   } catch (error) {
-    console.error('Error al obtener mensajes del chat:', error);
+    serverLogger.error('Error al obtener mensajes del chat:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -1873,7 +1917,7 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
       data: mensaje
     });
   } catch (error) {
-    console.error('Error al crear mensaje en chat:', error);
+    serverLogger.error('Error al crear mensaje en chat:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -1901,14 +1945,14 @@ app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     const verifyToken = Deno.env.get('WHATSAPP_VERIFY_TOKEN');
 
     if (mode === 'subscribe' && token === verifyToken) {
-      console.log('✅ Webhook verificado correctamente');
+      serverLogger.info('✅ Webhook verificado correctamente');
       return c.text(challenge || '');
     } else {
-      console.error('❌ Verificación fallida');
+      serverLogger.error('❌ Verificación fallida');
       return c.json({ error: 'Token inválido' }, 403);
     }
   } catch (error) {
-    console.error('Error en verificación de webhook:', error);
+    serverLogger.error('Error en verificación de webhook:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1917,7 +1961,7 @@ app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
 app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
   try {
     const body = await c.req.json();
-    console.log('📱 Mensaje recibido de WhatsApp:', JSON.stringify(body, null, 2));
+    serverLogger.info('📱 Mensaje recibido de WhatsApp:', JSON.stringify(body, null, 2));
 
     // Extraer información del mensaje
     const entry = body.entry?.[0];
@@ -1926,7 +1970,7 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     const messages = value?.messages;
 
     if (!messages || messages.length === 0) {
-      console.log('ℹ️ Webhook recibido pero sin mensajes (puede ser notificación de estado)');
+      serverLogger.info('ℹ️ Webhook recibido pero sin mensajes (puede ser notificación de estado)');
       return c.json({ success: true, message: 'No hay mensajes para procesar' });
     }
 
@@ -1935,7 +1979,7 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     const messageText = message.text?.body || '';
     const messageId = message.id;
 
-    console.log(`📨 Mensaje de ${from}: "${messageText}"`);
+    serverLogger.info(`📨 Mensaje de ${from}: "${messageText}"`);
 
     // Obtener o crear el estado de la conversación
     let state: ConversationState | null = await kv.get(`conversation:${from}`);
@@ -1967,7 +2011,7 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     const currentStep = CHATBOT_FLOW[state.currentStep];
     
     if (!currentStep) {
-      console.error(`❌ Paso no encontrado: ${state.currentStep}`);
+      serverLogger.error(`❌ Paso no encontrado: ${state.currentStep}`);
       await sendWhatsAppMessage(from, '⚠️ Ha ocurrido un error. Escribe "menu" para reiniciar.');
       return c.json({ success: false, error: 'Paso no encontrado' });
     }
@@ -2009,7 +2053,7 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     const nextStep = CHATBOT_FLOW[nextStepId];
 
     if (!nextStep) {
-      console.error(`❌ Siguiente paso no encontrado: ${nextStepId}`);
+      serverLogger.error(`❌ Siguiente paso no encontrado: ${nextStepId}`);
       await sendWhatsAppMessage(from, '⚠️ Ha ocurrido un error. Escribe "menu" para reiniciar.');
       return c.json({ success: false, error: 'Siguiente paso no encontrado' });
     }
@@ -2054,7 +2098,7 @@ app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
     return c.json({ success: true, message: 'Mensaje procesado' });
 
   } catch (error) {
-    console.error('❌ Error procesando webhook de WhatsApp:', error);
+    serverLogger.error('❌ Error procesando webhook de WhatsApp:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2065,7 +2109,7 @@ async function sendWhatsAppMessage(to: string, message: string): Promise<void> {
   const apiKey = Deno.env.get('WHATSAPP_API_KEY');
 
   if (!phoneId || !apiKey) {
-    console.error('❌ WhatsApp no configurado');
+    serverLogger.error('❌ WhatsApp no configurado');
     return;
   }
 
@@ -2089,12 +2133,12 @@ async function sendWhatsAppMessage(to: string, message: string): Promise<void> {
     const result = await response.json();
     
     if (response.ok) {
-      console.log('✅ Mensaje de WhatsApp enviado:', result);
+      serverLogger.info('✅ Mensaje de WhatsApp enviado:', result);
     } else {
-      console.error('❌ Error enviando mensaje de WhatsApp:', result);
+      serverLogger.error('❌ Error enviando mensaje de WhatsApp:', result);
     }
   } catch (error) {
-    console.error('❌ Error en sendWhatsAppMessage:', error);
+    serverLogger.error('❌ Error en sendWhatsAppMessage:', error);
   }
 }
 
@@ -2114,7 +2158,7 @@ async function searchGoogleMaps(query: string): Promise<Array<{ name: string; ur
       }
     ];
   } catch (error) {
-    console.error('❌ Error buscando en Google Maps:', error);
+    serverLogger.error('❌ Error buscando en Google Maps:', error);
     return [
       {
         name: query,
@@ -2127,7 +2171,7 @@ async function searchGoogleMaps(query: string): Promise<Array<{ name: string; ur
 // Función para crear un pedido desde WhatsApp
 async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string): Promise<void> {
   try {
-    console.log('📝 Creando pedido desde WhatsApp:', data);
+    serverLogger.info('📝 Creando pedido desde WhatsApp:', data);
 
     // Convertir fecha de DD/MM/AAAA a AAAA-MM-DD
     const [day, month, year] = data.fecha_evento.split('/');
@@ -2168,7 +2212,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
     };
 
     await kv.set(pedidoId, pedido);
-    console.log('✅ Pedido creado exitosamente:', numeroPedido);
+    serverLogger.info('✅ Pedido creado exitosamente:', numeroPedido);
 
     // Crear cliente si no existe
     const clientes = await kv.getByPrefix('cliente:');
@@ -2184,11 +2228,11 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
         direccion: data.lugar_evento
       };
       await kv.set(clienteId, cliente);
-      console.log('✅ Cliente creado:', data.cliente);
+      serverLogger.info('✅ Cliente creado:', data.cliente);
     }
 
   } catch (error) {
-    console.error('❌ Error creando pedido desde WhatsApp:', error);
+    serverLogger.error('❌ Error creando pedido desde WhatsApp:', error);
   }
 }
 
@@ -2196,7 +2240,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
   try {
     const { categorias } = await c.req.json();
-    console.log('🧹 Iniciando limpieza de datos:', categorias);
+    serverLogger.info('🧹 Iniciando limpieza de datos:', categorias);
 
     const resultados: any = {
       success: true,
@@ -2210,7 +2254,7 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
         await kv.del(pedido.id);
       }
       resultados.eliminados.pedidos = pedidos.length;
-      console.log(`   ✅ Eliminados ${pedidos.length} pedidos`);
+      serverLogger.info(`   ✅ Eliminados ${pedidos.length} pedidos`);
     }
 
     // Limpiar chats grupales
@@ -2220,7 +2264,7 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
         await kv.del(chat.id);
       }
       resultados.eliminados.chats = chats.length;
-      console.log(`   ✅ Eliminados ${chats.length} chats grupales`);
+      serverLogger.info(`   ✅ Eliminados ${chats.length} chats grupales`);
     }
 
     // Limpiar mensajes de chats
@@ -2230,7 +2274,7 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
         await kv.del(mensaje.id);
       }
       resultados.eliminados.mensajes = mensajes.length;
-      console.log(`   ✅ Eliminados ${mensajes.length} mensajes de chats`);
+      serverLogger.info(`   ✅ Eliminados ${mensajes.length} mensajes de chats`);
     }
 
     // Limpiar conversaciones de chatbot
@@ -2240,14 +2284,14 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
         await kv.del(conv.id);
       }
       resultados.eliminados.conversaciones = conversaciones.length;
-      console.log(`   ✅ Eliminadas ${conversaciones.length} conversaciones de chatbot`);
+      serverLogger.info(`   ✅ Eliminadas ${conversaciones.length} conversaciones de chatbot`);
     }
 
-    console.log('✅ Limpieza completada:', resultados.eliminados);
+    serverLogger.info('✅ Limpieza completada:', resultados.eliminados);
     return c.json(resultados);
 
   } catch (error) {
-    console.error('❌ Error en limpieza de datos:', error);
+    serverLogger.error('❌ Error en limpieza de datos:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2257,7 +2301,7 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
 app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
   try {
     const { pedidoId, mensaje } = await c.req.json();
-    console.log('📤 Enviando mensaje grupal para pedido:', pedidoId);
+    serverLogger.info('📤 Enviando mensaje grupal para pedido:', pedidoId);
     
     const pedido = await kv.get(pedidoId);
     if (!pedido) {
@@ -2285,7 +2329,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
         const camarero = await kv.get(asignacion.camareroId);
         
         if (!camarero || !camarero.telefono) {
-          console.log(`⚠️ Camarero ${asignacion.camareroNombre} sin teléfono`);
+          serverLogger.info(`⚠️ Camarero ${asignacion.camareroNombre} sin teléfono`);
           fallidos++;
           continue;
         }
@@ -2316,7 +2360,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
         const result = await response.json();
         
         if (response.ok) {
-          console.log(`✅ Mensaje enviado a ${camarero.nombre} ${camarero.apellido}`);
+          serverLogger.info(`✅ Mensaje enviado a ${camarero.nombre} ${camarero.apellido}`);
           exitosos++;
           resultados.push({ 
             camarero: `${camarero.nombre} ${camarero.apellido}`,
@@ -2324,7 +2368,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
             exito: true 
           });
         } else {
-          console.log(`❌ Error enviando a ${camarero.nombre}: ${JSON.stringify(result)}`);
+          serverLogger.info(`❌ Error enviando a ${camarero.nombre}: ${JSON.stringify(result)}`);
           fallidos++;
           resultados.push({ 
             camarero: `${camarero.nombre} ${camarero.apellido}`,
@@ -2334,7 +2378,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
           });
         }
       } catch (error) {
-        console.log(`❌ Error procesando camarero ${asignacion.camareroNombre}:`, error);
+        serverLogger.info(`❌ Error procesando camarero ${asignacion.camareroNombre}:`, error);
         fallidos++;
         resultados.push({ 
           camarero: asignacion.camareroNombre,
@@ -2344,7 +2388,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
       }
     }
     
-    console.log(`📊 Resumen: ${exitosos} exitosos, ${fallidos} fallidos`);
+    serverLogger.info(`📊 Resumen: ${exitosos} exitosos, ${fallidos} fallidos`);
     
     return c.json({ 
       success: exitosos > 0,
@@ -2354,7 +2398,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
       resultados
     });
   } catch (error) {
-    console.log('❌ Error al enviar mensaje grupal:', error);
+    serverLogger.info('❌ Error al enviar mensaje grupal:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2364,7 +2408,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
 app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
   try {
     const { eventoId, clienteEmail, clienteTelefono, mensaje } = await c.req.json();
-    console.log('📋 Enviando parte de servicio para evento:', eventoId);
+    serverLogger.info('📋 Enviando parte de servicio para evento:', eventoId);
     
     const resultados = {
       whatsapp: { enviado: false, error: null },
@@ -2403,17 +2447,17 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
           const result = await response.json();
           
           if (response.ok) {
-            console.log('✅ Parte enviado por WhatsApp');
+            serverLogger.info('✅ Parte enviado por WhatsApp');
             resultados.whatsapp.enviado = true;
           } else {
-            console.log('❌ Error enviando por WhatsApp:', result);
+            serverLogger.info('❌ Error enviando por WhatsApp:', result);
             resultados.whatsapp.error = result.error?.message || 'Error desconocido';
           }
         } else {
           resultados.whatsapp.error = 'WhatsApp no configurado';
         }
       } catch (error) {
-        console.log('❌ Error en envío por WhatsApp:', error);
+        serverLogger.info('❌ Error en envío por WhatsApp:', error);
         resultados.whatsapp.error = String(error);
       }
     }
@@ -2429,14 +2473,14 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
         });
         
         if (emailResult.success) {
-          console.log('✅ Parte enviado por Email');
+          serverLogger.info('✅ Parte enviado por Email');
           resultados.email.enviado = true;
         } else {
-          console.log('❌ Error enviando por Email:', emailResult.error);
+          serverLogger.info('❌ Error enviando por Email:', emailResult.error);
           resultados.email.error = emailResult.error;
         }
       } catch (error) {
-        console.log('❌ Error en envío por Email:', error);
+        serverLogger.info('❌ Error en envío por Email:', error);
         resultados.email.error = String(error);
       }
     }
@@ -2451,7 +2495,7 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
         : 'No se pudo enviar el parte por ningún canal'
     });
   } catch (error) {
-    console.log('❌ Error al enviar parte:', error);
+    serverLogger.info('❌ Error al enviar parte:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2493,7 +2537,7 @@ app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
       url: `${baseUrl}/qr-scan/${token}`
     });
   } catch (error) {
-    console.log('Error al generar token QR:', error);
+    serverLogger.info('Error al generar token QR:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2525,7 +2569,7 @@ app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async
       url: `${baseUrl}/qr-scan/${token}`
     });
   } catch (error) {
-    console.log('Error al regenerar token QR:', error);
+    serverLogger.info('Error al regenerar token QR:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2558,7 +2602,7 @@ app.get('/make-server-25b11ac0/qr-scan/:token', async (c) => {
       }
     });
   } catch (error) {
-    console.log('Error al validar token QR:', error);
+    serverLogger.info('Error al validar token QR:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -2604,7 +2648,7 @@ app.post('/make-server-25b11ac0/qr-scan/:token/registro', async (c) => {
       timestamp
     });
   } catch (error) {
-    console.log('Error al registrar entrada/salida:', error);
+    serverLogger.info('Error al registrar entrada/salida:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

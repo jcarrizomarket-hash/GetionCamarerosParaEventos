@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect } from 'react';
 import { Key, CheckCircle, XCircle, RefreshCw, ExternalLink, AlertTriangle, Copy, Check } from 'lucide-react';
 
@@ -37,7 +38,7 @@ export function WhatsAppConfig({ baseUrl, publicAnonKey }: WhatsAppConfigProps) 
         setMessage('⚠️ WhatsApp Business API no configurada');
       }
     } catch (error) {
-      console.error('Error al verificar configuración:', error);
+      logger.error('Error al verificar configuración:', error);
       setMessage('❌ Error al verificar configuración');
     } finally {
       setChecking(false);

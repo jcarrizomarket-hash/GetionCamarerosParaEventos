@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 
@@ -40,7 +41,7 @@ export function WhatsAppConfigStatus({ baseUrl, publicAnonKey }: WhatsAppConfigS
         tokenLength: result.tokenLength
       });
     } catch (error) {
-      console.log('Error al verificar configuración WhatsApp:', error);
+      logger.error('Error al verificar configuración WhatsApp:', error);
       setStatus({
         configured: false,
         message: 'Error al verificar configuración',

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
@@ -38,7 +39,7 @@ export function Pedidos({
       const data = await response.json();
       if (data.success) setClientes(data.data);
     } catch (error) {
-      console.log('Error al cargar clientes:', error);
+      logger.error('Error al cargar clientes:', error);
     }
   };
 

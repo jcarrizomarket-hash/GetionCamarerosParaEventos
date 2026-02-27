@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Settings, MessageSquare, TestTube, Mail, TestTube2, Trash2, Bot, Database } from 'lucide-react';
 import { WhatsAppConfig } from './whatsapp-config';
@@ -42,7 +43,7 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
         return;
       }
 
-      console.log(`🗑️ Eliminando pedido ${numeroPedido} con ID: ${pedido.id}`);
+      logger.info(`🗑️ Eliminando pedido ${numeroPedido} con ID: ${pedido.id}`);
 
       const response = await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
         method: 'DELETE',
@@ -54,18 +55,23 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
 
       const result = await response.json();
       
-      console.log('📝 Respuesta del servidor:', result);
+      logger.info('📝 Respuesta del servidor:', result);
 
       if (response.ok && result.success) {
         alert(`✅ Pedido ${numeroPedido} eliminado correctamente`);
         // Recargar la página para actualizar los datos
         window.location.reload();
       } else {
-        console.error('❌ Error al eliminar:', result);
+        logger.error('❌ Error al eliminar:', result);
         alert(`❌ Error al eliminar el pedido: ${result.error || 'Error desconocido'}`);
       }
+<<<<<<< copilot/implement-centralized-logging
+    } catch (error) {
+      logger.error('Error al eliminar pedido:', error);
+=======
     } catch (error: any) {
       console.error('Error al eliminar pedido:', error);
+>>>>>>> main
       alert(`❌ Error: ${error.message}`);
     }
   };

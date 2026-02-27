@@ -9,6 +9,7 @@ import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { ErrorBoundary } from './components/error-boundary';
 import { projectId, publicAnonKey } from './utils/supabase/info';
+import { logger } from './utils/logger';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2
 // Última actualización: Panel de Admin con gestión de Altas
@@ -53,7 +54,7 @@ export default function App() {
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
-      console.log('Error al cargar datos:', error);
+      logger.error('Error al cargar datos', error);
     }
   };
 

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
 
@@ -77,7 +78,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
         }
       }
     } catch (error) {
-      console.log('Error al guardar cliente:', error);
+      logger.error('Error al guardar cliente:', error);
     }
   };
 
@@ -114,7 +115,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
         await cargarDatos();
       }
     } catch (error) {
-      console.log('Error al eliminar cliente:', error);
+      logger.error('Error al eliminar cliente:', error);
     }
   };
 

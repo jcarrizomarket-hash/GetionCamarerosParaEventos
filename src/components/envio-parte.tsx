@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
@@ -140,10 +141,10 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                     headers: { Authorization: `Bearer ${publicAnonKey}` }
                   });
                   const data = await response.json();
-                  console.log('🔍 DIAGNÓSTICO COMPLETO:', data);
+                  logger.info('🔍 DIAGNÓSTICO COMPLETO:', data);
                   alert(`Diagnóstico:\n\nConfigurado: ${data.configured ? 'SÍ' : 'NO'}\nServicio: ${data.servicioActivo || 'Ninguno'}\nEmail From: ${data.emailFrom}\n\nDebug Info:\n${JSON.stringify(data.debug, null, 2)}\n\nMira la consola para más detalles.`);
                 } catch (error) {
-                  console.error('Error en diagnóstico:', error);
+                  logger.error('Error en diagnóstico:', error);
                   alert('Error al verificar configuración. Revisa la consola.');
                 }
               }}
@@ -471,7 +472,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                     alert(`❌ Error al enviar email: ${result.error || 'Error desconocido'}`);
                   }
                 } catch (error) {
-                  console.log('Error al enviar email:', error);
+                  logger.error('Error al enviar email:', error);
                   alert('❌ Error al enviar el email. Por favor, intenta nuevamente.');
                 } finally {
                   setEnviandoEmail(false);

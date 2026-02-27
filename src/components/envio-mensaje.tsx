@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
 import { supabaseFunctionEndpoint } from '../config/env';
@@ -91,7 +92,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         })
       });
     } catch (error) {
-      console.log('Error al guardar token:', error);
+      logger.error('Error al guardar token:', error);
     }
     
     const baseUrlConfirmacion = supabaseFunctionEndpoint;
@@ -177,7 +178,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       
       await cargarDatos();
     } catch (error) {
-      console.error('Error al actualizar estado:', error);
+      logger.error('Error al actualizar estado:', error);
     }
   };
 
@@ -214,7 +215,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       
       await cargarDatos();
     } catch (error) {
-      console.error('Error al aceptar:', error);
+      logger.error('Error al aceptar:', error);
     }
   };
 
@@ -253,7 +254,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       
       await cargarDatos();
     } catch (error) {
-      console.error('Error al rechazar:', error);
+      logger.error('Error al rechazar:', error);
     }
   };
 

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Mail, RefreshCw, Server } from 'lucide-react';
 
@@ -34,7 +35,7 @@ export function EmailConfigStatus({ baseUrl, publicAnonKey }: EmailConfigStatusP
         }
       });
       const result = await response.json();
-      console.log('🔍 Diagnóstico de email recibido:', result);
+      logger.info('🔍 Diagnóstico de email recibido:', result);
       setStatus({
         configured: result.configured,
         servicioActivo: result.servicioActivo,
@@ -45,7 +46,7 @@ export function EmailConfigStatus({ baseUrl, publicAnonKey }: EmailConfigStatusP
         debug: result.debug
       });
     } catch (error) {
-      console.log('Error al verificar configuración de email:', error);
+      logger.error('Error al verificar configuración de email:', error);
       setStatus({
         configured: false,
         servicioActivo: null,

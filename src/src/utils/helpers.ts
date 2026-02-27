@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * Utilidades reutilizables para el sistema de gestión de camareros
  */
@@ -28,7 +29,7 @@ export function calcularHoras(horaEntrada: string, horaSalida: string): number {
 
     return totalMinutos / 60;
   } catch (error) {
-    console.error('Error al calcular horas:', error);
+    logger.error('Error al calcular horas:', error);
     return 0;
   }
 }
@@ -87,7 +88,7 @@ export function calcularHoraEncuentro(horaEvento: string, tiempoViaje: number): 
 
     return `${String(horaEncuentro).padStart(2, '0')}:${String(minutosEncuentro).padStart(2, '0')}`;
   } catch (error) {
-    console.error('Error al calcular hora de encuentro:', error);
+    logger.error('Error al calcular hora de encuentro:', error);
     return '';
   }
 }
@@ -145,7 +146,7 @@ export function formatearFecha(
 
     return fechaObj.toLocaleDateString('es-ES', opcionesPorDefecto);
   } catch (error) {
-    console.error('Error al formatear fecha:', error);
+    logger.error('Error al formatear fecha:', error);
     return '';
   }
 }

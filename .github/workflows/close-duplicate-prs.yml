@@ -1,6 +1,8 @@
 name: Close Duplicate PRs
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened, reopened, synchronize]
   workflow_dispatch:
@@ -13,55 +15,81 @@ jobs:
   close-duplicates:
     runs-on: ubuntu-latest
     steps:
-      - name: Close duplicate pull requests
+      - name: Close duplicate and stale bot pull requests
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: pullRequests } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
-            });
+            // Fetch all open PRs (up to 100 per page; loop for repos with many open PRs)
+            let pullRequests = [];
+            let page = 1;
+            while (true) {
+              const { data } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+                page,
+              });
+              pullRequests = pullRequests.concat(data);
+              if (data.length < 100) break;
+              page++;
+            }
 
-            // Group PRs by base branch and head branch owner
-            const seen = new Map();
             const toClose = [];
 
-            // Sort oldest-first so we keep the oldest PR when duplicates exist
-            const sorted = pullRequests.slice().sort(
-              (a, b) => new Date(a.created_at) - new Date(b.created_at)
-            );
+            // ── 1. Copilot-bot PRs: keep only the newest per base branch ─────────
+            // All older Copilot-generated PRs targeting the same base are considered
+            // stale/superseded and should be closed.
+            // The Copilot SWE agent uses login='Copilot' and type='Bot' (verified from PR API).
+            const isCopilotBot = (pr) => pr.user.login === 'Copilot' && pr.user.type === 'Bot';
+            const botPRsByBase = {};
+            for (const pr of pullRequests) {
+              if (isCopilotBot(pr)) {
+                const base = pr.base.ref;
+                if (!botPRsByBase[base]) botPRsByBase[base] = [];
+                botPRsByBase[base].push(pr);
+              }
+            }
+            for (const [base, prs] of Object.entries(botPRsByBase)) {
+              if (prs.length <= 1) continue;
+              // Sort newest-first; keep index 0, close the rest
+              prs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              const keep = prs[0];
+              for (const pr of prs.slice(1)) {
+                console.log(`Stale Copilot PR #${pr.number} → superseded by #${keep.number} (base: ${base})`);
+                toClose.push({ number: pr.number, reason: `superseded by #${keep.number}` });
+              }
+            }
 
-            for (const pr of sorted) {
-              // Key: same base branch + same normalized title (lowercased, trimmed)
+            // ── 2. Human PRs: deduplicate by normalized title or head branch ──────
+            const seen = new Map();
+            const humanPRs = pullRequests
+              .filter(pr => !isCopilotBot(pr))
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            for (const pr of humanPRs) {
               const titleKey = `title:${pr.base.ref}:${pr.title.trim().toLowerCase()}`;
-              // Key: same head branch (catches re-opened identical branches)
               const branchKey = `branch:${pr.base.ref}:${pr.head.ref}`;
-
-              const duplicateOfTitle = seen.get(titleKey);
-              const duplicateOfBranch = seen.get(branchKey);
-
-              if (duplicateOfTitle !== undefined) {
-                console.log(`Duplicate title detected: PR #${pr.number} duplicates PR #${duplicateOfTitle}`);
-                toClose.push(pr.number);
-              } else if (duplicateOfBranch !== undefined) {
-                console.log(`Duplicate branch detected: PR #${pr.number} duplicates PR #${duplicateOfBranch}`);
-                toClose.push(pr.number);
+              if (seen.has(titleKey)) {
+                console.log(`Duplicate title: PR #${pr.number} duplicates #${seen.get(titleKey)}`);
+                toClose.push({ number: pr.number, reason: `duplicate title of #${seen.get(titleKey)}` });
+              } else if (seen.has(branchKey)) {
+                console.log(`Duplicate branch: PR #${pr.number} duplicates #${seen.get(branchKey)}`);
+                toClose.push({ number: pr.number, reason: `duplicate branch of #${seen.get(branchKey)}` });
               } else {
-                // Only register in the map when this PR is not itself a duplicate
                 seen.set(titleKey, pr.number);
                 seen.set(branchKey, pr.number);
               }
             }
 
-            for (const prNumber of toClose) {
+            // ── 3. Close and comment ───────────────────────────────────────────────
+            for (const { number: prNumber, reason } of toClose) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: '🤖 This pull request has been automatically closed because it is a duplicate of an older, equivalent PR. Please use the original PR to avoid merge conflicts.',
+                body: `🤖 This pull request has been automatically closed: ${reason}.`,
               });
               await github.rest.pulls.update({
                 owner: context.repo.owner,
@@ -69,11 +97,9 @@ jobs:
                 pull_number: prNumber,
                 state: 'closed',
               });
-              console.log(`Closed duplicate PR #${prNumber}`);
+              console.log(`Closed PR #${prNumber}: ${reason}`);
             }
 
-            if (toClose.length === 0) {
-              console.log('No duplicate pull requests found.');
-            } else {
-              console.log(`Closed ${toClose.length} duplicate PR(s).`);
-            }
+            console.log(toClose.length === 0
+              ? 'No duplicate or stale PRs found.'
+              : `Closed ${toClose.length} PR(s).`);

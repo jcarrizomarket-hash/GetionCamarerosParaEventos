@@ -1,0 +1,72 @@
+name: Validate Workflows (No Duplicates)
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-duplicate-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect duplicate workflow names and number prefixes
+        id: detect
+        shell: bash
+        run: |
+          WORKFLOW_DIR=".github/workflows"
+          errors=0
+
+          echo "=== Checking for duplicate workflow 'name:' fields ==="
+          declare -A name_map
+          while IFS= read -r -d '' file; do
+            wf_name=$(grep -m1 '^name:' "$file" | sed 's/^name:[[:space:]]*//' | sed 's/^["'"'"']//;s/["'"'"']$//' | xargs)
+            if [[ -n "$wf_name" ]]; then
+              if [[ -v name_map["$wf_name"] ]]; then
+                echo "ERROR: Duplicate workflow name '$wf_name' found in:"
+                echo "  - ${name_map[$wf_name]}"
+                echo "  - $file"
+                errors=$((errors + 1))
+              else
+                name_map["$wf_name"]="$file"
+              fi
+            fi
+          done < <(find "$WORKFLOW_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) | sort -z)
+
+          echo ""
+          echo "=== Checking for duplicate numeric prefixes (e.g. two '02-*.yml') ==="
+          declare -A prefix_map
+          while IFS= read -r file; do
+            base=$(basename "$file")
+            # Extract leading digits followed by a dash
+            prefix=$(echo "$base" | grep -oP '^\d+(?=-)' || true)
+            if [[ -n "$prefix" ]]; then
+              if [[ -v prefix_map["$prefix"] ]]; then
+                echo "ERROR: Duplicate numeric prefix '$prefix' found in:"
+                echo "  - ${prefix_map[$prefix]}"
+                echo "  - $file"
+                errors=$((errors + 1))
+              else
+                prefix_map["$prefix"]="$file"
+              fi
+            fi
+          done < <(find "$WORKFLOW_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) | sort)
+
+          if [[ $errors -gt 0 ]]; then
+            echo ""
+            echo "Found $errors conflict(s). Please rename or remove the conflicting workflow files."
+            exit 1
+          else
+            echo ""
+            echo "No duplicate workflows detected."
+          fi

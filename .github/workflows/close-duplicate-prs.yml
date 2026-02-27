@@ -1,0 +1,79 @@
+name: Close Duplicate PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  close-duplicates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close duplicate pull requests
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            // Group PRs by base branch and head branch owner
+            const seen = new Map();
+            const toClose = [];
+
+            // Sort oldest-first so we keep the oldest PR when duplicates exist
+            const sorted = pullRequests.slice().sort(
+              (a, b) => new Date(a.created_at) - new Date(b.created_at)
+            );
+
+            for (const pr of sorted) {
+              // Key: same base branch + same normalized title (lowercased, trimmed)
+              const titleKey = `title:${pr.base.ref}:${pr.title.trim().toLowerCase()}`;
+              // Key: same head branch (catches re-opened identical branches)
+              const branchKey = `branch:${pr.base.ref}:${pr.head.ref}`;
+
+              const duplicateOfTitle = seen.get(titleKey);
+              const duplicateOfBranch = seen.get(branchKey);
+
+              if (duplicateOfTitle !== undefined) {
+                console.log(`Duplicate title detected: PR #${pr.number} duplicates PR #${duplicateOfTitle}`);
+                toClose.push(pr.number);
+              } else if (duplicateOfBranch !== undefined) {
+                console.log(`Duplicate branch detected: PR #${pr.number} duplicates PR #${duplicateOfBranch}`);
+                toClose.push(pr.number);
+              } else {
+                // Only register in the map when this PR is not itself a duplicate
+                seen.set(titleKey, pr.number);
+                seen.set(branchKey, pr.number);
+              }
+            }
+
+            for (const prNumber of toClose) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: '🤖 This pull request has been automatically closed because it is a duplicate of an older, equivalent PR. Please use the original PR to avoid merge conflicts.',
+              });
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+              console.log(`Closed duplicate PR #${prNumber}`);
+            }
+
+            if (toClose.length === 0) {
+              console.log('No duplicate pull requests found.');
+            } else {
+              console.log(`Closed ${toClose.length} duplicate PR(s).`);
+            }

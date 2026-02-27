@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -318,7 +318,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     });
 
   // --- Funciones de Exportación e Importación Excel ---
-  const exportarAExcel = () => {
+  const exportarAExcel = async () => {
     try {
       // Preparar datos para exportar
       const datosExportacion = camareros.map(cam => ({
@@ -340,13 +340,23 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       }));
 
       // Crear libro de Excel
-      const ws = XLSX.utils.json_to_sheet(datosExportacion);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Personal');
+      if (datosExportacion.length > 0) {
+        worksheet.columns = Object.keys(datosExportacion[0]).map(key => ({ header: key, key }));
+        worksheet.addRows(datosExportacion);
+      }
 
       // Generar archivo y descargarlo
       const fecha = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Personal_${fecha}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
 
       alert('✅ Datos exportados correctamente');
     } catch (error) {
@@ -361,9 +371,20 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
     try {
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      const worksheet = workbook.worksheets[0];
+      const headers: string[] = [];
+      worksheet.getRow(1).eachCell({ includeEmpty: true }, cell => headers.push(String(cell.value ?? '')));
+      const jsonData: Record<string, unknown>[] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const obj: Record<string, unknown> = {};
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          obj[headers[colNumber - 1]] = cell.value;
+        });
+        jsonData.push(obj);
+      });
 
       if (jsonData.length === 0) {
         alert('❌ El archivo está vacío');

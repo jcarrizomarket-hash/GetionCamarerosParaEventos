@@ -87,8 +87,9 @@ cd GetionCamarerosParaEventos
 npm install
 
 # 3. Configure environment variables
-cp src/.env.example .env
-# Edit .env with your credentials
+# Create a .env file in the project root and add your credentials, e.g.:
+# VITE_SUPABASE_PROJECT_ID=your-project-id
+# VITE_SUPABASE_ANON_KEY=your-anon-key
 
 # 4. Start the development server
 npm run dev

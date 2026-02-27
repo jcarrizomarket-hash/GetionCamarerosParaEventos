@@ -1,7 +1,12 @@
-// Updated eliminarPedidoPorNumero function
+import React from 'react';
 
-try {
-    // Your implementation here
-} catch (error) {
-    console.error('Error while deleting order:', error);
-}
+const Configuracion = () => {
+    return (
+        <div>
+            <h1>Configuración</h1>
+            {/* Add your configuration settings here */}
+        </div>
+    );
+};
+
+export default Configuracion;

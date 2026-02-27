@@ -21,9 +21,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 > **Note:** This release contains [breaking changes](./MIGRATION.md#from-v1x-to-v20). See the [Migration Guide](./MIGRATION.md) before upgrading.
 
 ### Added
-- **Centralized API client** (`src/api/client.ts`) – single entry point for all backend calls
-- **TypeScript domain types** (`src/types.ts`) – strict types for `Pedido`, `Camarero`, `Coordinador`, `Cliente`, `Asignacion`, `ApiResponse<T>`, `WhatsAppConfig`, `EmailConfig`, `InformeMetrics`
-- **Shared helper utilities** (`src/utils/helpers.ts`):
+- **Centralized API client** (`src/src/api/client.ts`) – single entry point for all backend calls
+- **TypeScript domain types** (`src/src/types.ts`) – strict types for `Pedido`, `Camarero`, `Coordinador`, `Cliente`, `Asignacion`, `ApiResponse<T>`, `WhatsAppConfig`, `EmailConfig`, `InformeMetrics`
+- **Shared helper utilities** (`src/src/utils/helpers.ts`):
   - `calcularHoras()` – hours worked between two times, handles midnight crossings
   - `formatearHoras()` – human-readable duration ("8h 30min")
   - `calcularCamarerosNecesarios()` – sum of shift-1 and shift-2 waiters

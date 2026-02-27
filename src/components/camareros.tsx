@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -317,36 +317,78 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         return a.numero - b.numero;
     });
 
-  // --- Funciones de Exportación e Importación Excel ---
-  const exportarAExcel = () => {
+  // --- Helpers CSV ---
+  function escapeCSVField(value: unknown): string {
+    const str = value == null ? '' : String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  function parseCSVLine(line: string): string[] {
+    const values: string[] = [];
+    let i = 0;
+    while (i < line.length) {
+      if (line[i] === '"') {
+        let val = '';
+        i++;
+        while (i < line.length) {
+          if (line[i] === '"' && line[i + 1] === '"') { val += '"'; i += 2; }
+          else if (line[i] === '"') { i++; break; }
+          else { val += line[i++]; }
+        }
+        values.push(val);
+        if (line[i] === ',') i++;
+      } else {
+        const end = line.indexOf(',', i);
+        if (end === -1) { values.push(line.slice(i)); break; }
+        values.push(line.slice(i, end));
+        i = end + 1;
+      }
+    }
+    return values;
+  }
+
+  // --- Funciones de Exportación e Importación CSV ---
+  const exportarACSV = () => {
     try {
-      // Preparar datos para exportar
-      const datosExportacion = camareros.map(cam => ({
-        'Código': cam.codigo || '',
-        'Tipo Perfil': cam.tipoPerfil || 'CAM',
-        'Nombre': cam.nombre,
-        'Apellido': cam.apellido,
-        'Teléfono': cam.telefono || '',
-        'Email': cam.email || '',
-        'Especialidades': Array.isArray(cam.especialidades) ? cam.especialidades.join(', ') : '',
-        'Experiencia (años)': cam.experiencia || '',
-        'Idiomas': Array.isArray(cam.idiomas) ? cam.idiomas.join(', ') : '',
-        'Otros Idiomas': cam.otrosIdiomas || '',
-        'Certificaciones': Array.isArray(cam.certificaciones) ? cam.certificaciones.join(', ') : '',
-        'Otras Certificaciones': cam.otrasCertificaciones || '',
-        'Coordinador ID': cam.coordinadorId || '',
-        'Comentarios': cam.comentarios || '',
-        'Estado': cam.estado || 'activo'
-      }));
+      const headers = [
+        'Código', 'Tipo Perfil', 'Nombre', 'Apellido', 'Teléfono', 'Email',
+        'Especialidades', 'Experiencia (años)', 'Idiomas', 'Otros Idiomas',
+        'Certificaciones', 'Otras Certificaciones', 'Coordinador ID', 'Comentarios', 'Estado'
+      ];
+      const rows = camareros.map(cam => [
+        cam.codigo || '',
+        cam.tipoPerfil || 'CAM',
+        cam.nombre,
+        cam.apellido,
+        cam.telefono || '',
+        cam.email || '',
+        Array.isArray(cam.especialidades) ? cam.especialidades.join('; ') : '',
+        cam.experiencia || '',
+        Array.isArray(cam.idiomas) ? cam.idiomas.join('; ') : '',
+        cam.otrosIdiomas || '',
+        Array.isArray(cam.certificaciones) ? cam.certificaciones.join('; ') : '',
+        cam.otrasCertificaciones || '',
+        cam.coordinadorId || '',
+        cam.comentarios || '',
+        cam.estado || 'activo'
+      ]);
 
-      // Crear libro de Excel
-      const ws = XLSX.utils.json_to_sheet(datosExportacion);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+      const csvContent = [
+        headers.map(escapeCSVField).join(','),
+        ...rows.map(row => row.map(escapeCSVField).join(','))
+      ].join('\n');
 
-      // Generar archivo y descargarlo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
       const fecha = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+      link.setAttribute('download', `Personal_${fecha}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
       alert('✅ Datos exportados correctamente');
     } catch (error) {
@@ -355,15 +397,26 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     }
   };
 
-  const importarDesdeExcel = async (event) => {
+  const importarDesdeCSV = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+
+      if (lines.length < 2) {
+        alert('❌ El archivo está vacío');
+        return;
+      }
+
+      const headers = parseCSVLine(lines[0]);
+      const jsonData = lines.slice(1).map(line => {
+        const values = parseCSVLine(line);
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
+        return row;
+      });
 
       if (jsonData.length === 0) {
         alert('❌ El archivo está vacío');
@@ -403,11 +456,11 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
             apellido: row['Apellido'],
             telefono: row['Teléfono'] || '',
             email: row['Email'] || '',
-            especialidades: row['Especialidades'] ? row['Especialidades'].split(',').map(e => e.trim()) : [],
+            especialidades: row['Especialidades'] ? row['Especialidades'].split(';').map(e => e.trim()).filter(Boolean) : [],
             experiencia: row['Experiencia (años)'] || '',
-            idiomas: row['Idiomas'] ? row['Idiomas'].split(',').map(i => i.trim()) : [],
+            idiomas: row['Idiomas'] ? row['Idiomas'].split(';').map(i => i.trim()).filter(Boolean) : [],
             otrosIdiomas: row['Otros Idiomas'] || '',
-            certificaciones: row['Certificaciones'] ? row['Certificaciones'].split(',').map(c => c.trim()) : [],
+            certificaciones: row['Certificaciones'] ? row['Certificaciones'].split(';').map(c => c.trim()).filter(Boolean) : [],
             otrasCertificaciones: row['Otras Certificaciones'] || '',
             coordinadorId: row['Coordinador ID'] || '',
             comentarios: row['Comentarios'] || '',
@@ -446,7 +499,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       event.target.value = '';
     } catch (error) {
       logger.error('Error al procesar archivo:', error);
-      alert('❌ Error al procesar el archivo Excel');
+      alert('❌ Error al procesar el archivo CSV');
     }
   };
 
@@ -492,19 +545,19 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
           {/* Botones de Exportación e Importación */}
           <div className="flex justify-end gap-3">
             <button
-              onClick={exportarAExcel}
+              onClick={exportarACSV}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-sm transition-colors"
             >
               <Download className="w-4 h-4" />
-              Exportar a Excel
+              Exportar a CSV
             </button>
             <label className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-colors cursor-pointer">
               <Upload className="w-4 h-4" />
-              Importar desde Excel
+              Importar desde CSV
               <input
                 type="file"
-                accept=".xlsx,.xls"
-                onChange={importarDesdeExcel}
+                accept=".csv"
+                onChange={importarDesdeCSV}
                 className="hidden"
               />
             </label>

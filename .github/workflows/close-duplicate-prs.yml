@@ -9,6 +9,7 @@ on:
 
 permissions:
   pull-requests: write
+  actions: write
   contents: read
 
 jobs:
@@ -103,3 +104,44 @@ jobs:
             console.log(toClose.length === 0
               ? 'No duplicate or stale PRs found.'
               : `Closed ${toClose.length} PR(s).`);
+
+            // ── 4. Cancel pending/waiting workflow runs for closed PR branches ─────
+            const closedBranches = toClose
+              .map(item => {
+                const pr = pullRequests.find(p => p.number === item.number);
+                return pr ? pr.head.ref : null;
+              })
+              .filter(Boolean);
+
+            if (closedBranches.length > 0) {
+              console.log('\nCancelling pending/waiting runs for closed branches…');
+              for (const branch of closedBranches) {
+                for (const status of ['waiting', 'requested', 'queued', 'in_progress']) {
+                  let runPage = 1;
+                  while (true) {
+                    const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      branch,
+                      status,
+                      per_page: 100,
+                      page: runPage,
+                    });
+                    for (const run of runs.workflow_runs) {
+                      try {
+                        await github.rest.actions.cancelWorkflowRun({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          run_id: run.id,
+                        });
+                        console.log(`Cancelled run #${run.id} (${status}) on branch ${branch}`);
+                      } catch (e) {
+                        console.log(`Could not cancel run #${run.id}: ${e.message}`);
+                      }
+                    }
+                    if (runs.workflow_runs.length < 100) break;
+                    runPage++;
+                  }
+                }
+              }
+            }

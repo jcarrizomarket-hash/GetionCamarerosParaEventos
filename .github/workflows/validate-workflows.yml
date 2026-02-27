@@ -41,7 +41,7 @@ jobs:
                 name_map["$wf_name"]="$file"
               fi
             fi
-          done < <(find "$WORKFLOW_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) | sort -z)
+          done < <(find "$WORKFLOW_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) -print0 | sort -z)
 
           echo ""
           echo "=== Checking for duplicate numeric prefixes (e.g. two '02-*.yml') ==="
@@ -69,4 +69,31 @@ jobs:
           else
             echo ""
             echo "No duplicate workflows detected."
+          fi
+
+      - name: Detect broken workflow name fields
+        shell: bash
+        run: |
+          WORKFLOW_DIR=".github/workflows"
+          errors=0
+
+          echo "=== Checking for broken/missing workflow 'name:' fields ==="
+          while IFS= read -r -d '' file; do
+            wf_name=$(grep -m1 '^name:' "$file" | sed 's/^name:[[:space:]]*//' | sed 's/^["'"'"']//;s/["'"'"']$//' | xargs)
+            base=$(basename "$file")
+            # A name that looks like a file path (contains '/' or ends in .yml/.yaml) is broken
+            if [[ -z "$wf_name" ]]; then
+              echo "WARNING: No 'name:' field in $file"
+            elif echo "$wf_name" | grep -qE '\.ya?ml$|/'; then
+              echo "ERROR: Broken workflow name (looks like a file path) in $file: '$wf_name'"
+              errors=$((errors + 1))
+            fi
+          done < <(find "$WORKFLOW_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) -print0 | sort -z)
+
+          if [[ $errors -gt 0 ]]; then
+            echo ""
+            echo "Found $errors broken workflow name(s). Set a proper 'name:' field in each file."
+            exit 1
+          else
+            echo "All workflow name fields look valid."
           fi

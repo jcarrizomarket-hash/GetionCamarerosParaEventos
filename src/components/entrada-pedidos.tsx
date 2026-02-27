@@ -238,7 +238,7 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
       });
       
       const result = await response.json();
-      logger.info('📝 Respuesta del servidor:', response.status, result);
+      logger.info('📝 Respuesta del servidor:', { status: response.status, result });
       
       if (response.ok && result.success) {
         logger.info('✅ Pedido eliminado, recargando datos...');

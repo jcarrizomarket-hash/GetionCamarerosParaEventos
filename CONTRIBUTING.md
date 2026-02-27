@@ -64,7 +64,8 @@ Edit `.env` with your Supabase credentials:
 ```bash
 VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_SUPABASE_FN_SECRET=your-function-secret   # optional for local dev
+# NOTE: Do not put Supabase function secrets in Vite env vars (VITE_*).
+# Configure any SUPABASE_FN_SECRET only in your backend/server environment, not in this .env file.
 ```
 
 ### 3. Start the Development Server

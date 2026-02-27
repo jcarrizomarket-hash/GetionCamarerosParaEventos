@@ -142,10 +142,13 @@ Review the new `devDependencies` for testing tools:
 
 #### Step 2: Update Environment Variables
 
-Copy the template and fill in your values:
+Create your `.env` file and fill in your values:
 
 ```bash
-cp src/.env.example .env
+# If your project includes an .env.example template, copy it:
+#   cp .env.example .env
+# Otherwise, create an empty .env file:
+touch .env
 ```
 
 Add the new `VITE_SUPABASE_FN_SECRET` variable:

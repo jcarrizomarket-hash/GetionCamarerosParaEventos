@@ -10,11 +10,14 @@ import { ErrorBoundary } from '../../components/error-boundary';
 
 // Suppress console.error for expected errors in tests
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
 beforeEach(() => {
   console.error = vi.fn();
+  console.warn = vi.fn();
 });
 afterEach(() => {
   console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
 });
 
 // Helper component that throws an error

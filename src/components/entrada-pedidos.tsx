@@ -38,12 +38,12 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
 
   // Deduplicar clientes
   const uniqueClientes = useMemo(() => {
-    return Array.from(new Map(clientes.map(c => [c.id, c])).values());
+    return Array.from(new Map(clientes.map(c => [c.id, c])).values()) as typeof clientes;
   }, [clientes]);
 
   // Deduplicar pedidos
   const uniquePedidos = useMemo(() => {
-    return Array.from(new Map(pedidos.map(p => [p.id, p])).values());
+    return Array.from(new Map(pedidos.map(p => [p.id, p])).values()) as typeof pedidos;
   }, [pedidos]);
 
   // --- Lógica del Calendario ---
@@ -327,7 +327,7 @@ _Por favor confirme recepción de este mensaje._`;
       if (editingId) {
         const pedidoOriginal = uniquePedidos.find(p => p.id === editingId);
         if (pedidoOriginal) {
-          dataToSend.asignaciones = pedidoOriginal.asignaciones;
+          (dataToSend as any).asignaciones = pedidoOriginal.asignaciones;
         }
       }
 
@@ -802,7 +802,7 @@ _Por favor confirme recepción de este mensaje._`;
             </thead>
             <tbody className="divide-y divide-gray-200">
               {uniquePedidos
-                .sort((a, b) => new Date(b.diaEvento) - new Date(a.diaEvento))
+                .sort((a, b) => new Date(b.diaEvento).getTime() - new Date(a.diaEvento).getTime())
                 .map((pedido, idx) => {
                   const completo = isPedidoCompleto(pedido);
                   return (

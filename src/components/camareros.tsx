@@ -668,7 +668,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Comentarios</label>
-                  <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" rows="3" />
+                  <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" rows={3} />
                 </div>
               </div>
             )}
@@ -875,7 +875,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
                           {camarero.disponibilidad && camarero.disponibilidad.length > 0 ? (
                             camarero.disponibilidad
-                              .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+                              .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
                               .map((disp, idx) => (
                                 <div
                                   key={`${disp.fecha}-${idx}`}

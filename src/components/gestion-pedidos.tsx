@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactElement } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search, QrCode } from 'lucide-react';
 import { QRControl } from './qr-control';
 
@@ -333,7 +333,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
   // Listas filtradas
   const pedidosOrdenados = [...uniquePedidos].sort((a, b) => 
-    new Date(a.diaEvento) - new Date(b.diaEvento)
+    new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()
   );
 
   const camarerosDisponibles = uniqueCamareros
@@ -360,7 +360,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
     // 1. Filtrar y Ordenar Pedidos (de menor a mayor, más antiguo primero)
     const pedidosFiltrados = uniquePedidos
         .filter(p => !selectedPedido || p.id === selectedPedido.id)
-        .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento));
+        .sort((a, b) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime());
 
     // 2. Generar filas por pedido (Slots)
     pedidosFiltrados.forEach((pedido, index) => {
@@ -817,7 +817,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
             <h3 className="font-semibold text-gray-800">Próximos Eventos</h3>
           </div>
           <div className="divide-y divide-gray-100">
-            {pedidosOrdenados.filter(p => new Date(p.diaEvento) >= new Date().setHours(0,0,0,0)).slice(0, 5).map(pedido => {
+            {pedidosOrdenados.filter(p => new Date(p.diaEvento).getTime() >= new Date().setHours(0,0,0,0)).slice(0, 5).map(pedido => {
               const totalReq = (parseInt(pedido.cantidadCamareros || 0)) + (parseInt(pedido.cantidadCamareros2 || 0));
               const asigs = pedido.asignaciones || [];
               const enviados = asigs.filter(a => a.estado === 'enviado').length;
@@ -898,7 +898,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                      // Determinar el color de la situación
                      let situationClass = 'bg-gray-100 text-gray-800'; // Default / Sin enviar
                      let situationLabel = 'Pendiente';
-                     let camareroLabel = '-';
+                     let camareroLabel: string | ReactElement = '-';
                      let isFaltante = false;
 
                      if (item.type === 'asignado') {
@@ -1157,7 +1157,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
                         Estado: {asignacion.estado ? asignacion.estado.toUpperCase() : 'PENDIENTE'}
                         {asignacion.estado === 'rechazado' && asignacion.eliminacionProgramada && (
                           <span className="ml-2 text-red-600 font-bold">
-                            (Se eliminará en {Math.ceil((new Date(asignacion.eliminacionProgramada) - new Date()) / (1000 * 60))} min)
+                            (Se eliminará en {Math.ceil((new Date(asignacion.eliminacionProgramada).getTime() - new Date().getTime()) / (1000 * 60))} min)
                           </span>
                         )}
                       </p>

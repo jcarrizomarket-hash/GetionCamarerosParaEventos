@@ -17,8 +17,8 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
   const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   // Deduplicar pedidos y ordenar descendentemente
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
-    .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento)); // Orden ascendente: fecha más próxima arriba
+  const uniquePedidos = (Array.from(new Map(pedidos.map(p => [p.id, p])).values()) as typeof pedidos)
+    .sort((a, b) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()); // Orden ascendente: fecha más próxima arriba
 
   const imprimirParte = () => {
     window.print();

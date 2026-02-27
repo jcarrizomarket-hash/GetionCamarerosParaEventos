@@ -94,7 +94,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     // Calcular camareros necesarios (considerando ocupación mínima de 5 horas)
     const calcularCamarerosNecesarios = (eventos) => {
       // Crear un mapa de franjas horarias ocupadas por día
-      const ocupacionPorDia = {};
+      const ocupacionPorDia: Record<string, {inicio: number, fin: number, cantidad: number}[]> = {};
 
       eventos.forEach(evento => {
         const dia = evento.diaEvento;

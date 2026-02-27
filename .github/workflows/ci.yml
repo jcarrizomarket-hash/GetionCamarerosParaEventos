@@ -1,4 +1,4 @@
-name: CI - Lint & Build
+name: CI - Lint, Test & Build
 
 on:
   push:
@@ -7,40 +7,43 @@ on:
     branches: [ main, master, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  lint-and-build:
+  ci:
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js ${{ matrix.node-version }}
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20.x'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run ESLint
         run: npm run lint --if-present
-      
+
       - name: Run Type Check
         run: npm run type-check --if-present
-      
+
+      - name: Run Tests
+        run: npx vitest run --reporter=verbose
+
       - name: Build
         run: npm run build
-      
+
       - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-output-${{ matrix.node-version }}
-          path: dist/
+          name: build-output
+          path: build/
           retention-days: 5

@@ -1219,7 +1219,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
 async function generarPDFParte(pedido: any, parteHTML: string): Promise<string> {
   try {
     // Usar jsPDF en lugar de PDFKit para evitar warnings de readFileSync
-    const { jsPDF } = await import('npm:jspdf@2.5.1');
+    const { jsPDF } = await import('npm:jspdf@4.2.0');
     
     const doc = new jsPDF({
       orientation: 'portrait',

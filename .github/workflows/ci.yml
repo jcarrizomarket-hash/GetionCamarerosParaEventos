@@ -10,3 +10,16 @@ on:
       - main
       - develop
   workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Añade aquí tus pasos para setup y build
+      - name: Build
+        run: echo "Running build..."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: dist/

@@ -66,6 +66,9 @@ Fecha: ${pedido.diaEvento}`)) {
 
     const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState<string[]>([]);
     const [limpiandoDatos, setLimpiandoDatos] = useState(false);
+    const [estadoLimpieza, setEstadoLimpieza] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [resultadoLimpieza, setResultadoLimpieza] = useState<{ eliminados: Record<string, number>; fechaHora?: string } | null>(null);
+    const [errorLimpieza, setErrorLimpieza] = useState<string | null>(null);
 
     const toggleCategoria = (categoria: string) => {
         setCategoriasSeleccionadas(prev => prev.includes(categoria) ? prev.filter(c => c !== categoria) : [...prev, categoria]);
@@ -92,6 +95,9 @@ Fecha: ${pedido.diaEvento}`)) {
             return;
         }
         setLimpiandoDatos(true);
+        setEstadoLimpieza('loading');
+        setResultadoLimpieza(null);
+        setErrorLimpieza(null);
         try {
             console.log('🧹 Iniciando limpieza de datos:', categoriasSeleccionadas);
             const response = await fetch(`${baseUrl}/limpiar-datos`, {
@@ -104,19 +110,18 @@ Fecha: ${pedido.diaEvento}`)) {
             });
             const result = await response.json();
             if (response.ok && result.success) {
-                const mensaje = Object.entries(result.eliminados)
-                    .map(([key, value]) => `• ${key}: ${value} registros`)
-                    .join('\n');
-                alert(`✅ Limpieza completada exitosamente\n\nDatos eliminados:\n${mensaje}`);
+                setResultadoLimpieza({ eliminados: result.eliminados, fechaHora: new Date().toLocaleString('es-AR') });
+                setEstadoLimpieza('success');
                 setCategoriasSeleccionadas([]);
-                window.location.reload();
             } else {
                 console.error('❌ Error en la limpieza:', result);
-                alert(`❌ Error al limpiar datos: ${result.error || 'Error desconocido'}`);
+                setErrorLimpieza(result.error || 'Error desconocido');
+                setEstadoLimpieza('error');
             }
         } catch (error: any) {
             console.error('Error en limpieza de datos:', error);
-            alert(`❌ Error: ${error.message}`);
+            setErrorLimpieza(error.message);
+            setEstadoLimpieza('error');
         } finally {
             setLimpiandoDatos(false);
         }
@@ -242,6 +247,39 @@ Fecha: ${pedido.diaEvento}`)) {
                                         <Trash2 className="w-4 h-4" /> {limpiandoDatos ? 'Limpiando...' : 'Limpiar Datos'}
                                     </button>
                                 </div>
+                                {/* Panel de estado de limpieza */}
+                                {estadoLimpieza !== 'idle' && (
+                                    <div className={`mt-4 p-4 rounded-lg border ${estadoLimpieza === 'loading' ? 'bg-blue-50 border-blue-200' : estadoLimpieza === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                        <div className="mb-2">
+                                            {estadoLimpieza === 'loading' && <span className="text-blue-700 font-semibold">🧹 Limpieza en progreso...</span>}
+                                            {estadoLimpieza === 'success' && <span className="text-green-700 font-semibold">✅ Limpieza completada exitosamente</span>}
+                                            {estadoLimpieza === 'error' && <span className="text-red-700 font-semibold">❌ Error en la limpieza</span>}
+                                        </div>
+                                        {estadoLimpieza === 'loading' && (
+                                            <p className="text-sm text-blue-600">Eliminando datos seleccionados, por favor espera...</p>
+                                        )}
+                                        {estadoLimpieza === 'success' && resultadoLimpieza && (
+                                            <div>
+                                                {resultadoLimpieza.fechaHora && (
+                                                    <p className="text-xs text-green-600 mb-2">Completado el: {resultadoLimpieza.fechaHora}</p>
+                                                )}
+                                                <p className="text-sm text-green-700 font-medium mb-1">Registros eliminados:</p>
+                                                <ul className="text-sm text-green-700 space-y-1">
+                                                    {Object.entries(resultadoLimpieza.eliminados).map(([key, value]) => (
+                                                        <li key={key} className="flex items-center gap-2">
+                                                            <Database className="w-3 h-3" />
+                                                            <span className="capitalize font-medium">{key}:</span>
+                                                            <span>{value} registro{value !== 1 ? 's' : ''}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {estadoLimpieza === 'error' && errorLimpieza && (
+                                            <p className="text-sm text-red-700">{errorLimpieza}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

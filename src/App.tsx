@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send, Shield } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send, Shield, BarChart2 } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -7,6 +7,7 @@ import { Admin } from './components/admin';
 import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
+import { ProgressDashboard } from './components/progress-dashboard';
 import { ErrorBoundary } from './components/error-boundary';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { logger } from './utils/logger';
@@ -65,7 +66,8 @@ export default function App() {
     { id: 'admin', label: 'Admin', icon: Shield },
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envios', label: 'Envíos', icon: Send },
-    { id: 'configuracion', label: 'Configuración', icon: Settings }
+    { id: 'configuracion', label: 'Configuración', icon: Settings },
+    { id: 'progreso', label: 'Progreso', icon: BarChart2 }
   ];
 
   return (
@@ -181,6 +183,10 @@ export default function App() {
           )}
 
           {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
+
+          {activeTab === 'progreso' && (
+            <ProgressDashboard />
+          )}
         </ErrorBoundary>
       </div>
     </div>

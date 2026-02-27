@@ -1,17 +1,12 @@
-<<<<<<< copilot/implement-centralized-logging
-node_modules/
-dist/
-.env
-.env.local
-package-lock.json
-coverage/
-=======
 # Dependencies
 node_modules/
 
 # Build output
 build/
 dist/
+
+# Coverage
+coverage/
 
 # Environment files – never commit real secrets
 .env
@@ -23,4 +18,3 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
->>>>>>> main

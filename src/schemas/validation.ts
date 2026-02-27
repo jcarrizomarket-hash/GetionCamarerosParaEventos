@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, ZodSchema } from 'zod';
 
 // Validation schema for Camarero
 export const CamareroSchema = z.object({
@@ -35,7 +35,7 @@ export const ClienteSchema = z.object({
 });
 
 // Helper function to validate against a schema
-export const validate = (schema, data) => {
+export const validate = <T>(schema: ZodSchema<T>, data: unknown): T => {
     const result = schema.safeParse(data);
     if (!result.success) {
         throw new Error('Validation failed: ' + JSON.stringify(result.error.issues));

@@ -116,25 +116,25 @@ GetionCamarerosParaEventos/
 │   ├── types.ts                # Domain types
 │   ├── api/
 │   │   └── client.ts           # Centralized API client
-│   └── utils/
-│       └── helpers.ts          # Shared helper functions
-│
-├── components/                 # React components
-│   ├── dashboard.tsx
-│   ├── pedidos.tsx
-│   ├── camareros.tsx
-│   ├── gestion-pedidos.tsx
-│   └── ...
-│
-├── supabase/
-│   └── functions/server/
-│       ├── index.tsx           # Hono server (Edge Function)
-│       ├── middleware.ts       # Security middleware
-│       └── kv_store.tsx        # KV store utilities
-│
-├── tests/
-│   ├── unit/                   # Vitest unit tests
-│   └── e2e/                    # Playwright E2E tests
+│   ├── utils/
+│   │   └── helpers.ts          # Shared helper functions
+│   │
+│   ├── components/             # React components
+│   │   ├── dashboard.tsx
+│   │   ├── pedidos.tsx
+│   │   ├── camareros.tsx
+│   │   ├── gestion-pedidos.tsx
+│   │   └── ...
+│   │
+│   ├── supabase/
+│   │   └── functions/server/
+│   │       ├── index.tsx       # Hono server (Edge Function)
+│   │       ├── middleware.ts   # Security middleware
+│   │       └── kv_store.tsx    # KV store utilities
+│   │
+│   └── tests/
+│       ├── unit/               # Vitest unit tests
+│       └── e2e/                # Playwright E2E tests
 │
 ├── MIGRATION.md                # Upgrade guide
 ├── CHANGELOG.md                # Version history

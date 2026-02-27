@@ -103,80 +103,94 @@ export default function App() {
       <div className="p-6">
         <ErrorBoundary>
           {activeTab === 'dashboard' && (
-            <Dashboard
-              camareros={camareros}
-              pedidos={pedidos}
-              setActiveTab={setActiveTab}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-            />
+            <ErrorBoundary name="Dashboard">
+              <Dashboard
+                camareros={camareros}
+                pedidos={pedidos}
+                setActiveTab={setActiveTab}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+              />
+            </ErrorBoundary>
           )}
           
           {activeTab === 'pedidos' && (
-            <Pedidos
-              pedidos={pedidos}
-              setPedidos={setPedidos}
-              camareros={camareros}
-              coordinadores={coordinadores}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-              cargarDatos={cargarDatos}
-            />
+            <ErrorBoundary name="Pedidos">
+              <Pedidos
+                pedidos={pedidos}
+                setPedidos={setPedidos}
+                camareros={camareros}
+                coordinadores={coordinadores}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+                cargarDatos={cargarDatos}
+              />
+            </ErrorBoundary>
           )}
           
           {activeTab === 'camareros' && (
-            <Camareros
-              camareros={camareros}
-              setCamareros={setCamareros}
-              pedidos={pedidos}
-              coordinadores={coordinadores}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-              cargarDatos={cargarDatos}
-            />
+            <ErrorBoundary name="Camareros">
+              <Camareros
+                camareros={camareros}
+                setCamareros={setCamareros}
+                pedidos={pedidos}
+                coordinadores={coordinadores}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+                cargarDatos={cargarDatos}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'admin' && (
-            <Admin
-              coordinadores={coordinadores}
-              setCoordinadores={setCoordinadores}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-              cargarDatos={cargarDatos}
-              camareros={camareros}
-              pedidos={pedidos}
-            />
+            <ErrorBoundary name="Admin">
+              <Admin
+                coordinadores={coordinadores}
+                setCoordinadores={setCoordinadores}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+                cargarDatos={cargarDatos}
+                camareros={camareros}
+                pedidos={pedidos}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'informes' && (
-            <Informes
-              camareros={camareros}
-              pedidos={pedidos}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-            />
+            <ErrorBoundary name="Informes">
+              <Informes
+                camareros={camareros}
+                pedidos={pedidos}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'envios' && (
-            <Envios
-              pedidos={pedidos}
-              camareros={camareros}
-              coordinadores={coordinadores}
-              clientes={clientes}
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-            />
+            <ErrorBoundary name="Envíos">
+              <Envios
+                pedidos={pedidos}
+                camareros={camareros}
+                coordinadores={coordinadores}
+                clientes={clientes}
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'configuracion' && (
-            <Configuracion
-              baseUrl={baseUrl}
-              publicAnonKey={publicAnonKey}
-              camareros={camareros}
-              coordinadores={coordinadores}
-              pedidos={pedidos}
-              clientes={clientes}
-            />
+            <ErrorBoundary name="Configuración">
+              <Configuracion
+                baseUrl={baseUrl}
+                publicAnonKey={publicAnonKey}
+                camareros={camareros}
+                coordinadores={coordinadores}
+                pedidos={pedidos}
+                clientes={clientes}
+              />
+            </ErrorBoundary>
           )}
 
           {/* Remove whatsapp-test tab content as it's now inside Configuracion */}

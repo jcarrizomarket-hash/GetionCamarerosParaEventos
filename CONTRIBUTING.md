@@ -89,12 +89,13 @@ npx playwright install
 ```
 GetionCamarerosParaEventos/
 │
-├── src/                        # TypeScript source
-│   ├── types.ts                # Domain types
-│   ├── api/
-│   │   └── client.ts           # Centralized API client
-│   └── utils/
-│       └── helpers.ts          # Shared helper functions
+├── src/                        # Frontend source root
+│   └── src/                    # TypeScript source
+│       ├── types.ts            # Domain types
+│       ├── api/
+│       │   └── client.ts       # Centralized API client
+│       └── utils/
+│           └── helpers.ts      # Shared helper functions
 │
 ├── components/                 # React components
 │   ├── dashboard.tsx

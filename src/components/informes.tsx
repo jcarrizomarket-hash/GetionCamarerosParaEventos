@@ -288,7 +288,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: startY + 35,
             head: [tableColumn],
             body: tableRows,
@@ -333,7 +333,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: 80,
             head: [tableColumn],
             body: tableRows,

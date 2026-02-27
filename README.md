@@ -191,17 +191,17 @@ EMAIL_FROM=your@email.com
 The system includes **85+ automated tests** and an interactive **Test Panel** in the UI.
 
 ```bash
-# Unit tests
-npm test
+# Unit tests (run from src/)
+npm --prefix src test
 
-# E2E tests
-npm run test:e2e
+# E2E tests (run from src/)
+npm --prefix src run test:e2e
 
-# All tests
-npm run test:all
+# All tests (run from src/)
+npm --prefix src run test:all
 
-# Coverage report
-npm run test:coverage
+# Coverage report (run from src/)
+npm --prefix src run test:coverage
 ```
 
 For detailed testing instructions, see [src/TESTING_SETUP.md](./src/TESTING_SETUP.md).

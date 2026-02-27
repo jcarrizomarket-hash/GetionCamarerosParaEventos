@@ -1,6 +1,11 @@
 /**
  * Rate limiting middleware
  * Prevents abuse by limiting requests per IP/user
+ *
+ * NOTE: This implementation uses in-memory storage which is suitable for
+ * single-instance deployments only. For multi-instance or serverless
+ * edge function deployments, replace the in-memory store with a
+ * distributed store such as Redis or Supabase KV.
  */
 
 import type { Context, Next } from 'npm:hono@4.0.0';

@@ -8,7 +8,6 @@ on:
         type: choice
         options:
           - staging
-          - production
         default: staging
   push:
     branches: [develop]

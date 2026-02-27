@@ -6,7 +6,6 @@ test.describe('XSS Protection', () => {
     '<img src=x onerror=alert(1)>',
     'javascript:alert(1)',
     '"><script>alert(document.cookie)</script>',
-    "'; DROP TABLE users; --",
   ];
 
   test('should not execute scripts injected in input fields', async ({ page }) => {

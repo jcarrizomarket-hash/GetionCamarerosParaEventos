@@ -5,11 +5,12 @@ test.describe('Complete Order Flow', () => {
     await page.goto('/');
     await expect(page).not.toHaveURL(/error/);
     
-    // Check for main navigation elements
+    // Check for main navigation elements (optional - depends on app configuration)
     const nav = page.locator('nav, [role="navigation"], .tabs, [class*="tab"]');
-    await expect(nav.first()).toBeVisible({ timeout: 10000 }).catch(() => {
-      // Nav might not exist in all configurations
-    });
+    const navCount = await nav.count();
+    if (navCount > 0) {
+      await expect(nav.first()).toBeVisible({ timeout: 10000 });
+    }
   });
 
   test('dashboard tab should be accessible', async ({ page }) => {

@@ -1,3 +1,11 @@
+<<<<<<< copilot/implement-centralized-logging
+node_modules/
+dist/
+.env
+.env.local
+package-lock.json
+coverage/
+=======
 # Dependencies
 node_modules/
 
@@ -5,26 +13,14 @@ node_modules/
 build/
 dist/
 
-# Environment variables - never commit these
+# Environment files – never commit real secrets
 .env
 .env.local
 .env.*.local
-.env.production
-.env.production.local
 
-# Editor directories and files
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS files
+# Editor / OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
+.vscode/
+.idea/
+>>>>>>> main

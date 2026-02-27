@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Send, Mail, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { EmailConfigStatus } from './email-config-status';
@@ -146,7 +147,7 @@ export function TestEmail({ baseUrl, publicAnonKey }: TestEmailProps) {
         });
       }
     } catch (error) {
-      console.error('Error al enviar email de prueba:', error);
+      logger.error('Error al enviar email de prueba:', error);
       setResultado({
         success: false,
         message: `❌ Error de conexión: ${error.message}`

@@ -3,15 +3,28 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
-import { requireAuth, requireRole, logAudit, requireFunctionSecret } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Apply auth validation to all routes
-app.use('*', requireAuth);
+// Middleware de seguridad simple
+const requireSecret = async (c, next) => {
+  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
+  const providedSecret = c.req.header('x-fn-secret');
+  
+  // Solo validar en métodos mutantes
+  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (methodsToProtect.includes(c.req.method)) {
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+      return c.json({ success: false, error: 'No autorizado' }, 401);
+    }
+  }
+  
+  await next();
+};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -24,12 +37,12 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
     const clientes = await kv.getByPrefix('cliente:');
     return c.json({ success: true, data: clientes });
   } catch (error) {
-    console.log('Error al obtener clientes:', error);
+    console.error('Error al obtener clientes:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -40,30 +53,30 @@ app.post('/make-server-25b11ac0/clientes', requireFunctionSecret, async (c) => {
     await kv.set(id, cliente);
     return c.json({ success: true, data: cliente });
   } catch (error) {
-    console.log('Error al crear cliente:', error);
+    console.error('Error al crear cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.log('Error al actualizar cliente:', error);
+    console.error('Error al actualizar cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.log('Error al eliminar cliente:', error);
+    console.error('Error al eliminar cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -74,12 +87,12 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
     const camareros = await kv.getByPrefix('camarero:');
     return c.json({ success: true, data: camareros });
   } catch (error) {
-    console.log('Error al obtener camareros:', error);
+    console.error('Error al obtener camareros:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -105,30 +118,30 @@ app.post('/make-server-25b11ac0/camareros', requireFunctionSecret, async (c) => 
     await kv.set(id, camarero);
     return c.json({ success: true, data: camarero });
   } catch (error) {
-    console.log('Error al crear camarero:', error);
+    console.error('Error al crear camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.log('Error al actualizar camarero:', error);
+    console.error('Error al actualizar camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.log('Error al eliminar camarero:', error);
+    console.error('Error al eliminar camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -139,12 +152,12 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
     const coordinadores = await kv.getByPrefix('coordinador:');
     return c.json({ success: true, data: coordinadores });
   } catch (error) {
-    console.log('Error al obtener coordinadores:', error);
+    console.error('Error al obtener coordinadores:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -167,30 +180,30 @@ app.post('/make-server-25b11ac0/coordinadores', requireFunctionSecret, async (c)
     await kv.set(id, coordinador);
     return c.json({ success: true, data: coordinador });
   } catch (error) {
-    console.log('Error al crear coordinador:', error);
+    console.error('Error al crear coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.log('Error al actualizar coordinador:', error);
+    console.error('Error al actualizar coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
     return c.json({ success: true });
   } catch (error) {
-    console.log('Error al eliminar coordinador:', error);
+    console.error('Error al eliminar coordinador:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -201,12 +214,12 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
     const pedidos = await kv.getByPrefix('pedido:');
     return c.json({ success: true, data: pedidos });
   } catch (error) {
-    console.log('Error al obtener pedidos:', error);
+    console.error('Error al obtener pedidos:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -242,7 +255,7 @@ app.post('/make-server-25b11ac0/pedidos', requireFunctionSecret, async (c) => {
     await kv.set(id, pedido);
     return c.json({ success: true, data: pedido });
   } catch (error) {
-    console.log('Error al crear pedido:', error);
+    console.error('Error al crear pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -258,7 +271,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
     await kv.set(id, data);
     return c.json({ success: true, data });
   } catch (error) {
-    console.log('❌ Error al actualizar pedido:', error);
+    console.error('❌ Error al actualizar pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -271,7 +284,7 @@ app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
     console.log(`✅ Pedido ${id} eliminado correctamente`);
     return c.json({ success: true });
   } catch (error) {
-    console.log('❌ Error al eliminar pedido:', error);
+    console.error('❌ Error al eliminar pedido:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -290,7 +303,7 @@ app.get('/make-server-25b11ac0/informes/cliente', async (c) => {
     
     return c.json({ success: true, data: filtrados });
   } catch (error) {
-    console.log('Error al obtener informe de cliente:', error);
+    console.error('Error al obtener informe de cliente:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -323,7 +336,7 @@ app.get('/make-server-25b11ac0/informes/camarero', async (c) => {
     
     return c.json({ success: true, data: eventos });
   } catch (error) {
-    console.log('Error al obtener informe de camarero:', error);
+    console.error('Error al obtener informe de camarero:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -342,7 +355,7 @@ app.post('/make-server-25b11ac0/guardar-token', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    console.log('Error al guardar token:', error);
+    console.error('Error al guardar token:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -391,7 +404,7 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
     const result = await response.json();
     console.log('Notificación enviada al coordinador:', result);
   } catch (error) {
-    console.log('Error al notificar coordinador:', error);
+    console.error('Error al notificar coordinador:', error);
   }
 }
 
@@ -566,7 +579,7 @@ app.get('/make-server-25b11ac0/confirmar/:token', async (c) => {
       </html>
     `);
   } catch (error) {
-    console.log('Error al confirmar asistencia:', error);
+    console.error('Error al confirmar asistencia:', error);
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -682,7 +695,7 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
       </html>
     `);
   } catch (error) {
-    console.log('Error al procesar no confirmación:', error);
+    console.error('Error al procesar no confirmación:', error);
     return c.html(`
       <!DOCTYPE html>
       <html>
@@ -787,7 +800,7 @@ app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
     
     return c.json({ success: true, chatId, chat });
   } catch (error) {
-    console.log('Error al crear chat grupal:', error);
+    console.error('Error al crear chat grupal:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1100,7 +1113,7 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
       resultados 
     });
   } catch (error) {
-    console.log('❌ Error al reparar chats:', error);
+    console.error('❌ Error al reparar chats:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1156,7 +1169,7 @@ app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
     
     return c.json({ success: true, data: chatsActivos });
   } catch (error) {
-    console.log('Error al obtener chats:', error);
+    console.error('Error al obtener chats:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
@@ -1182,11 +1195,27 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
     
     return c.json({ success: true, mensaje: nuevoMensaje });
   } catch (error) {
-    console.log('Error al enviar mensaje:', error);
+    console.error('Error al enviar mensaje:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });
 
+<<<<<<< copilot/implement-centralized-logging
+// Obtener mensajes de un chat
+app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
+  try {
+    const chatId = c.req.param('chatId');
+    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
+    
+    return c.json({ success: true, data: mensajes });
+  } catch (error) {
+    console.error('Error al obtener mensajes:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+=======
+>>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1565,7 +1594,7 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
         : '⚠️ No hay ningún servicio de email configurado. Si acabas de configurar las variables, espera 1-2 minutos y recarga la página para que el servidor actualice la configuración.'
     });
   } catch (error) {
-    console.log('Error al verificar configuración de email:', error);
+    console.error('Error al verificar configuración de email:', error);
     return c.json({
       configured: false,
       error: String(error),
@@ -1648,7 +1677,7 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
     
     return c.json(result);
   } catch (error) {
-    console.log('❌ Error al enviar email:', error);
+    console.error('❌ Error al enviar email:', error);
     return c.json({ 
       success: false, 
       error: String(error) 
@@ -1708,7 +1737,7 @@ app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
       configSource: 'environment'
     });
   } catch (error) {
-    console.log('Error al verificar configuración WhatsApp:', error);
+    console.error('Error al verificar configuración WhatsApp:', error);
     return c.json({
       configured: false,
       error: String(error),
@@ -1798,7 +1827,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
     });
     
   } catch (error) {
-    console.log('❌ Error al enviar WhatsApp:', error);
+    console.error('❌ Error al enviar WhatsApp:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -1823,7 +1852,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
       data: mensajesOrdenados
     });
   } catch (error) {
-    console.log('Error al obtener mensajes del chat:', error);
+    console.error('Error al obtener mensajes del chat:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -1844,7 +1873,7 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
       data: mensaje
     });
   } catch (error) {
-    console.log('Error al crear mensaje en chat:', error);
+    console.error('Error al crear mensaje en chat:', error);
     return c.json({
       success: false,
       error: String(error)
@@ -2164,7 +2193,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireFunctionSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2423,6 +2452,159 @@ app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
     });
   } catch (error) {
     console.log('❌ Error al enviar parte:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== CÓDIGOS QR PARA CONTROL DE ENTRADA/SALIDA ==============
+
+// Generar o obtener token QR para un pedido
+app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Si ya tiene token, devolverlo
+    if (pedidoData.qrToken) {
+      return c.json({ 
+        success: true, 
+        token: pedidoData.qrToken,
+        url: `${c.req.url.split('/pedidos/')[0]}/qr-scan/${pedidoData.qrToken}`
+      });
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al generar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Regenerar token QR para un pedido
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar nuevo token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    pedidoData.qrRegeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al regenerar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Validar token QR y obtener información del pedido
+app.get('/make-server-25b11ac0/qr-scan/:token', async (c) => {
+  try {
+    const token = c.req.param('token');
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido o expirado' }, 404);
+    }
+    
+    return c.json({ 
+      success: true, 
+      pedido: {
+        id: pedido.id,
+        numero: pedido.numero,
+        cliente: pedido.cliente,
+        tipoEvento: pedido.tipoEvento,
+        diaEvento: pedido.diaEvento,
+        horaEntrada: pedido.horaEntrada,
+        horaSalida: pedido.horaSalida,
+        lugar: pedido.lugar,
+        asignaciones: pedido.asignaciones || []
+      }
+    });
+  } catch (error) {
+    console.log('Error al validar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Registrar entrada/salida mediante QR
+app.post('/make-server-25b11ac0/qr-scan/:token/registro', async (c) => {
+  try {
+    const token = c.req.param('token');
+    const { camareroId, tipo } = await c.req.json(); // tipo: 'entrada' | 'salida'
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido' }, 404);
+    }
+    
+    // Registrar entrada/salida
+    const asignaciones = pedido.asignaciones || [];
+    const asignacionIndex = asignaciones.findIndex(a => a.camareroId === camareroId);
+    
+    if (asignacionIndex === -1) {
+      return c.json({ success: false, error: 'Camarero no asignado a este evento' }, 404);
+    }
+    
+    const timestamp = new Date().toISOString();
+    
+    if (tipo === 'entrada') {
+      asignaciones[asignacionIndex].registroEntrada = timestamp;
+      asignaciones[asignacionIndex].entradaRegistrada = true;
+    } else if (tipo === 'salida') {
+      asignaciones[asignacionIndex].registroSalida = timestamp;
+      asignaciones[asignacionIndex].salidaRegistrada = true;
+    }
+    
+    pedido.asignaciones = asignaciones;
+    await kv.set(`pedido:${pedido.id.replace('pedido:', '')}`, pedido);
+    
+    return c.json({ 
+      success: true, 
+      mensaje: `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`,
+      timestamp
+    });
+  } catch (error) {
+    console.log('Error al registrar entrada/salida:', error);
     return c.json({ success: false, error: String(error) }, 500);
   }
 });

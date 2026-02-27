@@ -3,6 +3,7 @@
  * Unifica todas las llamadas al backend con manejo de errores consistente
  */
 
+import { logger } from '../../utils/logger';
 import type { 
   ApiResponse, 
   Pedido, 
@@ -12,32 +13,33 @@ import type {
   WhatsAppConfig,
   EmailConfig 
 } from '../types';
+import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../../config/env';
+import { fetchWithRetry } from '../utils/retry';
+
+const REQUEST_TIMEOUT_MS = 5000;
+const MAX_RETRY_ATTEMPTS = 3;
 
 // Configuración de la API - lee de variables de entorno
 const getApiConfig = () => {
-  // Intentar obtener de import.meta.env (Vite) o de window global
-  const projectId = 
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_PROJECT_ID) ||
-    (typeof window !== 'undefined' && (window as any).VITE_SUPABASE_PROJECT_ID);
-    
-  const publicAnonKey = 
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
-    (typeof window !== 'undefined' && (window as any).VITE_SUPABASE_ANON_KEY);
-
   return {
-    projectId: projectId || '',
-    publicAnonKey: publicAnonKey || '',
+    projectId: supabaseProjectId,
+    publicAnonKey: supabaseAnonKey,
   };
 };
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
+<<<<<<< copilot/implement-centralized-logging
   const { projectId } = getApiConfig();
   if (!projectId) {
-    console.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
+    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
+=======
+  if (!supabaseFunctionEndpoint) {
+    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
+>>>>>>> main
     return '';
   }
-  return `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
+  return supabaseFunctionEndpoint;
 };
 
 // Headers comunes para todas las peticiones
@@ -80,11 +82,19 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
   }
 }
 
+// Función auxiliar para hacer fetch con timeout y reintentos
+function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  return fetchWithRetry(url, options, {
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    maxAttempts: MAX_RETRY_ATTEMPTS,
+  });
+}
+
 // ==================== PEDIDOS ====================
 
 export async function getPedidos(): Promise<ApiResponse<Pedido[]>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/pedidos`, {
+    const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -99,7 +109,7 @@ export async function getPedidos(): Promise<ApiResponse<Pedido[]>> {
 
 export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/pedidos/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -114,7 +124,7 @@ export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
 
 export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiResponse<Pedido>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/pedidos`, {
+    const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(pedido),
@@ -130,7 +140,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
 
 export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise<ApiResponse<Pedido>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/pedidos/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(pedido),
@@ -146,7 +156,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
 
 export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/pedidos/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
       headers: getHeaders(true), // Requiere secret
     });
@@ -163,7 +173,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
 
 export async function getCamareros(): Promise<ApiResponse<Camarero[]>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -178,7 +188,7 @@ export async function getCamareros(): Promise<ApiResponse<Camarero[]>> {
 
 export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -193,7 +203,7 @@ export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
 
 export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<ApiResponse<Camarero>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(camarero),
@@ -209,7 +219,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
 
 export async function updateCamarero(id: string, camarero: Partial<Camarero>): Promise<ApiResponse<Camarero>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(camarero),
@@ -225,7 +235,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
 
 export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
       headers: getHeaders(true), // Requiere secret
     });
@@ -242,7 +252,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
 
 export async function getCoordinadores(): Promise<ApiResponse<Coordinador[]>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -257,7 +267,7 @@ export async function getCoordinadores(): Promise<ApiResponse<Coordinador[]>> {
 
 export async function getCoordinador(id: string): Promise<ApiResponse<Coordinador>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -272,7 +282,7 @@ export async function getCoordinador(id: string): Promise<ApiResponse<Coordinado
 
 export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): Promise<ApiResponse<Coordinador>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(coordinador),
@@ -288,7 +298,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
 
 export async function updateCoordinador(id: string, coordinador: Partial<Coordinador>): Promise<ApiResponse<Coordinador>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/coordinadores/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(coordinador),
@@ -304,7 +314,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
       headers: getHeaders(true), // Requiere secret
     });
@@ -321,7 +331,7 @@ export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> 
 
 export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/clientes`, {
+    const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -336,7 +346,7 @@ export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
 
 export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiResponse<Cliente>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/clientes`, {
+    const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
       headers: getHeaders(true), // Requiere secret
       body: JSON.stringify(cliente),
@@ -354,7 +364,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
 
 export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppConfig>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/verificar-whatsapp-config`, {
+    const response = await apiFetch(`${getBaseUrl()}/verificar-whatsapp-config`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -369,7 +379,7 @@ export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppCon
 
 export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<any>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/enviar-whatsapp`, {
+    const response = await apiFetch(`${getBaseUrl()}/enviar-whatsapp`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ telefono, mensaje }),
@@ -387,7 +397,7 @@ export async function enviarWhatsApp(telefono: string, mensaje: string): Promise
 
 export async function verificarEmailConfig(): Promise<ApiResponse<EmailConfig>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/verificar-email-config`, {
+    const response = await apiFetch(`${getBaseUrl()}/verificar-email-config`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -413,7 +423,7 @@ export async function enviarEmailParte(params: {
   };
 }): Promise<ApiResponse<any>> {
   try {
-    const response = await fetch(`${getBaseUrl()}/enviar-email-parte`, {
+    const response = await apiFetch(`${getBaseUrl()}/enviar-email-parte`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(params),

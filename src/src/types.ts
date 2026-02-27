@@ -99,6 +99,22 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
+export interface StandardApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  timestamp?: string;
+  requestId?: string;
+}
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: unknown;
+  statusCode?: number;
+}
+
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   total?: number;
   page?: number;
@@ -116,16 +132,6 @@ export interface EmailConfig {
   configured: boolean;
   provider?: 'resend' | 'sendgrid' | 'mailgun';
   emailFrom?: string;
-}
-
-// Tipos para sesión de usuario y autenticación
-export type UserRole = 'admin' | 'coordinador' | 'camarero';
-
-export interface UserSession {
-  userId: string;
-  email: string;
-  role: UserRole;
-  expiresAt: number;
 }
 
 // Tipos para informes

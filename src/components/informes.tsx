@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -24,7 +25,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
       const data = await response.json();
       if (data.success) setClientes(data.data);
     } catch (error) {
-      console.log('Error al cargar clientes:', error);
+      logger.error('Error al cargar clientes:', error);
     }
   };
 

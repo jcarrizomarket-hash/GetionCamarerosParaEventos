@@ -176,14 +176,6 @@ sistema-gestion-camareros/
 - **[MIGRATION_EXAMPLE.md](./MIGRATION_EXAMPLE.md)**: Ejemplos de migración de código
 - **[CHANGELOG.md](./CHANGELOG.md)**: Historial de cambios
 
-### Referencia y Guías
-
-- **[API Reference](../docs/API.md)**: Documentación completa de endpoints
-- **[Deployment Guide](../docs/DEPLOYMENT.md)**: Cómo desplegar a producción
-- **[Troubleshooting](../docs/TROUBLESHOOTING.md)**: Soluciones a problemas comunes
-- **[Security Guidelines](../docs/SECURITY.md)**: Prácticas de seguridad
-- **[Contributing](../docs/CONTRIBUTING.md)**: Cómo contribuir al proyecto
-
 ### Configuración
 
 - **[.env.example](./.env.example)**: Plantilla de variables de entorno

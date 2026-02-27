@@ -1,0 +1,63 @@
+name: 04 - Anomaly Detection
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detect-anomalies:
+    name: Detect Anomalies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for large files
+        run: |
+          echo "Checking for large files (>5MB)..."
+          find . -not -path './.git/*' -not -path './node_modules/*' -not -path './dist/*' \
+            -size +5M -type f | while read file; do
+            echo "::warning::Large file detected: $file"
+          done
+
+      - name: Check for sensitive data patterns
+        run: |
+          echo "Checking for potential secrets in code..."
+          # Check for hardcoded secrets patterns (not in .env files or node_modules)
+          if grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
+            -E "(password|secret|api_key|apikey)\s*=\s*['\"][^'\"]{8,}['\"]" \
+            --exclude-dir=node_modules --exclude-dir=dist . 2>/dev/null | \
+            grep -v "placeholder\|example\|template\|test\|mock"; then
+            echo "::warning::Potential hardcoded secrets detected - please review"
+          fi
+
+      - name: Check dependency health
+        run: |
+          echo "Checking for outdated dependencies..."
+          npm outdated --json > outdated-report.json || true
+          cat outdated-report.json
+
+      - name: Upload anomaly reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anomaly-reports-${{ github.run_id }}
+          path: |
+            outdated-report.json
+          retention-days: 14

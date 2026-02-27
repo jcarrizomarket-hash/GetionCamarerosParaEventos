@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Security audit
+        run: npm run audit
+      
       - name: Run ESLint
         run: npm run lint --if-present
       
@@ -42,5 +45,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output-${{ matrix.node-version }}
-          path: dist/
+          path: build/
           retention-days: 5

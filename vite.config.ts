@@ -8,6 +8,7 @@
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
+        // Versioned package aliases for UI components
         'vaul@1.1.2': 'vaul',
         'sonner@2.0.3': 'sonner',
         'recharts@2.15.2': 'recharts',
@@ -16,7 +17,6 @@
         'react-day-picker@8.10.1': 'react-day-picker',
         'next-themes@0.4.6': 'next-themes',
         'lucide-react@0.487.0': 'lucide-react',
-        'jspdf@2.5.1': 'jspdf',
         'input-otp@1.4.2': 'input-otp',
         'embla-carousel-react@8.6.0': 'embla-carousel-react',
         'cmdk@1.1.1': 'cmdk',
@@ -55,6 +55,35 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-ui': [
+              'lucide-react',
+              'class-variance-authority',
+              'clsx',
+              'tailwind-merge',
+              'next-themes',
+            ],
+            'vendor-radix': [
+              '@radix-ui/react-accordion',
+              '@radix-ui/react-alert-dialog',
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-select',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-tooltip',
+            ],
+            'vendor-charts': ['recharts'],
+            'vendor-forms': ['react-hook-form', 'zod'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+            'vendor-excel': ['exceljs'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 600,
     },
     server: {
       port: 3000,

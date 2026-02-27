@@ -35,7 +35,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   - `isPedidoCompleto()` – checks whether all waiters have confirmed
   - `calcularPorcentajeConfirmacion()` – confirmation percentage for a pedido
   - `generarId()` / `generarToken()` – unique ID and token generation
-- **Security middleware** (`supabase/functions/server/middleware.ts`):
+- **Security middleware** (`src/supabase/functions/server/middleware.ts`):
   - `requireFunctionSecret` – validates `x-fn-secret` header on POST/PUT/DELETE
   - `requireAuth` – validates Supabase auth tokens
   - `rateLimit` – configurable rate limiting

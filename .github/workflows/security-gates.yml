@@ -1,0 +1,261 @@
+name: Security Gates
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (high and above blocks)
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
+      - name: Run npm audit (full report)
+        if: always()
+        run: npm audit --json > npm-audit-report.json || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+          retention-days: 30
+
+  merge-conflict-check:
+    name: Merge Conflict Marker Detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for merge conflict markers
+        run: |
+          if grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ 2>/dev/null; then
+            echo "ERROR: Merge conflict markers found in source files. Resolve all conflicts before merging."
+            exit 1
+          else
+            echo "No merge conflict markers detected."
+          fi
+
+  secrets-scan:
+    name: Secrets and Credential Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for hardcoded secrets
+        run: |
+          PATTERNS=(
+            "eyJhbGciOiJ"
+            "sk-[a-zA-Z0-9]{32}"
+            "xoxb-[0-9]+-"
+            "AKIA[0-9A-Z]{16}"
+            "password\s*=\s*['\"][^'\"]{8,}"
+            "secret\s*=\s*['\"][^'\"]{8,}"
+          )
+          FOUND=0
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -rn --include="*.ts" --include="*.tsx" --include="*.js" --include="*.env" -E "$pattern" src/ 2>/dev/null | grep -v ".env.example"; then
+              echo "WARNING: Potential secret pattern found: $pattern"
+              FOUND=1
+            fi
+          done
+          if [ $FOUND -eq 1 ]; then
+            echo "ERROR: Potential hardcoded secrets detected. Review and remove all secrets from source code."
+            exit 1
+          fi
+          echo "No hardcoded secret patterns detected."
+
+  xss-scan:
+    name: XSS Pattern Detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for dangerous HTML patterns
+        run: |
+          FOUND=0
+          # Check for dangerous innerHTML usage
+          if grep -rn "dangerouslySetInnerHTML\|innerHTML\s*=" --include="*.tsx" --include="*.ts" src/components/ 2>/dev/null; then
+            echo "WARNING: dangerouslySetInnerHTML or innerHTML found — verify sanitization."
+            FOUND=1
+          fi
+          # Check for eval() usage
+          if grep -rn "\beval\s*(" --include="*.ts" --include="*.tsx" src/ 2>/dev/null; then
+            echo "ERROR: eval() usage detected — this is a critical XSS risk."
+            exit 1
+          fi
+          if [ $FOUND -eq 1 ]; then
+            echo "WARNING: XSS-sensitive patterns found. Manual review required."
+          else
+            echo "No critical XSS patterns detected."
+          fi
+
+  type-check:
+    name: TypeScript Type Safety
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript type check
+        run: npm run type-check --if-present
+        continue-on-error: true
+
+      - name: Check for any type errors that are new
+        run: |
+          npx tsc --noEmit 2>&1 | tee type-check-output.txt || true
+          ERROR_COUNT=$(grep -c "error TS" type-check-output.txt || echo "0")
+          echo "TypeScript errors found: $ERROR_COUNT"
+          if [ "$ERROR_COUNT" -gt "0" ]; then
+            echo "::warning::TypeScript type check found $ERROR_COUNT errors. See artifact for details."
+          fi
+
+      - name: Upload type check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: type-check-results
+          path: type-check-output.txt
+          retention-days: 7
+
+  lint-security:
+    name: ESLint Security Rules
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+
+  build-verification:
+    name: Build Integrity Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [dependency-audit, merge-conflict-check, secrets-scan]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist" ] && [ ! -d "build" ]; then
+            echo "ERROR: Build output directory not found."
+            exit 1
+          fi
+          echo "Build verification passed."
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            dist/
+            build/
+          retention-days: 7
+
+  security-summary:
+    name: Security Gate Summary
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - dependency-audit
+      - merge-conflict-check
+      - secrets-scan
+      - xss-scan
+      - type-check
+      - lint-security
+      - build-verification
+    if: always()
+    steps:
+      - name: Print security gate results
+        run: |
+          echo "=== Security Gate Results ==="
+          echo "Dependency Audit:      ${{ needs.dependency-audit.result }}"
+          echo "Merge Conflict Check:  ${{ needs.merge-conflict-check.result }}"
+          echo "Secrets Scan:          ${{ needs.secrets-scan.result }}"
+          echo "XSS Pattern Scan:      ${{ needs.xss-scan.result }}"
+          echo "TypeScript Check:      ${{ needs.type-check.result }}"
+          echo "ESLint Security:       ${{ needs.lint-security.result }}"
+          echo "Build Verification:    ${{ needs.build-verification.result }}"
+          
+          # Fail if any critical gate failed
+          if [[ "${{ needs.dependency-audit.result }}" == "failure" || \
+                "${{ needs.merge-conflict-check.result }}" == "failure" || \
+                "${{ needs.secrets-scan.result }}" == "failure" || \
+                "${{ needs.build-verification.result }}" == "failure" ]]; then
+            echo "ERROR: One or more critical security gates failed."
+            exit 1
+          fi
+          echo "All critical security gates passed."

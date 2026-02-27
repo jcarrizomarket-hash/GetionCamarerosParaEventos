@@ -17,6 +17,7 @@ export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores,
 
   const addTestResult = (test: string, status: 'success' | 'error' | 'warning' | 'info', message: string, details?: any) => {
     setTestResults(prev => [...prev, {
+      id: `test-${Date.now()}-${Math.random()}`,
       test,
       status,
       message,
@@ -555,9 +556,9 @@ export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores,
           </h3>
           
           <div className="space-y-3">
-            {testResults.map((result, index) => (
+            {testResults.map((result) => (
               <div
-                key={index}
+                key={result.id}
                 className={`p-4 rounded-lg border ${getStatusColor(result.status)}`}
               >
                 <div className="flex items-start gap-3">

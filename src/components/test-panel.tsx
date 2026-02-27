@@ -26,7 +26,7 @@ import {
   Check,
   ExternalLink
 } from 'lucide-react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { supabaseFunctionEndpoint as baseUrl, supabaseAnonKey as publicAnonKey } from '../config/env';
 import { TestEmail } from './test-email';
 
 const TEST_PHONE = '+15558327331';
@@ -54,6 +54,7 @@ export function TestPanel() {
 
   const addResult = (test: string, status: 'success' | 'error' | 'warning', message: string, details?: any) => {
     setTestResults(prev => [{
+      id: `test-${Date.now()}-${Math.random()}`,
       test,
       status,
       message,
@@ -66,7 +67,7 @@ export function TestPanel() {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0/verificar-whatsapp-config`,
+        `${baseUrl}/verificar-whatsapp-config`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
@@ -92,7 +93,7 @@ export function TestPanel() {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0/enviar-whatsapp`,
+        `${baseUrl}/enviar-whatsapp`,
         {
           method: 'POST',
           headers: {
@@ -391,9 +392,9 @@ export function TestPanel() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {testResults.map((result, index) => (
+                      {testResults.map((result) => (
                         <div
-                          key={index}
+                          key={result.id}
                           className={`p-3 rounded-lg border ${
                             result.status === 'success'
                               ? 'bg-green-50 border-green-200'

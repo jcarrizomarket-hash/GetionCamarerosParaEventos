@@ -1200,6 +1200,7 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
+<<<<<<< copilot/implement-centralized-logging
 // Obtener mensajes de un chat
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
@@ -1213,6 +1214,8 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   }
 });
 
+=======
+>>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1846,7 +1849,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
     
     return c.json({
       success: true,
-      mensajes: mensajesOrdenados
+      data: mensajesOrdenados
     });
   } catch (error) {
     console.error('Error al obtener mensajes del chat:', error);
@@ -1867,7 +1870,7 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
     
     return c.json({
       success: true,
-      mensaje
+      data: mensaje
     });
   } catch (error) {
     console.error('Error al crear mensaje en chat:', error);
@@ -1875,6 +1878,734 @@ app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
       success: false,
       error: String(error)
     }, 500);
+  }
+});
+
+// ============== CHATBOT DE WHATSAPP ==============
+
+import {
+  CHATBOT_FLOW,
+  ConversationState,
+  processUserResponse,
+  replaceVariables,
+  formatOptions
+} from './chatbot-flow.ts';
+
+// Webhook de verificación de WhatsApp
+app.get('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
+  try {
+    const mode = c.req.query('hub.mode');
+    const token = c.req.query('hub.verify_token');
+    const challenge = c.req.query('hub.challenge');
+
+    const verifyToken = Deno.env.get('WHATSAPP_VERIFY_TOKEN');
+
+    if (mode === 'subscribe' && token === verifyToken) {
+      console.log('✅ Webhook verificado correctamente');
+      return c.text(challenge || '');
+    } else {
+      console.error('❌ Verificación fallida');
+      return c.json({ error: 'Token inválido' }, 403);
+    }
+  } catch (error) {
+    console.error('Error en verificación de webhook:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Webhook para recibir mensajes de WhatsApp
+app.post('/make-server-25b11ac0/whatsapp-webhook', async (c) => {
+  try {
+    const body = await c.req.json();
+    console.log('📱 Mensaje recibido de WhatsApp:', JSON.stringify(body, null, 2));
+
+    // Extraer información del mensaje
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const messages = value?.messages;
+
+    if (!messages || messages.length === 0) {
+      console.log('ℹ️ Webhook recibido pero sin mensajes (puede ser notificación de estado)');
+      return c.json({ success: true, message: 'No hay mensajes para procesar' });
+    }
+
+    const message = messages[0];
+    const from = message.from; // Número de teléfono del usuario
+    const messageText = message.text?.body || '';
+    const messageId = message.id;
+
+    console.log(`📨 Mensaje de ${from}: "${messageText}"`);
+
+    // Obtener o crear el estado de la conversación
+    let state: ConversationState | null = await kv.get(`conversation:${from}`);
+
+    if (!state || messageText.toLowerCase() === 'menu' || messageText.toLowerCase() === 'inicio') {
+      // Nueva conversación o reseteo
+      state = {
+        userId: from,
+        phone: from,
+        currentStep: 'menu_inicial',
+        data: {},
+        lastUpdate: Date.now()
+      };
+      await kv.set(`conversation:${from}`, state);
+
+      // Enviar mensaje de bienvenida
+      const step = CHATBOT_FLOW['menu_inicial'];
+      let responseText = step.text;
+      
+      if (step.options) {
+        responseText += '\n\n' + formatOptions(step.options);
+      }
+
+      await sendWhatsAppMessage(from, responseText);
+      return c.json({ success: true, message: 'Conversación iniciada' });
+    }
+
+    // Procesar la respuesta del usuario
+    const currentStep = CHATBOT_FLOW[state.currentStep];
+    
+    if (!currentStep) {
+      console.error(`❌ Paso no encontrado: ${state.currentStep}`);
+      await sendWhatsAppMessage(from, '⚠️ Ha ocurrido un error. Escribe "menu" para reiniciar.');
+      return c.json({ success: false, error: 'Paso no encontrado' });
+    }
+
+    const result = processUserResponse(messageText, currentStep, state);
+
+    if (result.error) {
+      // Error de validación
+      await sendWhatsAppMessage(from, result.error);
+      return c.json({ success: true, message: 'Error de validación enviado' });
+    }
+
+    // Actualizar el estado con los nuevos datos
+    if (result.data) {
+      state.data = { ...state.data, ...result.data };
+    }
+
+    // Pasar al siguiente paso
+    const nextStepId = result.nextStep;
+
+    if (!nextStepId) {
+      // Fin del flujo
+      if (state.currentStep === 'enviar_formulario' && state.data.confirmed) {
+        // Crear el pedido
+        await crearPedidoDesdeWhatsApp(state.data, from);
+      }
+
+      const finalStep = CHATBOT_FLOW[state.currentStep];
+      if (finalStep.type === 'message') {
+        const responseText = replaceVariables(finalStep.text, state.data);
+        await sendWhatsAppMessage(from, responseText);
+      }
+
+      // Resetear la conversación
+      await kv.del(`conversation:${from}`);
+      return c.json({ success: true, message: 'Flujo completado' });
+    }
+
+    const nextStep = CHATBOT_FLOW[nextStepId];
+
+    if (!nextStep) {
+      console.error(`❌ Siguiente paso no encontrado: ${nextStepId}`);
+      await sendWhatsAppMessage(from, '⚠️ Ha ocurrido un error. Escribe "menu" para reiniciar.');
+      return c.json({ success: false, error: 'Siguiente paso no encontrado' });
+    }
+
+    // Actualizar el estado actual
+    state.currentStep = nextStepId;
+    state.lastUpdate = Date.now();
+
+    // Ejecutar acciones personalizadas
+    if (nextStep.type === 'customAction' && nextStep.action === 'googleMapsSearch') {
+      const query = replaceVariables(nextStep.params?.query || '', state.data);
+      const mapsResults = await searchGoogleMaps(query);
+      state.mapsResults = mapsResults;
+      
+      // Pasar automáticamente al siguiente paso (confirmación de ubicación)
+      state.currentStep = nextStep.next || 'menu_inicial';
+      await kv.set(`conversation:${from}`, state);
+
+      // Enviar las opciones de ubicación
+      const confirmStep = CHATBOT_FLOW[state.currentStep];
+      let responseText = confirmStep.text + '\n\n';
+      mapsResults.forEach((result, idx) => {
+        responseText += `${idx + 1}. ${result.name}\n`;
+      });
+
+      await sendWhatsAppMessage(from, responseText);
+      return c.json({ success: true, message: 'Búsqueda de Maps completada' });
+    }
+
+    // Guardar el estado actualizado
+    await kv.set(`conversation:${from}`, state);
+
+    // Enviar el mensaje del siguiente paso
+    let responseText = replaceVariables(nextStep.text, state.data);
+    
+    if (nextStep.type === 'options' && nextStep.options) {
+      responseText += '\n\n' + formatOptions(nextStep.options);
+    }
+
+    await sendWhatsAppMessage(from, responseText);
+
+    return c.json({ success: true, message: 'Mensaje procesado' });
+
+  } catch (error) {
+    console.error('❌ Error procesando webhook de WhatsApp:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Función auxiliar para enviar mensajes de WhatsApp
+async function sendWhatsAppMessage(to: string, message: string): Promise<void> {
+  const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+  const apiKey = Deno.env.get('WHATSAPP_API_KEY');
+
+  if (!phoneId || !apiKey) {
+    console.error('❌ WhatsApp no configurado');
+    return;
+  }
+
+  const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'text',
+        text: { body: message }
+      })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ Mensaje de WhatsApp enviado:', result);
+    } else {
+      console.error('❌ Error enviando mensaje de WhatsApp:', result);
+    }
+  } catch (error) {
+    console.error('❌ Error en sendWhatsAppMessage:', error);
+  }
+}
+
+// Función para buscar ubicaciones en Google Maps
+async function searchGoogleMaps(query: string): Promise<Array<{ name: string; url: string }>> {
+  try {
+    // Crear URL de búsqueda de Google Maps
+    const baseUrl = 'https://www.google.com/maps/search/';
+    const encodedQuery = encodeURIComponent(query);
+    const mapsUrl = `${baseUrl}?api=1&query=${encodedQuery}`;
+
+    // Retornar resultado único (podríamos integrar con la API de Google Places en el futuro)
+    return [
+      {
+        name: query,
+        url: mapsUrl
+      }
+    ];
+  } catch (error) {
+    console.error('❌ Error buscando en Google Maps:', error);
+    return [
+      {
+        name: query,
+        url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+      }
+    ];
+  }
+}
+
+// Función para crear un pedido desde WhatsApp
+async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string): Promise<void> {
+  try {
+    console.log('📝 Creando pedido desde WhatsApp:', data);
+
+    // Convertir fecha de DD/MM/AAAA a AAAA-MM-DD
+    const [day, month, year] = data.fecha_evento.split('/');
+    const fechaISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    // Generar número de pedido
+    const pedidos = await kv.getByPrefix('pedido:');
+    const numeros = pedidos.map((p: any) => {
+      const match = p.numero?.match(/PED(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    });
+    const maxNum = Math.max(0, ...numeros);
+    const numeroPedido = `PED${String(maxNum + 1).padStart(3, '0')}`;
+
+    // Crear el pedido
+    const pedidoId = `pedido:${Date.now()}`;
+    const pedido = {
+      id: pedidoId,
+      numero: numeroPedido,
+      cliente: data.cliente,
+      lugar: data.lugar_evento,
+      ubicacion: data.ubicacion_maps || '',
+      diaEvento: fechaISO,
+      cantidadCamareros: parseInt(data.cantidad_camareros) || 1,
+      horaEntrada: data.hora_evento,
+      horaSalida: '', // No se pregunta en el flujo
+      totalHoras: '',
+      cantidadCamareros2: 0,
+      horaEntrada2: '',
+      horaSalida2: '',
+      totalHoras2: '',
+      catering: 'no',
+      camisa: data.color_camisa || 'negra',
+      notas: `Pedido creado vía WhatsApp\n📱 Teléfono: ${data.telefono_contacto}\n📧 Email: ${data.mail_contacto}\n\nOrigen: ${phone}`,
+      coordinadorId: '',
+      coordinadorNombre: '',
+      asignaciones: []
+    };
+
+    await kv.set(pedidoId, pedido);
+    console.log('✅ Pedido creado exitosamente:', numeroPedido);
+
+    // Crear cliente si no existe
+    const clientes = await kv.getByPrefix('cliente:');
+    const clienteExiste = clientes.some((c: any) => c.nombre === data.cliente);
+
+    if (!clienteExiste) {
+      const clienteId = `cliente:${Date.now()}`;
+      const cliente = {
+        id: clienteId,
+        nombre: data.cliente,
+        telefono: data.telefono_contacto,
+        email: data.mail_contacto,
+        direccion: data.lugar_evento
+      };
+      await kv.set(clienteId, cliente);
+      console.log('✅ Cliente creado:', data.cliente);
+    }
+
+  } catch (error) {
+    console.error('❌ Error creando pedido desde WhatsApp:', error);
+  }
+}
+
+// ============== UTILIDADES - LIMPIEZA DE DATOS ==============
+app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
+  try {
+    const { categorias } = await c.req.json();
+    console.log('🧹 Iniciando limpieza de datos:', categorias);
+
+    const resultados: any = {
+      success: true,
+      eliminados: {}
+    };
+
+    // Limpiar pedidos
+    if (categorias.includes('pedidos')) {
+      const pedidos = await kv.getByPrefix('pedido:');
+      for (const pedido of pedidos) {
+        await kv.del(pedido.id);
+      }
+      resultados.eliminados.pedidos = pedidos.length;
+      console.log(`   ✅ Eliminados ${pedidos.length} pedidos`);
+    }
+
+    // Limpiar chats grupales
+    if (categorias.includes('chats')) {
+      const chats = await kv.getByPrefix('chat:');
+      for (const chat of chats) {
+        await kv.del(chat.id);
+      }
+      resultados.eliminados.chats = chats.length;
+      console.log(`   ✅ Eliminados ${chats.length} chats grupales`);
+    }
+
+    // Limpiar mensajes de chats
+    if (categorias.includes('mensajes')) {
+      const mensajes = await kv.getByPrefix('chat-mensaje:');
+      for (const mensaje of mensajes) {
+        await kv.del(mensaje.id);
+      }
+      resultados.eliminados.mensajes = mensajes.length;
+      console.log(`   ✅ Eliminados ${mensajes.length} mensajes de chats`);
+    }
+
+    // Limpiar conversaciones de chatbot
+    if (categorias.includes('conversaciones')) {
+      const conversaciones = await kv.getByPrefix('conversation:');
+      for (const conv of conversaciones) {
+        await kv.del(conv.id);
+      }
+      resultados.eliminados.conversaciones = conversaciones.length;
+      console.log(`   ✅ Eliminadas ${conversaciones.length} conversaciones de chatbot`);
+    }
+
+    console.log('✅ Limpieza completada:', resultados.eliminados);
+    return c.json(resultados);
+
+  } catch (error) {
+    console.error('❌ Error en limpieza de datos:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== ENVÍOS - MENSAJES GRUPALES ==============
+// Enviar mensaje de confirmación a todos los camareros asignados a un evento
+app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
+  try {
+    const { pedidoId, mensaje } = await c.req.json();
+    console.log('📤 Enviando mensaje grupal para pedido:', pedidoId);
+    
+    const pedido = await kv.get(pedidoId);
+    if (!pedido) {
+      return c.json({ success: false, error: 'Pedido no encontrado' });
+    }
+    
+    const asignaciones = pedido.asignaciones || [];
+    if (asignaciones.length === 0) {
+      return c.json({ success: false, error: 'No hay camareros asignados' });
+    }
+    
+    const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+    
+    if (!whatsappApiKey || !whatsappPhoneId) {
+      return c.json({ success: false, error: 'WhatsApp no configurado' });
+    }
+    
+    const resultados = [];
+    let exitosos = 0;
+    let fallidos = 0;
+    
+    for (const asignacion of asignaciones) {
+      try {
+        const camarero = await kv.get(asignacion.camareroId);
+        
+        if (!camarero || !camarero.telefono) {
+          console.log(`⚠️ Camarero ${asignacion.camareroNombre} sin teléfono`);
+          fallidos++;
+          continue;
+        }
+        
+        // Limpiar número de teléfono
+        let numeroLimpio = camarero.telefono.replace(/\D/g, '');
+        if (numeroLimpio.length === 9) {
+          numeroLimpio = '34' + numeroLimpio;
+        }
+        
+        // Enviar mensaje por WhatsApp
+        const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${whatsappApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: numeroLimpio,
+            type: 'text',
+            text: {
+              body: mensaje
+            }
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          console.log(`✅ Mensaje enviado a ${camarero.nombre} ${camarero.apellido}`);
+          exitosos++;
+          resultados.push({ 
+            camarero: `${camarero.nombre} ${camarero.apellido}`,
+            telefono: numeroLimpio,
+            exito: true 
+          });
+        } else {
+          console.log(`❌ Error enviando a ${camarero.nombre}: ${JSON.stringify(result)}`);
+          fallidos++;
+          resultados.push({ 
+            camarero: `${camarero.nombre} ${camarero.apellido}`,
+            telefono: numeroLimpio,
+            exito: false,
+            error: result.error?.message || 'Error desconocido'
+          });
+        }
+      } catch (error) {
+        console.log(`❌ Error procesando camarero ${asignacion.camareroNombre}:`, error);
+        fallidos++;
+        resultados.push({ 
+          camarero: asignacion.camareroNombre,
+          exito: false,
+          error: String(error)
+        });
+      }
+    }
+    
+    console.log(`📊 Resumen: ${exitosos} exitosos, ${fallidos} fallidos`);
+    
+    return c.json({ 
+      success: exitosos > 0,
+      exitosos,
+      fallidos,
+      total: asignaciones.length,
+      resultados
+    });
+  } catch (error) {
+    console.log('❌ Error al enviar mensaje grupal:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== ENVÍOS - PARTES DE SERVICIO ==============
+// Enviar parte de servicio por WhatsApp y/o Email
+app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
+  try {
+    const { eventoId, clienteEmail, clienteTelefono, mensaje } = await c.req.json();
+    console.log('📋 Enviando parte de servicio para evento:', eventoId);
+    
+    const resultados = {
+      whatsapp: { enviado: false, error: null },
+      email: { enviado: false, error: null }
+    };
+    
+    // Enviar por WhatsApp si hay teléfono
+    if (clienteTelefono) {
+      try {
+        const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
+        const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+        
+        if (whatsappApiKey && whatsappPhoneId) {
+          // Limpiar número de teléfono
+          let numeroLimpio = clienteTelefono.replace(/\D/g, '');
+          if (numeroLimpio.length === 9) {
+            numeroLimpio = '34' + numeroLimpio;
+          }
+          
+          const response = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${whatsappApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: numeroLimpio,
+              type: 'text',
+              text: {
+                body: mensaje
+              }
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok) {
+            console.log('✅ Parte enviado por WhatsApp');
+            resultados.whatsapp.enviado = true;
+          } else {
+            console.log('❌ Error enviando por WhatsApp:', result);
+            resultados.whatsapp.error = result.error?.message || 'Error desconocido';
+          }
+        } else {
+          resultados.whatsapp.error = 'WhatsApp no configurado';
+        }
+      } catch (error) {
+        console.log('❌ Error en envío por WhatsApp:', error);
+        resultados.whatsapp.error = String(error);
+      }
+    }
+    
+    // Enviar por Email si hay email
+    if (clienteEmail) {
+      try {
+        const emailResult = await enviarEmailGenerico({
+          to: clienteEmail,
+          subject: 'Parte de Servicio',
+          text: mensaje,
+          html: `<pre style="font-family: monospace; white-space: pre-wrap; background: #f5f5f5; padding: 20px; border-radius: 8px;">${mensaje}</pre>`
+        });
+        
+        if (emailResult.success) {
+          console.log('✅ Parte enviado por Email');
+          resultados.email.enviado = true;
+        } else {
+          console.log('❌ Error enviando por Email:', emailResult.error);
+          resultados.email.error = emailResult.error;
+        }
+      } catch (error) {
+        console.log('❌ Error en envío por Email:', error);
+        resultados.email.error = String(error);
+      }
+    }
+    
+    const success = resultados.whatsapp.enviado || resultados.email.enviado;
+    
+    return c.json({ 
+      success,
+      resultados,
+      mensaje: success 
+        ? 'Parte enviado correctamente' 
+        : 'No se pudo enviar el parte por ningún canal'
+    });
+  } catch (error) {
+    console.log('❌ Error al enviar parte:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// ============== CÓDIGOS QR PARA CONTROL DE ENTRADA/SALIDA ==============
+
+// Generar o obtener token QR para un pedido
+app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Si ya tiene token, devolverlo
+    if (pedidoData.qrToken) {
+      return c.json({ 
+        success: true, 
+        token: pedidoData.qrToken,
+        url: `${c.req.url.split('/pedidos/')[0]}/qr-scan/${pedidoData.qrToken}`
+      });
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al generar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Regenerar token QR para un pedido
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+  try {
+    const pedidoId = c.req.param('id');
+    const pedidoData = await kv.get(`pedido:${pedidoId}`);
+    
+    if (!pedidoData) {
+      return c.json({ success: false, error: 'Pedido no encontrado' }, 404);
+    }
+    
+    // Generar nuevo token único
+    const token = `${pedidoId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Guardar nuevo token en el pedido
+    pedidoData.qrToken = token;
+    pedidoData.qrGeneratedAt = new Date().toISOString();
+    pedidoData.qrRegeneratedAt = new Date().toISOString();
+    await kv.set(`pedido:${pedidoId}`, pedidoData);
+    
+    const baseUrl = c.req.url.split('/pedidos/')[0];
+    
+    return c.json({ 
+      success: true, 
+      token,
+      url: `${baseUrl}/qr-scan/${token}`
+    });
+  } catch (error) {
+    console.log('Error al regenerar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Validar token QR y obtener información del pedido
+app.get('/make-server-25b11ac0/qr-scan/:token', async (c) => {
+  try {
+    const token = c.req.param('token');
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido o expirado' }, 404);
+    }
+    
+    return c.json({ 
+      success: true, 
+      pedido: {
+        id: pedido.id,
+        numero: pedido.numero,
+        cliente: pedido.cliente,
+        tipoEvento: pedido.tipoEvento,
+        diaEvento: pedido.diaEvento,
+        horaEntrada: pedido.horaEntrada,
+        horaSalida: pedido.horaSalida,
+        lugar: pedido.lugar,
+        asignaciones: pedido.asignaciones || []
+      }
+    });
+  } catch (error) {
+    console.log('Error al validar token QR:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+// Registrar entrada/salida mediante QR
+app.post('/make-server-25b11ac0/qr-scan/:token/registro', async (c) => {
+  try {
+    const token = c.req.param('token');
+    const { camareroId, tipo } = await c.req.json(); // tipo: 'entrada' | 'salida'
+    
+    // Buscar el pedido con este token
+    const pedidos = await kv.getByPrefix('pedido:');
+    const pedido = pedidos.find(p => p.qrToken === token);
+    
+    if (!pedido) {
+      return c.json({ success: false, error: 'Código QR no válido' }, 404);
+    }
+    
+    // Registrar entrada/salida
+    const asignaciones = pedido.asignaciones || [];
+    const asignacionIndex = asignaciones.findIndex(a => a.camareroId === camareroId);
+    
+    if (asignacionIndex === -1) {
+      return c.json({ success: false, error: 'Camarero no asignado a este evento' }, 404);
+    }
+    
+    const timestamp = new Date().toISOString();
+    
+    if (tipo === 'entrada') {
+      asignaciones[asignacionIndex].registroEntrada = timestamp;
+      asignaciones[asignacionIndex].entradaRegistrada = true;
+    } else if (tipo === 'salida') {
+      asignaciones[asignacionIndex].registroSalida = timestamp;
+      asignaciones[asignacionIndex].salidaRegistrada = true;
+    }
+    
+    pedido.asignaciones = asignaciones;
+    await kv.set(`pedido:${pedido.id.replace('pedido:', '')}`, pedido);
+    
+    return c.json({ 
+      success: true, 
+      mensaje: `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`,
+      timestamp
+    });
+  } catch (error) {
+    console.log('Error al registrar entrada/salida:', error);
+    return c.json({ success: false, error: String(error) }, 500);
   }
 });
 

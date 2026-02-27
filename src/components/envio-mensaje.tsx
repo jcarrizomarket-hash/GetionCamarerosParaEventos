@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
-import { projectId } from '../utils/supabase/info';
+import { supabaseFunctionEndpoint } from '../config/env';
 
 // v2.0.0 - Interfaz tipo WhatsApp Web completa
 interface EnvioMensajeProps {
@@ -95,7 +95,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
       logger.error('Error al guardar token:', error);
     }
     
-    const baseUrlConfirmacion = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
+    const baseUrlConfirmacion = supabaseFunctionEndpoint;
     const confirmarUrl = `${baseUrlConfirmacion}/confirmar/${token}`;
     const noConfirmarUrl = `${baseUrlConfirmacion}/no-confirmar/${token}`;
     

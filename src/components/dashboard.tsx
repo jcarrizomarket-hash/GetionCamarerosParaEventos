@@ -442,11 +442,11 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
           Accesos Rápidos
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {quickAccessCards.map((card, index) => {
+          {quickAccessCards.map((card) => {
             const Icon = card.icon;
             return (
               <button
-                key={index}
+                key={card.title}
                 onClick={card.action}
                 className={`${getColorClasses(card.color)} rounded-lg p-4 border-2 transition-all hover:shadow-md hover:scale-105 active:scale-95 text-left relative group`}
               >

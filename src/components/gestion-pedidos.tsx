@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Users, X, AlertCircle, Clock, Download, UserCheck, Check, ArrowLeft, Search, QrCode } from 'lucide-react';
+import { QRControl } from './qr-control';
 
 // v1.0.3 - Verificación completa de React keys
 interface GestionPedidosProps {
@@ -18,6 +19,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [showCalendar, setShowCalendar] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
+  const [showQRControl, setShowQRControl] = useState(false);
   
   // Estado para filtros de resumen
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual'); // diario, semanal, mensual
@@ -1004,6 +1006,13 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         
         <div className="flex items-center gap-3">
           <button 
+             onClick={() => setShowQRControl(true)}
+             className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-sm font-medium border border-purple-200 transition-colors"
+          >
+              <QrCode className="w-4 h-4" />
+              Código QR
+          </button>
+          <button 
              onClick={() => exportarDatos('pedido')}
              className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-sm font-medium border border-green-200 transition-colors"
           >
@@ -1231,6 +1240,16 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Modal de Control QR */}
+      {showQRControl && selectedPedido && (
+        <QRControl
+          pedido={selectedPedido}
+          baseUrl={baseUrl}
+          publicAnonKey={publicAnonKey}
+          onClose={() => setShowQRControl(false)}
+        />
       )}
 
     </div>

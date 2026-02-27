@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare } from 'lucide-react';
+import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send, Shield } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
-import { Coordinadores } from './components/coordinadores';
+import { Admin } from './components/admin';
 import { Informes } from './components/informes';
-import { EnvioMensaje } from './components/envio-mensaje';
-import { EnvioParte } from './components/envio-parte';
-import { ChatGrupal } from './components/chat-grupal';
+import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
+import { ErrorBoundary } from './components/error-boundary';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { logger } from './utils/logger';
 
-// Aplicación de Gestión de Camareros para Eventos v2.1
-// Última actualización: Funcionalidad de edición y eliminación de coordinadores
+// Aplicación de Gestión de Camareros para Eventos v2.2
+// Última actualización: Panel de Admin con gestión de Altas
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [camareros, setCamareros] = useState([]);
@@ -63,11 +62,9 @@ export default function App() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart },
     { id: 'camareros', label: 'Personal', icon: Users },
-    { id: 'coordinadores', label: 'Coordinadores', icon: UserPlus },
+    { id: 'admin', label: 'Admin', icon: Shield },
     { id: 'informes', label: 'Informes', icon: FileText },
-    { id: 'envio-mensaje', label: 'Envío Mensaje', icon: MessageSquare },
-    { id: 'envio-parte', label: 'Envío Parte', icon: FileCheck },
-    { id: 'chat-grupal', label: 'Chat Grupal', icon: MessagesSquare },
+    { id: 'envios', label: 'Envíos', icon: Send },
     { id: 'configuracion', label: 'Configuración', icon: Settings }
   ];
 
@@ -105,105 +102,86 @@ export default function App() {
 
       {/* Content */}
       <div className="p-6">
-        {activeTab === 'dashboard' && (
-          <Dashboard
-            camareros={camareros}
-            pedidos={pedidos}
-            setActiveTab={setActiveTab}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-          />
-        )}
-        
-        {activeTab === 'pedidos' && (
-          <Pedidos
-            pedidos={pedidos}
-            setPedidos={setPedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
-          />
-        )}
-        
-        {activeTab === 'camareros' && (
-          <Camareros
-            camareros={camareros}
-            setCamareros={setCamareros}
-            pedidos={pedidos}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
-          />
-        )}
+        <ErrorBoundary>
+          {activeTab === 'dashboard' && (
+            <Dashboard
+              camareros={camareros}
+              pedidos={pedidos}
+              setActiveTab={setActiveTab}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+            />
+          )}
+          
+          {activeTab === 'pedidos' && (
+            <Pedidos
+              pedidos={pedidos}
+              setPedidos={setPedidos}
+              camareros={camareros}
+              coordinadores={coordinadores}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+              cargarDatos={cargarDatos}
+            />
+          )}
+          
+          {activeTab === 'camareros' && (
+            <Camareros
+              camareros={camareros}
+              setCamareros={setCamareros}
+              pedidos={pedidos}
+              coordinadores={coordinadores}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+              cargarDatos={cargarDatos}
+            />
+          )}
 
-        {activeTab === 'coordinadores' && (
-          <Coordinadores
-            coordinadores={coordinadores}
-            setCoordinadores={setCoordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
-          />
-        )}
+          {activeTab === 'admin' && (
+            <Admin
+              coordinadores={coordinadores}
+              setCoordinadores={setCoordinadores}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+              cargarDatos={cargarDatos}
+              camareros={camareros}
+              pedidos={pedidos}
+            />
+          )}
 
-        {activeTab === 'informes' && (
-          <Informes
-            camareros={camareros}
-            pedidos={pedidos}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-          />
-        )}
+          {activeTab === 'informes' && (
+            <Informes
+              camareros={camareros}
+              pedidos={pedidos}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+            />
+          )}
 
-        {activeTab === 'envio-mensaje' && (
-          <EnvioMensaje
-            pedidos={pedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            setPedidos={setPedidos}
-            cargarDatos={cargarDatos}
-          />
-        )}
+          {activeTab === 'envios' && (
+            <Envios
+              pedidos={pedidos}
+              camareros={camareros}
+              coordinadores={coordinadores}
+              clientes={clientes}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+            />
+          )}
 
-        {activeTab === 'envio-parte' && (
-          <EnvioParte
-            pedidos={pedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            clientes={clientes}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-          />
-        )}
+          {activeTab === 'configuracion' && (
+            <Configuracion
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
+              camareros={camareros}
+              coordinadores={coordinadores}
+              pedidos={pedidos}
+              clientes={clientes}
+            />
+          )}
 
-        {activeTab === 'chat-grupal' && (
-          <ChatGrupal
-            pedidos={pedidos}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
-          />
-        )}
-
-        {activeTab === 'configuracion' && (
-          <Configuracion
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            camareros={camareros}
-            coordinadores={coordinadores}
-            pedidos={pedidos}
-            clientes={clientes}
-          />
-        )}
-
-        {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
+          {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
+        </ErrorBoundary>
       </div>
     </div>
   );

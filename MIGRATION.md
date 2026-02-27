@@ -260,9 +260,9 @@ npm run test:e2e
 
 | Node.js version | v1.x | v2.0 |
 |---|---|---|
-| Node.js 16 | ✅ | ⚠️ Not tested |
-| Node.js 18 | ✅ | ✅ Recommended |
-| Node.js 20 | ✅ | ✅ Supported |
+| Node.js 16 | ✅ | ❌ Not supported |
+| Node.js 18 | ✅ | ✅ Minimum required |
+| Node.js 20 | ✅ | ✅ Recommended |
 
 ---
 

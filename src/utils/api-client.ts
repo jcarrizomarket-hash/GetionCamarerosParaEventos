@@ -1,52 +1,59 @@
-import axios, { AxiosRequestConfig } from 'axios';
-import { createLogger, transports } from 'winston';
-
-// Logger setup
-const logger = createLogger({
-  level: 'info',
-  format: require('winston').format.combine(
-    require('winston').format.timestamp(),
-    require('winston').format.json()
-  ),
-  transports: [new transports.Console()]
-});
+import { logger } from './logger';
 
 // API Client Configurations
 const API_TIMEOUT = 5000; // 5 seconds timeout
 const MAX_RETRIES = 3;
 
+interface RequestConfig {
+  method?: string;
+  headers?: HeadersInit;
+  body?: string;
+}
+
 class APIClient {
-  constructor(baseURL) {
-    this.client = axios.create({
-      baseURL,
-      timeout: API_TIMEOUT,
-    });
+  private baseURL: string;
+
+  constructor(baseURL: string) {
+    this.baseURL = baseURL;
   }
 
-  async request(config) {
+  async request(url: string, config: RequestConfig = {}): Promise<unknown> {
     let retries = 0;
     while (retries < MAX_RETRIES) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
       try {
-        const response = await this.client.request(config);
-        return response.data;
+        const response = await fetch(this.baseURL + url, {
+          ...config,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        return await response.json();
       } catch (error) {
-        logger.error(`API call failed: ${error.message}`);
-        if (retries >= MAX_RETRIES - 1) throw error; // Rethrow the error if the last retry failed
+        clearTimeout(timeoutId);
+        logger.error(`API call failed: ${error instanceof Error ? error.message : String(error)}`);
+        if (retries >= MAX_RETRIES - 1) throw error;
         retries++;
         logger.info(`Retrying... (${retries})`);
       }
     }
   }
 
-  async get(url, config = {}) {
-    return this.request({ method: 'GET', url, ...config });
+  async get(url: string, config: RequestConfig = {}): Promise<unknown> {
+    return this.request(url, { method: 'GET', ...config });
   }
 
-  async post(url, data, config = {}) {
-    return this.request({ method: 'POST', url, data, ...config });
+  async post(url: string, data: unknown, config: RequestConfig = {}): Promise<unknown> {
+    return this.request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...config.headers },
+      body: JSON.stringify(data),
+      ...config,
+    });
   }
-  
-  // Add more HTTP methods as needed
 }
 
 export default APIClient;

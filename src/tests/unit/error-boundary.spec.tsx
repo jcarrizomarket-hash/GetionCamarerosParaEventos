@@ -97,6 +97,9 @@ describe('Error Logger', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it('debe guardar errores en localStorage', async () => {
     const { logErrorToService } = await import('../../utils/error-logger');
 

@@ -25,7 +25,8 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 const isDevelopment = (() => {
   try {
     return (Deno.env.get('ENVIRONMENT') ?? 'production') !== 'production';
-  } catch {
+  } catch (err) {
+    console.error('Failed to read ENVIRONMENT variable', err);
     return false;
   }
 })();

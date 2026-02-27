@@ -29,7 +29,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-export interface ScheduledTask {
+const RETRY_DELAY_BASE_MS = 60_000;
   id: string;
   type: string;
   payload: Record<string, unknown>;
@@ -114,7 +114,7 @@ export async function processPendingTasks(
     } catch (err) {
       const nextStatus = task.attempts + 1 >= task.max_attempts ? 'failed' : 'pending';
       const retryAfter = nextStatus === 'pending'
-        ? new Date(Date.now() + 60000 * (task.attempts + 1)).toISOString()
+        ? new Date(Date.now() + RETRY_DELAY_BASE_MS * (task.attempts + 1)).toISOString()
         : undefined;
 
       await supabase

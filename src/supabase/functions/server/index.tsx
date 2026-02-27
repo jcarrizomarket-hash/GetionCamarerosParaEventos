@@ -12,11 +12,14 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
 ];
 
+const RATE_LIMIT_MAX_REQUESTS = 100;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
 const app = new Hono();
 
 // CORS – restricted to approved origins
 app.use('*', cors({
-  origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]),
+  origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : null),
   allowHeaders: ['Content-Type', 'Authorization', 'x-fn-secret'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
@@ -37,16 +40,16 @@ app.use('*', async (c, next) => {
 });
 
 // Rate limiting (100 req/min per IP)
-const _requestCounts = new Map<string, { count: number; resetAt: number }>();
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
 app.use('*', async (c, next) => {
   const identifier = c.req.header('x-forwarded-for') ?? 'unknown';
   const now = Date.now();
-  const record = _requestCounts.get(identifier);
+  const record = requestCounts.get(identifier);
   if (!record || now > record.resetAt) {
-    _requestCounts.set(identifier, { count: 1, resetAt: now + 60000 });
+    requestCounts.set(identifier, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return next();
   }
-  if (record.count >= 100) {
+  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
     return c.json({ success: false, error: 'Demasiadas peticiones. Intenta más tarde.' }, 429);
   }
   record.count++;

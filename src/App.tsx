@@ -13,6 +13,8 @@ import { logger } from './utils/logger';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2
 // Última actualización: Panel de Admin con gestión de Altas
+const POLLING_INTERVAL_MS = 5000;
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [camareros, setCamareros] = useState([]);
@@ -27,7 +29,7 @@ export default function App() {
 
   useEffect(() => {
     cargarDatos();
-    const interval = setInterval(cargarDatos, 5000);
+    const interval = setInterval(cargarDatos, POLLING_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 

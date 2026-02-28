@@ -3,17 +3,17 @@
  * Unifica todas las llamadas al backend con manejo de errores consistente
  */
 
-import { logger } from '../../utils/logger';
-import type { 
-  ApiResponse, 
-  Pedido, 
-  Camarero, 
-  Coordinador, 
+import { logger } from '../utils/logger';
+import type {
+  ApiResponse,
+  Pedido,
+  Camarero,
+  Coordinador,
   Cliente,
   WhatsAppConfig,
-  EmailConfig 
+  EmailConfig,
 } from '../types';
-import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../../config/env';
+import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../config/env';
 import { fetchWithRetry } from '../utils/retry';
 
 const REQUEST_TIMEOUT_MS = 5000;
@@ -59,7 +59,7 @@ const getHeaders = (includeSecret: boolean = false): HeadersInit => {
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
   try {
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -120,7 +120,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -136,7 +136,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -152,7 +152,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -199,7 +199,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -215,7 +215,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -231,7 +231,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -278,7 +278,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -294,7 +294,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -308,9 +308,9 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -342,7 +342,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(true),
       body: JSON.stringify(cliente),
     });
     return handleResponse<Cliente>(response);
@@ -371,14 +371,14 @@ export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppCon
   }
 }
 
-export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<any>> {
+export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<unknown>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/enviar-whatsapp`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ telefono, mensaje }),
     });
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   } catch (error) {
     return {
       success: false,
@@ -415,14 +415,14 @@ export async function enviarEmailParte(params: {
     fecha: string;
     lugar: string;
   };
-}): Promise<ApiResponse<any>> {
+}): Promise<ApiResponse<unknown>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/enviar-email-parte`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(params),
     });
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
   } catch (error) {
     return {
       success: false,

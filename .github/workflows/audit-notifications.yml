@@ -1,0 +1,88 @@
+name: Audit Notifications — Reporte cada 4 horas
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  audit-report:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run audit status script
+        id: report
+        run: |
+          chmod +x scripts/audit-status.sh
+          REPORT=$(bash scripts/audit-status.sh)
+          echo "report<<REPORT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$REPORT" >> "$GITHUB_OUTPUT"
+          echo "REPORT_EOF" >> "$GITHUB_OUTPUT"
+
+          # Extract progress percentage for the issue title
+          PERCENT=$(echo "$REPORT" | grep -oP 'Progreso General: \K[0-9]+')
+          echo "percent=$PERCENT" >> "$GITHUB_OUTPUT"
+
+      - name: Create labels if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "audit-report" --color "0075ca" --description "Reporte automático de auditoría" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+          gh label create "automated" --color "e4e669" --description "Creado automáticamente" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+
+      - name: Close previous audit report issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUES=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "audit-report" \
+            --state open \
+            --json number \
+            --jq '.[].number')
+          for ISSUE_NUMBER in $ISSUES; do
+            gh issue close "$ISSUE_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --comment "Cerrado automáticamente al publicar un nuevo reporte de auditoría." \
+              2>/dev/null || true
+          done
+
+      - name: Create audit report issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u '+%Y-%m-%d %H:%M UTC')
+          PERCENT="${{ steps.report.outputs.percent }}"
+
+          if [ "$PERCENT" = "100" ]; then
+            TITLE="✅ Auditoría Completada [${DATE}]"
+          else
+            TITLE="🔔 Reporte de Auditoría [${DATE}] — Progreso: ${PERCENT}%"
+          fi
+
+          ISSUE_NUMBER=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "$TITLE" \
+            --body "${{ steps.report.outputs.report }}" \
+            --label "audit-report,automated" \
+            --assignee "jcarrizomarket-hash" \
+            --json number \
+            --jq '.number')
+
+          # If 100% complete, close the issue immediately
+          if [ "$PERCENT" = "100" ]; then
+            gh issue comment "$ISSUE_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body "🎉 ¡Todas las correcciones completadas! Cerrando esta issue." \
+              2>/dev/null || true
+            gh issue close "$ISSUE_NUMBER" \
+              --repo "${{ github.repository }}" \
+              2>/dev/null || true
+          fi

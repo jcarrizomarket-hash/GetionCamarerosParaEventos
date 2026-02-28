@@ -2,13 +2,13 @@ import { exportToCSV } from '../utils/file-export';
 import { logger } from '../utils/logger';
 
 interface AdminProps {
-  coordinadores: any[];
-  setCoordinadores: (coordinadores: any[]) => void;
-  baseUrl: string;
-  publicAnonKey: string;
-  cargarDatos: () => void;
-  camareros: any[];
-  pedidos: any[];
+  coordinadores: Record<string, unknown>[];
+  camareros: Record<string, unknown>[];
+  pedidos: Record<string, unknown>[];
+  setCoordinadores?: (coordinadores: Record<string, unknown>[]) => void;
+  baseUrl?: string;
+  publicAnonKey?: string;
+  cargarDatos?: () => void;
 }
 
 export function Admin({ coordinadores, camareros, pedidos }: AdminProps) {

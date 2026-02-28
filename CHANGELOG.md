@@ -16,6 +16,24 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 
 ---
 
+## [2.0.1] – 2026-02-27
+
+### Security
+- Removed vulnerable dependencies: `xlsx`, `jspdf`, `jspdf-autotable` (replaced with a lightweight CSV/PDF export helper)
+- Addressed 8 critical security issues: SQL injection prevention, XSS sanitization, enhanced authentication, data encryption, session management hardening (see [SECURITY_REMEDIATION.md](./SECURITY_REMEDIATION.md))
+
+### Added
+- `ApiProvider` context wrapping the application for centralized API configuration management
+- `setup.sh` – automated script to run dependency audit, type-check, lint, and build in one step
+- `uninstall_vulnerable_packages.sh` – documents the vulnerable package removal process
+- `IMPLEMENTATION_COMPLETE.md` – implementation summary and verification checklist
+- `FINAL_SUMMARY.md` – high-level completion summary
+
+### Changed
+- Excel export in `admin.tsx` replaced with secure CSV export via `src/utils/file-export.ts`
+
+---
+
 ## [2.0.0] – 2026-01-19
 
 > **Note:** This release contains [breaking changes](./MIGRATION.md#from-v1x-to-v20). See the [Migration Guide](./MIGRATION.md) before upgrading.
@@ -107,6 +125,7 @@ See [MIGRATION.md](./MIGRATION.md) for full details. Summary:
 - **Security** – security-related changes
 - **Breaking Changes** – changes requiring action when upgrading
 
-[Unreleased]: https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/releases/tag/v1.0.0

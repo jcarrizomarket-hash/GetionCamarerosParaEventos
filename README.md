@@ -62,7 +62,7 @@ The original design is available at [Figma](https://www.figma.com/design/Nq9oM07
 |---|---|
 | Frontend | React 18, TypeScript, Tailwind CSS v4, Lucide React |
 | Backend | Supabase Edge Functions, Hono, PostgreSQL, KV Store |
-| Integrations | WhatsApp Business API, Resend/SendGrid/Mailgun, jsPDF |
+| Integrations | WhatsApp Business API, Resend/SendGrid/Mailgun, CSV/PDF export |
 | Testing | Vitest (unit), Playwright (E2E), Testing Library |
 | Build | Vite, ESLint |
 
@@ -104,7 +104,7 @@ VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-See [`src/.env.example`](./src/.env.example) for the full list.
+See [`.env.example`](./.env.example) for the full list.
 
 ---
 
@@ -261,6 +261,7 @@ supabase secrets set SUPABASE_FN_SECRET=your-secret
 | [MIGRATION.md](./MIGRATION.md) | How to upgrade between versions |
 | [CHANGELOG.md](./CHANGELOG.md) | Full version history |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
+| [SECURITY_REMEDIATION.md](./SECURITY_REMEDIATION.md) | Security improvements and remediation steps |
 | [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) | System architecture |
 | [src/REFACTOR_GUIDE.md](./src/REFACTOR_GUIDE.md) | Refactoring guide |
 | [src/MIGRATION_EXAMPLE.md](./src/MIGRATION_EXAMPLE.md) | Before/after migration example |
@@ -272,6 +273,18 @@ supabase secrets set SUPABASE_FN_SECRET=your-secret
 ## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, coding standards, and the pull request workflow.
+
+---
+
+## 🔄 Recent Optimizations (February 2026)
+
+The following changes were applied as part of the project's optimization and security-hardening phase:
+
+- **Removed vulnerable dependencies** – `xlsx`, `jspdf`, and `jspdf-autotable` were uninstalled due to known security vulnerabilities. Excel export was replaced with a lightweight, secure CSV export using an internal helper (`src/utils/file-export.ts`).
+- **Security remediation** – 8 critical security issues addressed, including SQL-injection prevention, XSS sanitization, improved authentication flows, and encrypted data handling. See [SECURITY_REMEDIATION.md](./SECURITY_REMEDIATION.md) for details.
+- **API context provider** – Application wrapped with `ApiProvider` to centralize API configuration and improve state management across components.
+- **Automated setup scripts** – [`setup.sh`](./setup.sh) added to automate dependency validation, linting, type-checking, and build steps; [`uninstall_vulnerable_packages.sh`](./uninstall_vulnerable_packages.sh) documents the package removal process.
+- **Implementation documentation** – Added [IMPLEMENTATION_COMPLETE.md](./IMPLEMENTATION_COMPLETE.md) and [FINAL_SUMMARY.md](./FINAL_SUMMARY.md) summarizing completed work and verification status.
 
 ---
 
@@ -303,5 +316,5 @@ This project is licensed under the MIT License.
 
 ---
 
-**Version:** 2.0.0 | **Last updated:** January 2026
+**Version:** 2.0.1 | **Last updated:** February 2026
   

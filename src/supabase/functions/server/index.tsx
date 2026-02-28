@@ -1225,26 +1225,13 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = (await kv.get(`${chatId}:mensajes`)) || [];
-
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.error('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
 async function generarPDFParte(pedido: any, parteHTML: string): Promise<string> {
   try {
     // Usar jsPDF en lugar de PDFKit para evitar warnings de readFileSync
-    const { jsPDF } = await import('npm:jspdf@2.5.1');
+    const { jsPDF } = await import('npm:jspdf@4.2.0');
 
     const doc = new jsPDF({
       orientation: 'portrait',

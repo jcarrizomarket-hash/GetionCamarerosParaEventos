@@ -9,7 +9,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./tests/setup.ts'],
+    root: path.resolve(__dirname),
+    setupFiles: [path.resolve(__dirname, './tests/setup.ts')],
+    exclude: ['**/node_modules/**', '**/e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

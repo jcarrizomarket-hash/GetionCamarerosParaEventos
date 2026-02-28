@@ -22,7 +22,17 @@ global.import = {
 } as any;
 
 // Mock de fetch global para tests
-global.fetch = vi.fn();
+// Provides a default error response for tests that make HTTP calls without specific mocks
+global.fetch = vi
+  .fn()
+  .mockImplementation(() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({ success: false, error: 'Server not available in test environment' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+  );
 
 // Extender matchers si es necesario
 // expect.extend({ ... });

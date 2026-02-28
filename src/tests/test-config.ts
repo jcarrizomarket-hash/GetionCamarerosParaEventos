@@ -1,6 +1,6 @@
 /**
  * Configuración centralizada para testing
- * 
+ *
  * Este archivo contiene todos los datos de prueba necesarios
  * para ejecutar tests completos del sistema
  */
@@ -11,44 +11,45 @@ export const TEST_CONFIG = {
     // Número de teléfono de prueba de WhatsApp
     // Este es un número sandbox proporcionado por Meta para testing
     testPhoneNumber: '+15558327331',
-    
+
     // Número limpio (sin +, usado en la API)
     testPhoneNumberClean: '15558327331',
-    
+
     // Phone Number ID de ejemplo (reemplazar con el real de tu cuenta)
     // IMPORTANTE: Este NO es un número de teléfono, es el ID que te da Meta
     examplePhoneNumberId: '106540852500791',
-    
+
     // Mensaje de prueba estándar
-    testMessage: '🧪 MENSAJE DE PRUEBA\n\nEste es un mensaje de prueba del sistema de gestión de camareros.\n\nFecha: {fecha}\nHora: {hora}\n\n✅ Si recibes este mensaje, la integración está funcionando correctamente.',
-    
+    testMessage:
+      '🧪 MENSAJE DE PRUEBA\n\nEste es un mensaje de prueba del sistema de gestión de camareros.\n\nFecha: {fecha}\nHora: {hora}\n\n✅ Si recibes este mensaje, la integración está funcionando correctamente.',
+
     // Formato esperado del token
     minTokenLength: 100,
-    
+
     // Validación de Phone Number ID
     phoneNumberIdValidation: {
       minLength: 10,
       maxLength: 20,
       shouldNotContain: ['+', ' ', '-', '(', ')'],
-      pattern: /^\d+$/
-    }
+      pattern: /^\d+$/,
+    },
   },
-  
+
   // Configuración de Email para pruebas
   email: {
     // Email de prueba para recibir notificaciones
     testEmail: 'pruebas@sistema-camareros.com',
-    
+
     // Asunto de prueba
     testSubject: '🧪 Prueba de Sistema - Gestión de Camareros',
-    
+
     // Cuerpo de email de prueba
     testBody: '<h1>Prueba de Sistema</h1><p>Este es un email de prueba del sistema.</p>',
-    
+
     // Proveedores soportados
-    supportedProviders: ['Resend', 'SendGrid', 'Mailgun']
+    supportedProviders: ['Resend', 'SendGrid', 'Mailgun'],
   },
-  
+
   // Datos de prueba para Camareros
   camareros: {
     test1: {
@@ -56,35 +57,35 @@ export const TEST_CONFIG = {
       apellido: 'Pérez Test',
       telefono: '+15558327331', // Número de prueba
       email: 'juan.test@ejemplo.com',
-      disponibilidad: ['2026-02-15', '2026-02-16', '2026-02-17']
+      disponibilidad: ['2026-02-15', '2026-02-16', '2026-02-17'],
     },
     test2: {
       nombre: 'María',
       apellido: 'García Test',
       telefono: '+15558327331',
       email: 'maria.test@ejemplo.com',
-      disponibilidad: ['2026-02-16', '2026-02-17']
-    }
+      disponibilidad: ['2026-02-16', '2026-02-17'],
+    },
   },
-  
+
   // Datos de prueba para Clientes
   clientes: {
     test1: {
       nombre: 'Empresa Test S.L.',
       contacto: 'Pedro Martínez',
       telefono: '+15558327331',
-      email: 'contacto@empresatest.com'
-    }
+      email: 'contacto@empresatest.com',
+    },
   },
-  
+
   // Datos de prueba para Coordinadores
   coordinadores: {
     test1: {
       nombre: 'Coordinador Test',
-      telefono: '+15558327331'
-    }
+      telefono: '+15558327331',
+    },
   },
-  
+
   // Datos de prueba para Pedidos/Eventos
   pedidos: {
     test1: {
@@ -99,7 +100,7 @@ export const TEST_CONFIG = {
       totalHoras: '8h',
       catering: 'No',
       camisa: 'negra',
-      notas: 'Este es un pedido de prueba para validar el sistema'
+      notas: 'Este es un pedido de prueba para validar el sistema',
     },
     test2: {
       numero: 'TEST-002',
@@ -117,30 +118,30 @@ export const TEST_CONFIG = {
       totalHoras2: '5h',
       catering: 'Sí',
       camisa: 'blanca',
-      notas: 'Pedido con segundo turno - Evento de prueba'
-    }
+      notas: 'Pedido con segundo turno - Evento de prueba',
+    },
   },
-  
+
   // URLs de la aplicación
   urls: {
     local: 'http://localhost:3000',
     staging: process.env.STAGING_URL || '',
-    production: process.env.PRODUCTION_URL || ''
+    production: process.env.PRODUCTION_URL || '',
   },
-  
+
   // Configuración de API
   api: {
     timeout: 10000, // 10 segundos
     retries: 3,
-    retryDelay: 1000 // 1 segundo
+    retryDelay: 1000, // 1 segundo
   },
-  
+
   // Timeouts para tests
   timeouts: {
     short: 1000,
     medium: 3000,
-    long: 10000
-  }
+    long: 10000,
+  },
 };
 
 /**
@@ -152,33 +153,35 @@ export function validatePhoneNumberId(phoneId: string): {
 } {
   const errors: string[] = [];
   const validation = TEST_CONFIG.whatsapp.phoneNumberIdValidation;
-  
+
   if (!phoneId || phoneId.length === 0) {
     errors.push('Phone Number ID no puede estar vacío');
     return { valid: false, errors };
   }
-  
+
   if (phoneId.length < validation.minLength) {
     errors.push(`Phone Number ID muy corto (mínimo ${validation.minLength} caracteres)`);
   }
-  
+
   if (phoneId.length > validation.maxLength) {
     errors.push(`Phone Number ID muy largo (máximo ${validation.maxLength} caracteres)`);
   }
-  
+
   for (const char of validation.shouldNotContain) {
     if (phoneId.includes(char)) {
-      errors.push(`Phone Number ID no debe contener "${char}". Esto indica que probablemente estás usando un número de teléfono en lugar del Phone Number ID.`);
+      errors.push(
+        `Phone Number ID no debe contener "${char}". Esto indica que probablemente estás usando un número de teléfono en lugar del Phone Number ID.`
+      );
     }
   }
-  
+
   if (!validation.pattern.test(phoneId)) {
     errors.push('Phone Number ID debe contener solo dígitos');
   }
-  
+
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -187,17 +190,22 @@ export function validatePhoneNumberId(phoneId: string): {
  * Elimina caracteres especiales y agrega código de país si es necesario
  */
 export function formatPhoneNumber(phone: string, defaultCountryCode: string = '34'): string {
-  // Eliminar todo excepto dígitos y el + inicial
-  let cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // Eliminar el + si existe
-  cleaned = cleaned.replace('+', '');
-  
-  // Si tiene 9 dígitos (formato español sin código de país), agregar código
-  if (cleaned.length === 9 && !cleaned.startsWith(defaultCountryCode)) {
-    cleaned = defaultCountryCode + cleaned;
+  // Check if original has + (already an international number)
+  const hasPlus = phone.trim().startsWith('+');
+
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+
+  // If already in international format (had + prefix), return as-is
+  if (hasPlus) {
+    return cleaned;
   }
-  
+
+  // If number doesn't already start with the country code, add it
+  if (!cleaned.startsWith(defaultCountryCode)) {
+    return defaultCountryCode + cleaned;
+  }
+
   return cleaned;
 }
 
@@ -221,13 +229,13 @@ export function generateRandomTestData() {
       nombre: `Test${timestamp}`,
       apellido: `Camarero${timestamp}`,
       telefono: TEST_CONFIG.whatsapp.testPhoneNumber,
-      email: `test${timestamp}@prueba.com`
+      email: `test${timestamp}@prueba.com`,
     },
     pedido: {
       numero: `TEST-${timestamp}`,
       cliente: `Cliente Test ${timestamp}`,
       lugar: `Lugar Test ${timestamp}`,
-      diaEvento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    }
+      diaEvento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
   };
 }

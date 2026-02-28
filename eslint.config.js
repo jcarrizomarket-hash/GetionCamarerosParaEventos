@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
   {
@@ -26,14 +27,15 @@ export default [
     },
     plugins: {
       '@typescript-eslint': typescript,
+      'react-hooks': reactHooks,
     },
     rules: {
       ...js.configs.recommended.rules,
+      ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': 'off',
       'no-unused-vars': 'off',
       'no-useless-assignment': 'off',
       'no-undef': 'off',
-      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ];

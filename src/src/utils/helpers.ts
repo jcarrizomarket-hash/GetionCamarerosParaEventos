@@ -16,11 +16,16 @@ export function calcularHoras(horaEntrada: string, horaSalida: string): number {
     const [entradaHoras, entradaMinutos] = horaEntrada.split(':').map(Number);
     const [salidaHoras, salidaMinutos] = horaSalida.split(':').map(Number);
 
-    if (isNaN(entradaHoras) || isNaN(entradaMinutos) || isNaN(salidaHoras) || isNaN(salidaMinutos)) {
+    if (
+      isNaN(entradaHoras) ||
+      isNaN(entradaMinutos) ||
+      isNaN(salidaHoras) ||
+      isNaN(salidaMinutos)
+    ) {
       return 0;
     }
 
-    let totalMinutos = (salidaHoras * 60 + salidaMinutos) - (entradaHoras * 60 + entradaMinutos);
+    let totalMinutos = salidaHoras * 60 + salidaMinutos - (entradaHoras * 60 + entradaMinutos);
 
     // Si la salida es menor que la entrada, asumimos que cruza medianoche
     if (totalMinutos < 0) {
@@ -135,13 +140,17 @@ export function formatearFecha(
 ): string {
   try {
     const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    
+
+    if (isNaN(fechaObj.getTime())) {
+      return '';
+    }
+
     const opcionesPorDefecto: Intl.DateTimeFormatOptions = {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      ...opciones
+      ...opciones,
     };
 
     return fechaObj.toLocaleDateString('es-ES', opcionesPorDefecto);
@@ -165,7 +174,12 @@ export function generarId(): string {
  * @returns Array sin duplicados
  */
 export function deduplicarPorId<T extends { id: string }>(array: T[]): T[] {
-  return Array.from(new Map(array.map(item => [item.id, item])).values());
+  const seen = new Set<string>();
+  return array.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
 }
 
 /**
@@ -184,9 +198,7 @@ export function isPedidoCompleto(pedido: {
     pedido.cantidadCamareros,
     pedido.cantidadCamareros2
   );
-  const totalConfirmados = pedido.asignaciones.filter(
-    a => a.estado === 'confirmado'
-  ).length;
+  const totalConfirmados = pedido.asignaciones.filter((a) => a.estado === 'confirmado').length;
 
   return totalConfirmados >= totalRequeridos;
 }
@@ -208,9 +220,7 @@ export function calcularPorcentajeConfirmacion(pedido: {
 
   if (totalRequeridos === 0) return 0;
 
-  const totalConfirmados = pedido.asignaciones.filter(
-    a => a.estado === 'confirmado'
-  ).length;
+  const totalConfirmados = pedido.asignaciones.filter((a) => a.estado === 'confirmado').length;
 
   return Math.round((totalConfirmados / totalRequeridos) * 100);
 }

@@ -1,11 +1,18 @@
 import React, { createContext, useContext } from 'react';
+import { supabaseFunctionEndpoint, supabaseAnonKey } from '../config/env';
 
-const ApiContext = createContext();
+interface ApiConfig {
+  baseUrl: string;
+  apiKey: string;
+  timeout: number;
+}
 
-export const ApiProvider = ({ children }) => {
-    const config = {
-        baseUrl: 'https://example.com/api', // replace with your API base URL
-        apiKey: 'your_api_key_here', // replace with your API key
+const ApiContext = createContext<ApiConfig | undefined>(undefined);
+
+export const ApiProvider = ({ children }: { children: React.ReactNode }) => {
+    const config: ApiConfig = {
+        baseUrl: supabaseFunctionEndpoint,
+        apiKey: supabaseAnonKey,
         timeout: 5000  // 5 seconds timeout
     };
 

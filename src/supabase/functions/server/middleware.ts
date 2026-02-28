@@ -29,9 +29,13 @@ export async function requireFunctionSecret(c: Context, next: () => Promise<void
   // Obtener el secret del entorno
   const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
   
-  // Si no hay secret configurado, registrar advertencia pero permitir la petición
-  // (útil para desarrollo local)
+  // Si no hay secret configurado, bloquear en producción
   if (!expectedSecret) {
+    const isProduction = Deno.env.get('APP_ENV') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID') !== undefined;
+    if (isProduction) {
+      console.error('🚫 SUPABASE_FN_SECRET no está configurado en producción. Bloqueando petición.');
+      return c.json({ success: false, error: 'Configuración de seguridad incompleta.' }, 503);
+    }
     console.warn('⚠️ SUPABASE_FN_SECRET no está configurado. Se recomienda configurarlo en producción.');
     return next();
   }
@@ -87,6 +91,8 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
   }
 
   // Aquí podrías validar el token con Supabase si es necesario
+  // TODO: La validación JWT real NO está implementada. Actualmente solo verifica la
+  // presencia del header Authorization. En producción, valida el token con Supabase Auth:
   // const token = authHeader.split(' ')[1];
   // const { data, error } = await supabase.auth.getUser(token);
   
@@ -157,19 +163,41 @@ export async function errorLogger(c: Context, next: () => Promise<void>) {
 }
 
 /**
- * Middleware para CORS con opciones configurables
+ * Middleware para CORS con opciones configurables.
+ * Lee los orígenes permitidos de la variable de entorno ALLOWED_ORIGINS
+ * (lista separada por comas). En desarrollo, usa '*' como fallback.
  */
+
+// Log CORS configuration warning once at module load time
+const _corsEnvOrigins = Deno.env.get('ALLOWED_ORIGINS');
+const _corsIsProduction = Deno.env.get('APP_ENV') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID') !== undefined;
+if (_corsIsProduction && !_corsEnvOrigins) {
+  console.error('🚫 ALLOWED_ORIGINS no está configurado en producción. Configure la variable de entorno para restringir los orígenes permitidos.');
+}
+
 export function corsMiddleware(options?: {
   origin?: string | string[];
   methods?: string[];
   allowHeaders?: string[];
 }) {
-  const defaultOrigin = '*';
   const defaultMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
   const defaultAllowHeaders = ['Content-Type', 'Authorization', 'x-fn-secret'];
   
   return async (c: Context, next: () => Promise<void>) => {
-    const origin = options?.origin || defaultOrigin;
+    // Prefer explicit option, then env var, then '*' only in non-production
+    let origin: string | string[];
+    if (options?.origin) {
+      origin = options.origin;
+    } else {
+      const envOrigins = Deno.env.get('ALLOWED_ORIGINS');
+      if (envOrigins) {
+        origin = envOrigins.split(',').map((o) => o.trim());
+      } else {
+        const isProduction = Deno.env.get('APP_ENV') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID') !== undefined;
+        // In production without ALLOWED_ORIGINS, reject all cross-origin requests rather than allow all
+        origin = isProduction ? '' : '*';
+      }
+    }
     const methods = options?.methods || defaultMethods;
     const allowHeaders = options?.allowHeaders || defaultAllowHeaders;
     

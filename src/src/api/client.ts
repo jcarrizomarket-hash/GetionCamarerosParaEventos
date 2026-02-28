@@ -4,14 +4,14 @@
  */
 
 import { logger } from '../../utils/logger';
-import type { 
-  ApiResponse, 
-  Pedido, 
-  Camarero, 
-  Coordinador, 
+import type {
+  ApiResponse,
+  Pedido,
+  Camarero,
+  Coordinador,
   Cliente,
   WhatsAppConfig,
-  EmailConfig 
+  EmailConfig,
 } from '../types';
 import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../../config/env';
 import { fetchWithRetry } from '../utils/retry';
@@ -29,14 +29,9 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
   const { projectId } = getApiConfig();
   if (!projectId) {
     logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
-  if (!supabaseFunctionEndpoint) {
-    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
     return '';
   }
   return supabaseFunctionEndpoint;
@@ -47,7 +42,7 @@ const getHeaders = (includeSecret: boolean = false): HeadersInit => {
   const { publicAnonKey } = getApiConfig();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
+    Authorization: `Bearer ${publicAnonKey}`,
   };
 
   // Agregar secret header si se requiere (para operaciones mutantes)
@@ -65,7 +60,7 @@ const getHeaders = (includeSecret: boolean = false): HeadersInit => {
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
   try {
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -138,7 +133,10 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   }
 }
 
-export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise<ApiResponse<Pedido>> {
+export async function updatePedido(
+  id: string,
+  pedido: Partial<Pedido>
+): Promise<ApiResponse<Pedido>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
@@ -201,7 +199,9 @@ export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
   }
 }
 
-export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<ApiResponse<Camarero>> {
+export async function createCamarero(
+  camarero: Omit<Camarero, 'id'>
+): Promise<ApiResponse<Camarero>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
@@ -217,7 +217,10 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   }
 }
 
-export async function updateCamarero(id: string, camarero: Partial<Camarero>): Promise<ApiResponse<Camarero>> {
+export async function updateCamarero(
+  id: string,
+  camarero: Partial<Camarero>
+): Promise<ApiResponse<Camarero>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
@@ -280,7 +283,9 @@ export async function getCoordinador(id: string): Promise<ApiResponse<Coordinado
   }
 }
 
-export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): Promise<ApiResponse<Coordinador>> {
+export async function createCoordinador(
+  coordinador: Omit<Coordinador, 'id'>
+): Promise<ApiResponse<Coordinador>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
@@ -296,7 +301,10 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   }
 }
 
-export async function updateCoordinador(id: string, coordinador: Partial<Coordinador>): Promise<ApiResponse<Coordinador>> {
+export async function updateCoordinador(
+  id: string,
+  coordinador: Partial<Coordinador>
+): Promise<ApiResponse<Coordinador>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',

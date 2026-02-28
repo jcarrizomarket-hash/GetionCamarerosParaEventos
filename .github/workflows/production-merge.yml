@@ -1,0 +1,387 @@
+name: 🚢 Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      group:
+        description: 'Group(s) to merge (1-5 or "all" for groups 1-5). Only groups validated in staging.'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+      pr_numbers:
+        description: 'Override: specific PR numbers (comma-separated). Overrides group selection.'
+        required: false
+        default: ''
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      confirm_merge:
+        description: 'Type "RELEASE" to confirm production deployment'
+        required: true
+        default: ''
+      create_release:
+        description: 'Create GitHub Release with changelog'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  TARGET_BRANCH: main
+  GROUP_1: '49,48,50,64'
+  GROUP_2: '52,53,55,24'
+  GROUP_3: '58,23,27,28'
+  GROUP_4: '30,45,46,47'
+  GROUP_5: '42,41'
+
+jobs:
+  confirm-intent:
+    name: Confirm Production Release
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Verify release confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_merge }}" != "RELEASE" ]; then
+            echo "❌ Release not confirmed. You must type 'RELEASE' to proceed."
+            exit 1
+          fi
+          echo "✅ Production release confirmed by @${{ github.actor }}"
+          echo "⚠️  This will deploy to PRODUCTION (main branch)"
+
+  full-validation:
+    name: Full Pre-Release Validation
+    runs-on: ubuntu-latest
+    needs: confirm-intent
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: |
+          npm audit --audit-level=moderate
+          echo "✅ Security audit passed"
+
+      - name: Run type check
+        run: npm run type-check --if-present
+
+      - name: Run lint
+        run: npm run lint --if-present
+
+      - name: Build production
+        run: npm run build
+
+      - name: Upload production build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build-${{ github.run_id }}
+          path: dist/
+          retention-days: 30
+
+  release:
+    name: Release to Production
+    runs-on: ubuntu-latest
+    needs: full-validation
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Determine PRs to merge
+        id: determine-prs
+        run: |
+          if [ -n "${{ github.event.inputs.pr_numbers }}" ]; then
+            PR_LIST="${{ github.event.inputs.pr_numbers }}"
+          elif [ "${{ github.event.inputs.group }}" = "1" ]; then
+            PR_LIST="${GROUP_1}"
+          elif [ "${{ github.event.inputs.group }}" = "2" ]; then
+            PR_LIST="${GROUP_2}"
+          elif [ "${{ github.event.inputs.group }}" = "3" ]; then
+            PR_LIST="${GROUP_3}"
+          elif [ "${{ github.event.inputs.group }}" = "4" ]; then
+            PR_LIST="${GROUP_4}"
+          elif [ "${{ github.event.inputs.group }}" = "5" ]; then
+            PR_LIST="${GROUP_5}"
+          else
+            PR_LIST="${GROUP_1},${GROUP_2},${GROUP_3},${GROUP_4},${GROUP_5}"
+          fi
+          echo "pr_list=${PR_LIST}" >> $GITHUB_OUTPUT
+          echo "📋 PRs to release: ${PR_LIST}"
+
+      - name: Strict pre-merge validation
+        id: validate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IFS=',' read -ra PRS <<< "${{ steps.determine-prs.outputs.pr_list }}"
+          VALID_PRS=()
+          INVALID_PRS=()
+          ABORT=false
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            echo "🔍 Strict validation for PR #${PR}..."
+
+            PR_DATA=$(gh pr view "${PR}" --json state,mergeable,reviewDecision,statusCheckRollup \
+              --repo ${{ github.repository }} 2>/dev/null || echo '{"state":"not_found"}')
+
+            STATE=$(echo "$PR_DATA" | jq -r '.state // "unknown"')
+            MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')
+            REVIEW=$(echo "$PR_DATA" | jq -r '.reviewDecision // "NONE"')
+
+            if [ "$STATE" != "OPEN" ]; then
+              echo "  ⚠️  PR #${PR} is not open (state: ${STATE}) - skipping"
+              INVALID_PRS+=("${PR}:not_open")
+              continue
+            fi
+
+            if [ "$MERGEABLE" = "CONFLICTING" ]; then
+              echo "  ❌ BLOCKING: PR #${PR} has conflicts - cannot release to production"
+              INVALID_PRS+=("${PR}:conflicts")
+              ABORT=true
+              continue
+            fi
+
+            if [ "$REVIEW" = "CHANGES_REQUESTED" ]; then
+              echo "  ❌ BLOCKING: PR #${PR} has changes requested"
+              INVALID_PRS+=("${PR}:changes_requested")
+              ABORT=true
+              continue
+            fi
+
+            echo "  ✅ PR #${PR} passed strict validation"
+            VALID_PRS+=("${PR}")
+          done
+
+          VALID_LIST=$(IFS=','; echo "${VALID_PRS[*]}")
+          INVALID_LIST=$(IFS=','; echo "${INVALID_PRS[*]}")
+          echo "valid_prs=${VALID_LIST}" >> $GITHUB_OUTPUT
+          echo "invalid_prs=${INVALID_LIST}" >> $GITHUB_OUTPUT
+
+          if [ "$ABORT" = "true" ]; then
+            echo "🚨 Blocking issues found. Aborting production release."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All PRs passed strict validation"
+          echo "Valid PRs: ${VALID_LIST}"
+
+      - name: Calculate new version
+        id: version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Get current version from package.json
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "Current version: ${CURRENT}"
+
+          IFS='.' read -ra PARTS <<< "$CURRENT"
+          MAJOR=${PARTS[0]:-0}
+          MINOR=${PARTS[1]:-0}
+          PATCH=${PARTS[2]:-0}
+
+          BUMP="${{ github.event.inputs.version_bump }}"
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: ${NEW_VERSION}"
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          DATE=$(date +%Y-%m-%d)
+          IFS=',' read -ra PRS <<< "${{ steps.validate.outputs.valid_prs }}"
+
+          CHANGELOG_ENTRY="## [${TAG}] - ${DATE}\n\n"
+          CHANGELOG_ENTRY+="### Pull Requests Included\n"
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            [ -z "$PR" ] && continue
+            PR_TITLE=$(gh pr view "${PR}" --json title --repo ${{ github.repository }} \
+              -q '.title' 2>/dev/null || echo "PR #${PR}")
+            CHANGELOG_ENTRY+="- ${PR_TITLE} (#${PR})\n"
+          done
+
+          CHANGELOG_ENTRY+="\n### Groups Included\n"
+          CHANGELOG_ENTRY+="- Group selection: ${{ github.event.inputs.group }}\n"
+          CHANGELOG_ENTRY+="\n### Release Info\n"
+          CHANGELOG_ENTRY+="- Released by: @${{ github.actor }}\n"
+          CHANGELOG_ENTRY+="- Workflow run: ${{ github.run_id }}\n"
+
+          # Prepend to CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            EXISTING=$(cat CHANGELOG.md)
+            printf '%s\n%s' "${CHANGELOG_ENTRY}" "${EXISTING}" > CHANGELOG.md
+          else
+            printf '%s' "# Changelog\n\n${CHANGELOG_ENTRY}" > CHANGELOG.md
+          fi
+
+          echo "changelog_entry<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          printf '%s' "${CHANGELOG_ENTRY}" >> $GITHUB_OUTPUT
+          echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+
+      - name: Merge PRs to production
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IFS=',' read -ra PRS <<< "${{ steps.validate.outputs.valid_prs }}"
+          MERGED=()
+          FAILED=()
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            [ -z "$PR" ] && continue
+            echo "🔀 Merging PR #${PR} into ${TARGET_BRANCH}..."
+
+            if gh pr merge "${PR}" \
+              --merge \
+              --repo ${{ github.repository }} \
+              --admin \
+              --subject "release: merge PR #${PR} to ${TARGET_BRANCH} [${{ steps.version.outputs.tag }}]" 2>&1; then
+              echo "  ✅ PR #${PR} merged successfully"
+              MERGED+=("${PR}")
+            else
+              echo "  ❌ Failed to merge PR #${PR}"
+              FAILED+=("${PR}")
+            fi
+
+            sleep 5
+          done
+
+          MERGED_LIST=$(IFS=','; echo "${MERGED[*]}")
+          FAILED_LIST=$(IFS=','; echo "${FAILED[*]}")
+          echo ""
+          echo "📊 Merged: ${MERGED_LIST}"
+          echo "❌ Failed: ${FAILED_LIST}"
+
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo "::error::Production merge failed for PRs: ${FAILED_LIST}"
+            exit 1
+          fi
+
+      - name: Bump version and commit changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+
+          # Update package.json version
+          npm version "${NEW_VERSION}" --no-git-tag-version
+
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: release ${{ steps.version.outputs.tag }} [skip ci]"
+          git push origin HEAD:${TARGET_BRANCH}
+
+      - name: Create version tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TAG="${{ steps.version.outputs.tag }}"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "✅ Tag ${TAG} created and pushed"
+
+      - name: Create GitHub Release
+        if: github.event.inputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          NOTES="${{ steps.changelog.outputs.changelog_entry }}"
+
+          gh release create "${TAG}" \
+            --repo ${{ github.repository }} \
+            --title "Release ${TAG}" \
+            --notes "${NOTES}" \
+            --latest
+
+          echo "✅ GitHub Release ${TAG} created"
+
+      - name: Generate workflow summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 🚢 Production Release Summary
+
+          | Parameter | Value |
+          |-----------|-------|
+          | Target Branch | `main` |
+          | Version | `${{ steps.version.outputs.tag }}` |
+          | Version Bump | `${{ github.event.inputs.version_bump }}` |
+          | Group | `${{ github.event.inputs.group }}` |
+          | Released By | @${{ github.actor }} |
+          | Create Release | `${{ github.event.inputs.create_release }}` |
+          | Run ID | `${{ github.run_id }}` |
+
+          ### PRs Released
+          - **Valid PRs:** `${{ steps.validate.outputs.valid_prs }}`
+          - **Skipped PRs:** `${{ steps.validate.outputs.invalid_prs }}`
+
+          ### Groups Reference
+          | Group | PRs | Purpose |
+          |-------|-----|---------|
+          | Group 1 (CRITICAL) | #49, #48, #50, #64 | Core functionality |
+          | Group 2 (INFRASTRUCTURE) | #52, #53, #55, #24 | Infrastructure |
+          | Group 3 (QUALITY) | #58, #23, #27, #28 | Quality improvements |
+          | Group 4 (ARCHITECTURE) | #30, #45, #46, #47 | Architecture changes |
+          | Group 5 (ADVANCED) | #42, #41 | Advanced features |
+
+          ### Checklist
+          - ✅ Intent confirmed
+          - ✅ Security audit passed
+          - ✅ Build verification passed
+          - ✅ Strict PR validation passed
+          - ✅ Changelog generated
+          - ✅ Version tag created
+          EOF

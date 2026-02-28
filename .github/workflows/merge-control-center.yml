@@ -1,0 +1,351 @@
+name: 🎛️ Merge Control Center
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - demo
+          - staging
+          - production
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - status
+          - validate
+          - merge
+          - rollback
+          - history
+      group:
+        description: 'Group(s) to process (1-5 or "all")'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+      pr_numbers:
+        description: 'Override: specific PR numbers (comma-separated)'
+        required: false
+        default: ''
+      confirm_action:
+        description: 'Type "CONFIRM" for merge/rollback actions (ignored for status/validate)'
+        required: false
+        default: ''
+
+env:
+  GROUP_1: '49,48,50,64'
+  GROUP_2: '52,53,55,24'
+  GROUP_3: '58,23,27,28'
+  GROUP_4: '30,45,46,47'
+  GROUP_5: '42,41'
+
+jobs:
+  control-center:
+    name: 🎛️ Control Center (${{ github.event.inputs.action }} on ${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine target branch and PRs
+        id: setup
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          if [ "$ENV" = "demo" ]; then
+            TARGET_BRANCH=develop
+            MAX_GROUP=3
+          elif [ "$ENV" = "staging" ]; then
+            TARGET_BRANCH=staging
+            MAX_GROUP=4
+          else
+            TARGET_BRANCH=main
+            MAX_GROUP=5
+          fi
+          echo "target_branch=${TARGET_BRANCH}" >> $GITHUB_OUTPUT
+          echo "max_group=${MAX_GROUP}" >> $GITHUB_OUTPUT
+
+          # Determine PR list
+          if [ -n "${{ github.event.inputs.pr_numbers }}" ]; then
+            PR_LIST="${{ github.event.inputs.pr_numbers }}"
+          else
+            GROUP="${{ github.event.inputs.group }}"
+            if [ "$GROUP" = "1" ]; then
+              PR_LIST="${GROUP_1}"
+            elif [ "$GROUP" = "2" ]; then
+              PR_LIST="${GROUP_2}"
+            elif [ "$GROUP" = "3" ]; then
+              PR_LIST="${GROUP_3}"
+            elif [ "$GROUP" = "4" ] && [ "$MAX_GROUP" -ge 4 ]; then
+              PR_LIST="${GROUP_4}"
+            elif [ "$GROUP" = "5" ] && [ "$MAX_GROUP" -ge 5 ]; then
+              PR_LIST="${GROUP_5}"
+            else
+              # Build all groups up to max
+              PR_LIST="${GROUP_1},${GROUP_2},${GROUP_3}"
+              [ "$MAX_GROUP" -ge 4 ] && PR_LIST="${PR_LIST},${GROUP_4}"
+              [ "$MAX_GROUP" -ge 5 ] && PR_LIST="${PR_LIST},${GROUP_5}"
+            fi
+          fi
+          echo "pr_list=${PR_LIST}" >> $GITHUB_OUTPUT
+          echo "Environment: ${ENV}, Branch: ${TARGET_BRANCH}, PRs: ${PR_LIST}"
+
+      # ─────────────────────────────────────────────────────────────
+      # ACTION: STATUS
+      # ─────────────────────────────────────────────────────────────
+      - name: PR Status Report
+        if: github.event.inputs.action == 'status'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📊 PR Status for environment: ${{ github.event.inputs.environment }}"
+          echo "Target branch: ${{ steps.setup.outputs.target_branch }}"
+          echo ""
+
+          IFS=',' read -ra PRS <<< "${{ steps.setup.outputs.pr_list }}"
+
+          echo "| PR | Title | State | Mergeable | Reviews | Checks |"
+          echo "|----|-------|-------|-----------|---------|--------|"
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            [ -z "$PR" ] && continue
+
+            PR_DATA=$(gh pr view "${PR}" \
+              --json number,title,state,mergeable,reviewDecision,statusCheckRollup \
+              --repo ${{ github.repository }} 2>/dev/null || echo '{"state":"not_found"}')
+
+            NUMBER=$(echo "$PR_DATA" | jq -r '.number // "N/A"')
+            TITLE=$(echo "$PR_DATA" | jq -r '.title // "Not found"' | cut -c1-50)
+            STATE=$(echo "$PR_DATA" | jq -r '.state // "unknown"')
+            MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')
+            REVIEW=$(echo "$PR_DATA" | jq -r '.reviewDecision // "NONE"')
+            CHECKS_PASS=$(echo "$PR_DATA" | jq -r '[.statusCheckRollup[]? | select(.conclusion == "SUCCESS")] | length')
+            CHECKS_FAIL=$(echo "$PR_DATA" | jq -r '[.statusCheckRollup[]? | select(.conclusion == "FAILURE")] | length')
+
+            STATE_ICON="⬜"
+            [ "$STATE" = "OPEN" ] && STATE_ICON="🟢"
+            [ "$STATE" = "CLOSED" ] && STATE_ICON="🔴"
+            [ "$STATE" = "MERGED" ] && STATE_ICON="🟣"
+
+            MERGE_ICON="❓"
+            [ "$MERGEABLE" = "MERGEABLE" ] && MERGE_ICON="✅"
+            [ "$MERGEABLE" = "CONFLICTING" ] && MERGE_ICON="❌"
+
+            echo "| #${NUMBER} | ${TITLE} | ${STATE_ICON} ${STATE} | ${MERGE_ICON} ${MERGEABLE} | ${REVIEW} | ✅${CHECKS_PASS} ❌${CHECKS_FAIL} |"
+          done
+
+      # ─────────────────────────────────────────────────────────────
+      # ACTION: VALIDATE
+      # ─────────────────────────────────────────────────────────────
+      - name: Validate PRs
+        if: github.event.inputs.action == 'validate'
+        id: validate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Validating PRs for ${{ github.event.inputs.environment }}..."
+          IFS=',' read -ra PRS <<< "${{ steps.setup.outputs.pr_list }}"
+          VALID=()
+          INVALID=()
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            [ -z "$PR" ] && continue
+
+            PR_DATA=$(gh pr view "${PR}" --json state,mergeable,reviewDecision \
+              --repo ${{ github.repository }} 2>/dev/null || echo '{"state":"not_found"}')
+
+            STATE=$(echo "$PR_DATA" | jq -r '.state // "unknown"')
+            MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')
+            REVIEW=$(echo "$PR_DATA" | jq -r '.reviewDecision // "NONE"')
+
+            ISSUES=()
+            [ "$STATE" != "OPEN" ] && ISSUES+=("not_open:${STATE}")
+            [ "$MERGEABLE" = "CONFLICTING" ] && ISSUES+=("has_conflicts")
+            [ "$REVIEW" = "CHANGES_REQUESTED" ] && ISSUES+=("changes_requested")
+
+            if [ ${#ISSUES[@]} -eq 0 ]; then
+              echo "✅ PR #${PR}: READY (review: ${REVIEW})"
+              VALID+=("${PR}")
+            else
+              ISSUE_STR=$(IFS=','; echo "${ISSUES[*]}")
+              echo "❌ PR #${PR}: BLOCKED (${ISSUE_STR})"
+              INVALID+=("${PR}")
+            fi
+          done
+
+          echo ""
+          echo "📊 Summary: ${#VALID[@]} ready, ${#INVALID[@]} blocked"
+          echo "Ready: $(IFS=','; echo "${VALID[*]}")"
+          echo "Blocked: $(IFS=','; echo "${INVALID[*]}")"
+
+      # ─────────────────────────────────────────────────────────────
+      # ACTION: MERGE
+      # ─────────────────────────────────────────────────────────────
+      - name: Confirm merge action
+        if: github.event.inputs.action == 'merge'
+        run: |
+          if [ "${{ github.event.inputs.confirm_action }}" != "CONFIRM" ]; then
+            echo "❌ Merge requires confirmation. Set 'confirm_action' to 'CONFIRM'."
+            exit 1
+          fi
+          echo "✅ Merge confirmed for ${{ github.event.inputs.environment }}"
+
+      - name: Execute merge
+        if: github.event.inputs.action == 'merge'
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET="${{ steps.setup.outputs.target_branch }}"
+          IFS=',' read -ra PRS <<< "${{ steps.setup.outputs.pr_list }}"
+          MERGED=()
+          FAILED=()
+          SKIPPED=()
+
+          for PR in "${PRS[@]}"; do
+            PR=$(echo $PR | tr -d ' ')
+            [ -z "$PR" ] && continue
+
+            # Quick validation before each merge
+            PR_DATA=$(gh pr view "${PR}" --json state,mergeable \
+              --repo ${{ github.repository }} 2>/dev/null || echo '{"state":"not_found"}')
+            STATE=$(echo "$PR_DATA" | jq -r '.state // "unknown"')
+            MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')
+
+            if [ "$STATE" != "OPEN" ]; then
+              echo "⏭️  PR #${PR} not open (${STATE}) - skipping"
+              SKIPPED+=("${PR}")
+              continue
+            fi
+
+            if [ "$MERGEABLE" = "CONFLICTING" ]; then
+              echo "❌ PR #${PR} has conflicts - skipping"
+              SKIPPED+=("${PR}")
+              continue
+            fi
+
+            echo "🔀 Merging PR #${PR} → ${TARGET}..."
+            if gh pr merge "${PR}" \
+              --merge \
+              --repo ${{ github.repository }} \
+              --admin \
+              --subject "chore: merge PR #${PR} to ${TARGET} [${{ github.event.inputs.environment }}]" 2>&1; then
+              echo "  ✅ Merged PR #${PR}"
+              MERGED+=("${PR}")
+            else
+              echo "  ❌ Failed to merge PR #${PR}"
+              FAILED+=("${PR}")
+            fi
+            sleep 3
+          done
+
+          echo "merged=$(IFS=','; echo "${MERGED[*]}")" >> $GITHUB_OUTPUT
+          echo "failed=$(IFS=','; echo "${FAILED[*]}")" >> $GITHUB_OUTPUT
+          echo "skipped=$(IFS=','; echo "${SKIPPED[*]}")" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "📊 Results: merged=${#MERGED[@]}, failed=${#FAILED[@]}, skipped=${#SKIPPED[@]}"
+
+      # ─────────────────────────────────────────────────────────────
+      # ACTION: ROLLBACK
+      # ─────────────────────────────────────────────────────────────
+      - name: Confirm rollback action
+        if: github.event.inputs.action == 'rollback'
+        run: |
+          if [ "${{ github.event.inputs.confirm_action }}" != "CONFIRM" ]; then
+            echo "❌ Rollback requires confirmation. Set 'confirm_action' to 'CONFIRM'."
+            exit 1
+          fi
+          echo "⚠️  ROLLBACK confirmed for ${{ github.event.inputs.environment }}"
+
+      - name: Execute rollback
+        if: github.event.inputs.action == 'rollback'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TARGET="${{ steps.setup.outputs.target_branch }}"
+          echo "🔄 Initiating rollback on branch: ${TARGET}"
+          echo "Current HEAD: $(git log --oneline -1 HEAD)"
+          echo "Previous commit: $(git log --oneline -2 HEAD | tail -1)"
+
+          git revert HEAD --no-edit || {
+            echo "⚠️  Revert failed. Manual rollback required."
+            echo "To rollback manually run: git revert HEAD && git push origin ${TARGET}"
+            exit 1
+          }
+          git push origin HEAD:${TARGET}
+          echo "✅ Rollback completed. Reverted to previous state."
+
+      # ─────────────────────────────────────────────────────────────
+      # ACTION: HISTORY
+      # ─────────────────────────────────────────────────────────────
+      - name: Show merge history
+        if: github.event.inputs.action == 'history'
+        run: |
+          TARGET="${{ steps.setup.outputs.target_branch }}"
+          echo "📜 Merge history for branch: ${TARGET}"
+          echo ""
+
+          # Show last 20 merge commits
+          git log "${TARGET}" --merges --oneline -20 2>/dev/null || \
+            git log "${TARGET}" --oneline -20 2>/dev/null || \
+            echo "No history available for ${TARGET} (branch may not exist locally)"
+
+      # ─────────────────────────────────────────────────────────────
+      # ALWAYS: Summary
+      # ─────────────────────────────────────────────────────────────
+      - name: Generate workflow summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 🎛️ Merge Control Center
+
+          | Parameter | Value |
+          |-----------|-------|
+          | Environment | `${{ github.event.inputs.environment }}` |
+          | Action | `${{ github.event.inputs.action }}` |
+          | Target Branch | `${{ steps.setup.outputs.target_branch }}` |
+          | Group | `${{ github.event.inputs.group }}` |
+          | PRs | `${{ steps.setup.outputs.pr_list }}` |
+          | Triggered By | @${{ github.actor }} |
+          | Run ID | `${{ github.run_id }}` |
+
+          ${{ github.event.inputs.action == 'merge' && '### Merge Results\n- **Merged:** `' || '' }}${{ steps.merge.outputs.merged }}${{ github.event.inputs.action == 'merge' && '`\n- **Failed:** `' || '' }}${{ steps.merge.outputs.failed }}${{ github.event.inputs.action == 'merge' && '`\n- **Skipped:** `' || '' }}${{ steps.merge.outputs.skipped }}${{ github.event.inputs.action == 'merge' && '`' || '' }}
+
+          ### Groups Reference
+          | Group | PRs | Environment |
+          |-------|-----|-------------|
+          | Group 1 (CRITICAL) | #49, #48, #50, #64 | demo / staging / production |
+          | Group 2 (INFRASTRUCTURE) | #52, #53, #55, #24 | demo / staging / production |
+          | Group 3 (QUALITY) | #58, #23, #27, #28 | demo / staging / production |
+          | Group 4 (ARCHITECTURE) | #30, #45, #46, #47 | staging / production |
+          | Group 5 (ADVANCED) | #42, #41 | production only |
+
+          ### Available Actions
+          | Action | Description |
+          |--------|-------------|
+          | `status` | View PR status and dependencies |
+          | `validate` | Run pre-merge validation checks |
+          | `merge` | Execute merge (requires CONFIRM) |
+          | `rollback` | Revert last merge (requires CONFIRM) |
+          | `history` | Show merge history |
+          EOF

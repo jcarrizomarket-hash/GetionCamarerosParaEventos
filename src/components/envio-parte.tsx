@@ -5,7 +5,7 @@ import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
 
 export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState<any>(null);
   const [showPrintView, setShowPrintView] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailData, setEmailData] = useState({
@@ -18,8 +18,8 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
   const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   // Deduplicar pedidos y ordenar descendentemente
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
-    .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento)); // Orden ascendente: fecha más próxima arriba
+  const uniquePedidos = (Array.from(new Map<any, any>(pedidos.map(p => [p.id, p] as [any, any])).values()) as any[])
+    .sort((a, b) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()); // Orden ascendente: fecha más próxima arriba
 
   const imprimirParte = () => {
     window.print();

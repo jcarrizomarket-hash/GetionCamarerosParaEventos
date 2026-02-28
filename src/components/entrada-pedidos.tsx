@@ -4,7 +4,7 @@ import { Plus, MapPin, Calendar as CalendarIcon, Clock, Users, Edit2, Trash2, X,
 
 export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, camareros = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // Estado para el informe
@@ -32,19 +32,20 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
     notas: '',
     // NUEVO: Coordinador del evento para chats grupales
     coordinadorId: '',
-    coordinadorNombre: ''
+    coordinadorNombre: '',
+    asignaciones: [] as any[]
   };
 
   const [formData, setFormData] = useState(initialFormState);
 
   // Deduplicar clientes
   const uniqueClientes = useMemo(() => {
-    return Array.from(new Map(clientes.map(c => [c.id, c])).values());
+    return Array.from(new Map<any, any>(clientes.map(c => [c.id, c] as [any, any])).values()) as any[];
   }, [clientes]);
 
   // Deduplicar pedidos
   const uniquePedidos = useMemo(() => {
-    return Array.from(new Map(pedidos.map(p => [p.id, p])).values());
+    return Array.from(new Map<any, any>(pedidos.map(p => [p.id, p] as [any, any])).values()) as any[];
   }, [pedidos]);
 
   // --- Lógica del Calendario ---
@@ -228,7 +229,8 @@ export function EntradaPedidos({ clientes, setClientes, pedidos, setPedidos, cam
         camisa: pedido.camisa,
         notas: pedido.notas || '',
         coordinadorId: pedido.coordinadorId || '',
-        coordinadorNombre: pedido.coordinadorNombre || ''
+        coordinadorNombre: pedido.coordinadorNombre || '',
+        asignaciones: pedido.asignaciones || []
       });
       console.log('✅ Estado editingId configurado a:', pedido.id);
       setShowForm(true);
@@ -803,7 +805,7 @@ _Por favor confirme recepción de este mensaje._`;
             </thead>
             <tbody className="divide-y divide-gray-200">
               {uniquePedidos
-                .sort((a, b) => new Date(b.diaEvento) - new Date(a.diaEvento))
+                .sort((a, b) => new Date(b.diaEvento).getTime() - new Date(a.diaEvento).getTime())
                 .map((pedido, idx) => {
                   const completo = isPedidoCompleto(pedido);
                   return (

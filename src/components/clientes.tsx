@@ -4,7 +4,7 @@ import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
 
 export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
-  const [editandoClienteId, setEditandoClienteId] = useState(null);
+  const [editandoClienteId, setEditandoClienteId] = useState<any>(null);
   const [formData, setFormData] = useState({
     nombre: '',
     contacto1: '',

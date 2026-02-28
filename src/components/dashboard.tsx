@@ -33,7 +33,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();
@@ -52,9 +52,9 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
   };
 
   // Deduplicar datos
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
-  const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map(c => [c.id, c])).values()), [clientes]);
+  const uniquePedidos = useMemo(() => Array.from(new Map<any, any>(pedidos.map(p => [p.id, p] as [any, any])).values()) as any[], [pedidos]);
+  const uniqueCamareros = useMemo(() => Array.from(new Map<any, any>(camareros.map(c => [c.id, c] as [any, any])).values()) as any[], [camareros]);
+  const uniqueClientes = useMemo(() => Array.from(new Map<any, any>(clientes.map(c => [c.id, c] as [any, any])).values()) as any[], [clientes]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
@@ -122,7 +122,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
 
       // Calcular el máximo de camareros simultáneos por día
       let maxCamareros = 0;
-      Object.values(ocupacionPorDia).forEach(franjas => {
+      Object.values(ocupacionPorDia).forEach((franjas: any[]) => {
         // Crear eventos de inicio y fin
         const eventos = [];
         franjas.forEach(franja => {

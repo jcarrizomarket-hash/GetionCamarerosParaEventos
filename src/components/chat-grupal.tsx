@@ -32,17 +32,17 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
 
   // Deduplicar datos con useMemo para evitar recrear arrays en cada render
   const uniquePedidos = useMemo(() => 
-    Array.from(new Map(pedidos.map(p => [p.id, p])).values()),
+    Array.from(new Map<any, any>(pedidos.map(p => [p.id, p] as [any, any])).values()) as any[],
     [pedidos]
   );
   
   const uniqueCamareros = useMemo(() => 
-    Array.from(new Map(camareros.map(c => [c.id, c])).values()),
+    Array.from(new Map<any, any>(camareros.map(c => [c.id, c] as [any, any])).values()) as any[],
     [camareros]
   );
   
   const uniqueCoordinadores = useMemo(() => 
-    Array.from(new Map(coordinadores.map(c => [c.id, c])).values()),
+    Array.from(new Map<any, any>(coordinadores.map(c => [c.id, c] as [any, any])).values()) as any[],
     [coordinadores]
   );
 

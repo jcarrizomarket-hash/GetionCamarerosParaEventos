@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -25,12 +25,12 @@ interface CamarerosProps {
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingCamarero, setEditingCamarero] = useState(null);
+  const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
 
   // Estados para calendario avanzado
-  const [selectedCamarero, setSelectedCamarero] = useState(null);
+  const [selectedCamarero, setSelectedCamarero] = useState<any>(null);
   const [showCalendario, setShowCalendario] = useState(false);
   
   // Estado formulario disponibilidad
@@ -39,7 +39,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [fechaFin, setFechaFin] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
-  const [diasSeleccionados, setDiasSeleccionados] = useState([]); // 0=Domingo, 1=Lunes...
+  const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([]); // 0=Domingo, 1=Lunes...
   const [tipoDisponibilidad, setTipoDisponibilidad] = useState('disponible');
 
   const initialFormState = {
@@ -49,15 +49,15 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     apellido: '',
     telefono: '',
     email: '',
-    especialidades: [],
+    especialidades: [] as string[],
     experiencia: '',
     coordinadorId: '',
     comentarios: '',
-    idiomas: [],
+    idiomas: [] as string[],
     otrosIdiomas: '',
-    certificaciones: [],
+    certificaciones: [] as string[],
     otrasCertificaciones: '',
-    disponibilidad: [],
+    disponibilidad: [] as any[],
     estado: 'activo'
   };
 
@@ -141,7 +141,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
   // --- Gestión de Disponibilidad Avanzada ---
   const generarFechas = () => {
-    const fechasGeneradas = [];
+    const fechasGeneradas: { fecha: string; tipo: string; horario: string }[] = [];
     const horarioStr = (horaInicio && horaFin) ? `${horaInicio} - ${horaFin}` : '';
     
     const start = new Date(fechaInicio);
@@ -213,7 +213,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         setHoraInicio('');
         setHoraFin('');
       }
-    } catch (error) { logger.error(error); }
+    } catch (error) { logger.error(String(error)); }
   };
 
   const eliminarDisponibilidad = async (fecha) => {
@@ -232,7 +232,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         await cargarDatos();
         setSelectedCamarero({ ...selectedCamarero, disponibilidad });
       }
-    } catch (error) { logger.error(error); }
+    } catch (error) { logger.error(String(error)); }
   };
 
   // --- Operaciones CRUD Camarero ---
@@ -295,7 +295,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         await cargarDatos();
         if (selectedCamarero?.id === id) setSelectedCamarero(null);
       }
-    } catch (error) { logger.error(error); }
+    } catch (error) { logger.error(String(error)); }
   };
 
   const toggleApercibido = async (camarero) => {
@@ -307,7 +307,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         body: JSON.stringify({ ...camarero, estado: nuevoEstado })
       });
       if (response.ok) await cargarDatos();
-    } catch (error) { logger.error(error); }
+    } catch (error) { logger.error(String(error)); }
   };
 
   const listaCamareros = camareros
@@ -318,7 +318,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     });
 
   // --- Funciones de Exportación e Importación Excel ---
-  const exportarAExcel = () => {
+  const exportarAExcel = async () => {
     try {
       // Preparar datos para exportar
       const datosExportacion = camareros.map(cam => ({
@@ -340,13 +340,28 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       }));
 
       // Crear libro de Excel
-      const ws = XLSX.utils.json_to_sheet(datosExportacion);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Personal');
+
+      if (datosExportacion.length > 0) {
+        worksheet.columns = Object.keys(datosExportacion[0]).map(key => ({
+          header: key,
+          key,
+          width: 20
+        }));
+        datosExportacion.forEach(row => worksheet.addRow(row));
+      }
 
       // Generar archivo y descargarlo
       const fecha = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Personal_${fecha}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
 
       alert('✅ Datos exportados correctamente');
     } catch (error) {
@@ -361,9 +376,25 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
     try {
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      const worksheet = workbook.worksheets[0];
+
+      const headers: string[] = [];
+      worksheet.getRow(1).eachCell((cell) => {
+        headers.push(String(cell.value ?? ''));
+      });
+
+      const jsonData: Record<string, unknown>[] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const rowData: Record<string, unknown> = {};
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber - 1];
+          if (header) rowData[header] = cell.value;
+        });
+        if (Object.keys(rowData).length > 0) jsonData.push(rowData);
+      });
 
       if (jsonData.length === 0) {
         alert('❌ El archivo está vacío');
@@ -403,11 +434,11 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
             apellido: row['Apellido'],
             telefono: row['Teléfono'] || '',
             email: row['Email'] || '',
-            especialidades: row['Especialidades'] ? row['Especialidades'].split(',').map(e => e.trim()) : [],
+            especialidades: row['Especialidades'] ? String(row['Especialidades']).split(',').map((e: string) => e.trim()) : [],
             experiencia: row['Experiencia (años)'] || '',
-            idiomas: row['Idiomas'] ? row['Idiomas'].split(',').map(i => i.trim()) : [],
-            otrosIdiomas: row['Otros Idiomas'] || '',
-            certificaciones: row['Certificaciones'] ? row['Certificaciones'].split(',').map(c => c.trim()) : [],
+            idiomas: row['Idiomas'] ? String(row['Idiomas']).split(',').map((i: string) => i.trim()) : [],
+            otrosIdiomas: String(row['Otros Idiomas'] || ''),
+            certificaciones: row['Certificaciones'] ? String(row['Certificaciones']).split(',').map((c: string) => c.trim()) : [],
             otrasCertificaciones: row['Otras Certificaciones'] || '',
             coordinadorId: row['Coordinador ID'] || '',
             comentarios: row['Comentarios'] || '',
@@ -669,7 +700,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Comentarios</label>
-                  <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" rows="3" />
+                  <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" rows={3} />
                 </div>
               </div>
             )}
@@ -876,7 +907,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
                           {camarero.disponibilidad && camarero.disponibilidad.length > 0 ? (
                             camarero.disponibilidad
-                              .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+                              .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
                               .map((disp, idx) => (
                                 <div
                                   key={`${disp.fecha}-${idx}`}

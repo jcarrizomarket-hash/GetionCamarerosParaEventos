@@ -377,10 +377,10 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       await workbook.xlsx.load(buffer);
       const worksheet = workbook.worksheets[0];
 
-      // Extract headers from first row
+      // Extract headers from first row (skip empty header cells)
       const headers: string[] = [];
       worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell) => {
-        headers.push(String(cell.value ?? ''));
+        headers.push(cell.value != null ? String(cell.value) : '');
       });
 
       // Convert rows to JSON objects
@@ -390,7 +390,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         const rowObj: Record<string, unknown> = {};
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const headerIndex = colNumber - 1;
-          if (headerIndex < headers.length) {
+          if (headerIndex < headers.length && headers[headerIndex] !== '') {
             rowObj[headers[headerIndex]] = cell.value ?? '';
           }
         });

@@ -337,6 +337,11 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         'Estado': cam.estado || 'activo'
       }));
 
+      if (datosExportacion.length === 0) {
+        alert('❌ No hay datos para exportar');
+        return;
+      }
+
       const headers = Object.keys(datosExportacion[0]);
       const escapeCsvValue = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
       const csvRows = [
@@ -404,7 +409,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       const jsonData = lines.slice(1).map(line => {
         const values = parseCSVLine(line);
         return headers.reduce((obj, header, i) => {
-          obj[header] = values[i] ?? '';
+          obj[header] = (values[i] ?? '').trim();
           return obj;
         }, {} as Record<string, string>);
       });

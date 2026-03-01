@@ -72,17 +72,16 @@
 #### M-05: Dependencias con vulnerabilidades conocidas
 - **Descripción:** `npm audit` reportó las siguientes vulnerabilidades:
 
-  | Paquete | Severidad | CVE/Advisory | Fix disponible |
-  |---------|-----------|--------------|---------------|
-  | `xlsx@0.18.5` | HIGH | GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9 | ❌ No fix disponible en npm |
-  | `jspdf@2.5.1` | MODERATE | GHSA-vhxf-7vqr-mrjg (via dompurify) | ⚠️ Fix requiere v4.x (breaking change) |
-  | `jspdf-autotable@3.x` | MODERATE | Transitiva de jspdf | ⚠️ Fix requiere jspdf v4.x |
-  | `vite@6.x` + `vitest@1.x` + `vite-node@x` | MODERATE | GHSA-67mh-4wv8-2f99 (esbuild) | ⚠️ Solo afecta servidor de desarrollo |
+  | Paquete | Severidad | CVE/Advisory | Fix disponible | Estado |
+  |---------|-----------|--------------|---------------|--------|
+  | `xlsx@0.18.5` | HIGH | GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9 | ❌ No fix en npm | ⚠️ Pendiente migración |
+  | `jspdf@2.5.1` | HIGH/CRITICAL | PDF Injection (x3), DoS (x3), Path Traversal, ReDoS | ✅ Actualizado a 4.2.0 | ✅ Resuelto |
+  | `jspdf-autotable@3.x` | MODERATE | Transitiva de jspdf | ✅ Actualizado a 5.0.7 | ✅ Resuelto |
+  | `vite@6.x` + `vitest@1.x` + `vite-node@x` | MODERATE | GHSA-67mh-4wv8-2f99 (esbuild) | ⚠️ Solo afecta servidor de desarrollo | ⚠️ Pendiente |
 
 - **Recomendaciones pendientes (acción manual requerida):**
   1. **`xlsx`**: Migrar a `exceljs` o `@e965/xlsx` como alternativa segura.
-  2. **`jspdf` + `jspdf-autotable`**: Actualizar a jspdf v4.x y la versión compatible de jspdf-autotable. Requiere verificar cambios de API.
-  3. **`vite/vitest`**: La vulnerabilidad de esbuild solo afecta al servidor de desarrollo local. Actualizar `vitest` a v4.x cuando sea conveniente.
+  2. **`vite/vitest`**: La vulnerabilidad de esbuild solo afecta al servidor de desarrollo local. Actualizar `vitest` a v4.x cuando sea conveniente.
 
 #### M-06: Middleware de logger del servidor usando `console.log`
 - **Descripción:** `app.use('*', logger(console.log))` pasaba `console.log` como callback del middleware logger de Hono.

@@ -1,7 +1,6 @@
 import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Calendar, Users, UserCheck, UserX, Star, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Repeat, CalendarRange, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
@@ -317,10 +316,9 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         return a.numero - b.numero;
     });
 
-  // --- Funciones de Exportación e Importación Excel ---
-  const exportarAExcel = () => {
+  // --- Funciones de Exportación e Importación CSV ---
+  const exportarACSV = () => {
     try {
-      // Preparar datos para exportar
       const datosExportacion = camareros.map(cam => ({
         'Código': cam.codigo || '',
         'Tipo Perfil': cam.tipoPerfil || 'CAM',
@@ -339,14 +337,24 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         'Estado': cam.estado || 'activo'
       }));
 
-      // Crear libro de Excel
-      const ws = XLSX.utils.json_to_sheet(datosExportacion);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+      const headers = Object.keys(datosExportacion[0]);
+      const escapeCsvValue = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
+      const csvRows = [
+        headers.map(escapeCsvValue).join(','),
+        ...datosExportacion.map(row =>
+          headers.map(h => escapeCsvValue(row[h])).join(',')
+        )
+      ];
+      const csvContent = csvRows.join('\n');
 
-      // Generar archivo y descargarlo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
       const fecha = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+      link.href = url;
+      link.download = `Personal_${fecha}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
 
       alert('✅ Datos exportados correctamente');
     } catch (error) {
@@ -355,15 +363,51 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     }
   };
 
-  const importarDesdeExcel = async (event) => {
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current);
+    return result;
+  };
+
+  const importarDesdeCSV = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+
+      if (lines.length <= 1) {
+        alert('❌ El archivo está vacío');
+        return;
+      }
+
+      const headers = parseCSVLine(lines[0]);
+      const jsonData = lines.slice(1).map(line => {
+        const values = parseCSVLine(line);
+        return headers.reduce((obj, header, i) => {
+          obj[header] = values[i] ?? '';
+          return obj;
+        }, {} as Record<string, string>);
+      });
 
       if (jsonData.length === 0) {
         alert('❌ El archivo está vacío');
@@ -446,7 +490,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       event.target.value = '';
     } catch (error) {
       logger.error('Error al procesar archivo:', error);
-      alert('❌ Error al procesar el archivo Excel');
+      alert('❌ Error al procesar el archivo CSV');
     }
   };
 
@@ -492,19 +536,19 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
           {/* Botones de Exportación e Importación */}
           <div className="flex justify-end gap-3">
             <button
-              onClick={exportarAExcel}
+              onClick={exportarACSV}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-sm transition-colors"
             >
               <Download className="w-4 h-4" />
-              Exportar a Excel
+              Exportar CSV
             </button>
             <label className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-colors cursor-pointer">
               <Upload className="w-4 h-4" />
-              Importar desde Excel
+              Importar CSV
               <input
                 type="file"
-                accept=".xlsx,.xls"
-                onChange={importarDesdeExcel}
+                accept=".csv"
+                onChange={importarDesdeCSV}
                 className="hidden"
               />
             </label>

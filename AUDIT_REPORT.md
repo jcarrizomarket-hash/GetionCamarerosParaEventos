@@ -55,16 +55,13 @@ Se realizó una auditoría exhaustiva del repositorio cubriendo seguridad, calid
 - **Estado:** ⚠️ PENDIENTE DE ACCIÓN MANUAL
 
 #### A-2: Dependencia `jspdf@2.5.1` — Múltiples vulnerabilidades
-- **Descripción:** La dependencia `jspdf` v2.5.1 presenta múltiples vulnerabilidades, incluyendo:
+- **Descripción:** La dependencia `jspdf` v2.5.1 presentaba múltiples vulnerabilidades, incluyendo:
   - PDF Object Injection / Arbitrary JS Execution via AcroForm
   - Path Traversal / Local File Inclusion
   - Denial of Service via BMP/GIF dimensions maliciosas
   - ReDoS bypass
-  - Versión parcheada disponible: `jspdf@4.2.0` (breaking change)
-- **Impacto:** Medio-Alto — requiere que un atacante controle inputs del formulario PDF.
-- **Acción tomada:** Documentado. La actualización a v4.x es un breaking change según `npm audit`.
-- **Recomendación pendiente:** Actualizar `jspdf` y `jspdf-autotable` a sus versiones compatibles con `jspdf@4.x`. Revisar la API de `jspdf@4.x` para adaptar el código.
-- **Estado:** ⚠️ PENDIENTE DE ACCIÓN MANUAL
+- **Acción tomada:** Actualizado `jspdf` de `^2.5.1` a `4.2.0` y `jspdf-autotable` de `^3.5.31` a `5.0.7` (compatible con jspdf v4). El build continúa funcionando correctamente. Actualizadas también las referencias de versión en `vite.config.ts` y la importación dinámica en `src/supabase/functions/server/index.tsx`.
+- **Estado:** ✅ CORREGIDO
 
 ---
 
@@ -148,9 +145,6 @@ Se realizó una auditoría exhaustiva del repositorio cubriendo seguridad, calid
 1. **Migrar `xlsx` a alternativa segura:**  
    Reemplazar `xlsx@0.18.5` por `exceljs` (MIT, mantenido activamente). La API es diferente pero la migración de las funciones de exportación es directa.
 
-2. **Actualizar `jspdf` a v4.x:**  
-   Actualizar `jspdf` y `jspdf-autotable` a versiones compatibles con `jspdf@4.2.0`. Revisar cambios en la API de jsPDF v4 y adaptar las llamadas existentes.
-
 ### 🟡 Recomendadas
 
 3. **Activar la validación estricta de entorno:**  
@@ -178,6 +172,6 @@ Se realizó una auditoría exhaustiva del repositorio cubriendo seguridad, calid
 | Documentación en `src/` | ✅ OK | Eliminada |
 | CI/CD | ✅ OK | Workflow actualizado |
 | `.env.example` | ✅ OK | Completo y documentado |
-| Dependencias vulnerables | ⚠️ Pendiente | `xlsx` y `jspdf` requieren acción manual |
+| Dependencias vulnerables | ⚠️ Pendiente parcial | `jspdf` ✅ corregido; `xlsx` sin parche disponible |
 | TypeScript | ✅ OK | Sin errores de tipos críticos |
 | Estructura del proyecto | ✅ OK | Separación de concerns adecuada |

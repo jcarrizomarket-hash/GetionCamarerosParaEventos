@@ -29,14 +29,8 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
   if (!supabaseFunctionEndpoint) {
-    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
+    logger.warn('VITE_SUPABASE_FUNCTION_ENDPOINT no está configurado. Configure VITE_SUPABASE_FUNCTION_ENDPOINT o VITE_SUPABASE_PROJECT_ID en su archivo .env.');
     return '';
   }
   return supabaseFunctionEndpoint;

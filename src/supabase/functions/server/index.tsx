@@ -6,8 +6,14 @@ import * as kv from './kv_store.tsx';
 
 const app = new Hono();
 
-app.use('*', cors());
-app.use('*', logger(console.log));
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(o => o.trim()).filter(Boolean);
+
+app.use('*', cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-fn-secret'],
+}));
+app.use('*', logger());
 
 // Middleware de seguridad simple
 const requireSecret = async (c, next) => {
@@ -1200,7 +1206,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
 // Obtener mensajes de un chat
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
@@ -1214,8 +1219,6 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   }
 });
 
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio

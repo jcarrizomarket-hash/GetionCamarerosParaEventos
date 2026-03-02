@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, Package } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -8,6 +8,7 @@ import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { ErrorBoundary } from './components/error-boundary';
+import { PackageInfo } from './components/package-info';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { logger } from './utils/logger';
 
@@ -64,7 +65,8 @@ export default function App() {
     { id: 'admin', label: 'Admin', icon: Shield },
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envios', label: 'Envíos', icon: Send },
-    { id: 'configuracion', label: 'Configuración', icon: Settings }
+    { id: 'configuracion', label: 'Configuración', icon: Settings },
+    { id: 'package', label: 'Package', icon: Package }
   ];
 
   return (
@@ -180,6 +182,8 @@ export default function App() {
           )}
 
           {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
+
+          {activeTab === 'package' && <PackageInfo />}
         </ErrorBoundary>
       </div>
     </div>

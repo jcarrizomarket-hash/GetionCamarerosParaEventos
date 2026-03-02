@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Users, FileText, MessageSquare, Briefcase, UserPlus, FileCheck, Building2, LayoutDashboard, ShoppingCart, Settings, MessagesSquare, Send, Shield } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -19,7 +19,6 @@ export default function App() {
   const [pedidos, setPedidos] = useState([]);
   const [coordinadores, setCoordinadores] = useState([]);
   const [clientes, setClientes] = useState([]);
-  const [selectedPedido, setSelectedPedido] = useState(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 

@@ -176,7 +176,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      {!loading && (
+      {!loading && !error && (
       <div className="p-6">
         <ErrorBoundary>
           {activeTab === 'dashboard' && (

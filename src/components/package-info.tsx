@@ -3,9 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { RefreshCw, Package } from 'lucide-react';
 
-const GITHUB_API_URL =
-  'https://api.github.com/repos/jcarrizomarket-hash/GetionCamarerosParaEventos/contents/package.json?ref=main';
+const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER ?? 'jcarrizomarket-hash';
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO ?? 'GetionCamarerosParaEventos';
+const GITHUB_BRANCH = import.meta.env.VITE_GITHUB_BRANCH ?? 'main';
+const GITHUB_PACKAGE_PATH = import.meta.env.VITE_GITHUB_PACKAGE_PATH ?? 'package.json';
 
+const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PACKAGE_PATH}?ref=${GITHUB_BRANCH}`;
 export function PackageInfo() {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

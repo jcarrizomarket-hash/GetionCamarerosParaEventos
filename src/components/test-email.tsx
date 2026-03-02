@@ -296,7 +296,7 @@ export function TestEmail({ baseUrl, publicAnonKey }: TestEmailProps) {
                       <li>Verifica que <code className="bg-red-100 px-1 py-0.5 rounded">RESEND_API_KEY</code> esté correctamente configurada</li>
                       <li>Asegúrate de que <code className="bg-red-100 px-1 py-0.5 rounded">EMAIL_FROM</code> esté configurada</li>
                       <li>Si usas tu dominio, verifica que esté verificado en Resend</li>
-                      <li>Consulta la documentación en <code className="bg-red-100 px-1 py-0.5 rounded">RESEND_CONFIGURATION_GUIDE.md</code></li>
+                      <li>Consulta la documentación en <code className="bg-red-100 px-1 py-0.5 rounded">EMAIL_SETUP.md</code></li>
                     </ul>
                     
                     {/* Mostrar detalles técnicos del error */}

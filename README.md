@@ -220,7 +220,7 @@ This project uses GitHub Actions for continuous integration. On every push/PR to
 3. **Tests** — Runs unit tests with Vitest
 4. **Build** — Ensures the project compiles (`npm run build`)
 
-All checks must pass before merging.
+All checks are intended to pass before merging. To enforce these as required checks that block merges, configure GitHub branch protection rules to require this workflow's status checks.
 
 ---
 

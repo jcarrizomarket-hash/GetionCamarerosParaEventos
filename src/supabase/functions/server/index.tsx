@@ -1200,7 +1200,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
 // Obtener mensajes de un chat
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
@@ -1214,15 +1213,13 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   }
 });
 
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
 async function generarPDFParte(pedido: any, parteHTML: string): Promise<string> {
   try {
     // Usar jsPDF en lugar de PDFKit para evitar warnings de readFileSync
-    const { jsPDF } = await import('npm:jspdf@2.5.1');
+    const { jsPDF } = await import('npm:jspdf@4.2.0');
     
     const doc = new jsPDF({
       orientation: 'portrait',

@@ -1,11 +1,3 @@
-<<<<<<< copilot/implement-centralized-logging
-node_modules/
-dist/
-.env
-.env.local
-package-lock.json
-coverage/
-=======
 # Dependencies
 node_modules/
 
@@ -18,9 +10,21 @@ dist/
 .env.local
 .env.*.local
 
+# Lock files (optional, uncomment if you don't want to track)
+# package-lock.json
+
+# Test coverage
+coverage/
+test-results/
+playwright-report/
+
 # Editor / OS
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
->>>>>>> main
+*.swp
+*.swo
+
+# Vite
+*.local

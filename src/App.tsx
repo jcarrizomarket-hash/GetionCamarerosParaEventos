@@ -54,24 +54,36 @@ export default function App() {
       // Process each result independently — if one fails, the others still work
       if (camarerosResult.status === 'fulfilled' && camarerosResult.value.success) {
         setCamareros(camarerosResult.value.data);
+      } else if (camarerosResult.status === 'fulfilled' && !camarerosResult.value.success) {
+        logger.error('Camareros request unsuccessful', camarerosResult.value);
+        setError(prev => prev ?? (camarerosResult.value?.message || 'Error cargando camareros.'));
       } else if (camarerosResult.status === 'rejected') {
         logger.error('Error loading camareros', camarerosResult.reason);
       }
 
       if (pedidosResult.status === 'fulfilled' && pedidosResult.value.success) {
         setPedidos(pedidosResult.value.data);
+      } else if (pedidosResult.status === 'fulfilled' && !pedidosResult.value.success) {
+        logger.error('Pedidos request unsuccessful', pedidosResult.value);
+        setError(prev => prev ?? (pedidosResult.value?.message || 'Error cargando pedidos.'));
       } else if (pedidosResult.status === 'rejected') {
         logger.error('Error loading pedidos', pedidosResult.reason);
       }
 
       if (coordinadoresResult.status === 'fulfilled' && coordinadoresResult.value.success) {
         setCoordinadores(coordinadoresResult.value.data);
+      } else if (coordinadoresResult.status === 'fulfilled' && !coordinadoresResult.value.success) {
+        logger.error('Coordinadores request unsuccessful', coordinadoresResult.value);
+        setError(prev => prev ?? (coordinadoresResult.value?.message || 'Error cargando coordinadores.'));
       } else if (coordinadoresResult.status === 'rejected') {
         logger.error('Error loading coordinadores', coordinadoresResult.reason);
       }
 
       if (clientesResult.status === 'fulfilled' && clientesResult.value.success) {
         setClientes(clientesResult.value.data);
+      } else if (clientesResult.status === 'fulfilled' && !clientesResult.value.success) {
+        logger.error('Clientes request unsuccessful', clientesResult.value);
+        setError(prev => prev ?? (clientesResult.value?.message || 'Error cargando clientes.'));
       } else if (clientesResult.status === 'rejected') {
         logger.error('Error loading clientes', clientesResult.reason);
       }

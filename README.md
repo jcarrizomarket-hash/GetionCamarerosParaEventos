@@ -2,6 +2,7 @@
 
 A complete system for managing events, assigning waitstaff, and communicating with clients. Built with React, TypeScript, Supabase, and a modern three-layer architecture.
 
+[![CI](https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/actions/workflows/ci.yml/badge.svg)](https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)](https://supabase.com/)
@@ -20,6 +21,7 @@ The original design is available at [Figma](https://www.figma.com/design/Nq9oM07
 - [Project Structure](#-project-structure)
 - [Configuration](#-configuration)
 - [Testing](#-testing)
+- [CI/CD](#-cicd)
 - [Security](#-security)
 - [Deployment](#-deployment)
 - [Documentation](#-documentation)
@@ -206,6 +208,19 @@ npm --prefix src run test:coverage
 ```
 
 For detailed testing instructions, see [src/TESTING_SETUP.md](./src/TESTING_SETUP.md).
+
+---
+
+## 🔄 CI/CD
+
+This project uses GitHub Actions for continuous integration. On every push/PR to `main`:
+
+1. **Type Check** — Validates TypeScript types (`npm run type-check`)
+2. **Lint** — Enforces code style (`npm run lint`)
+3. **Tests** — Runs unit tests with Vitest
+4. **Build** — Ensures the project compiles (`npm run build`)
+
+All checks are intended to pass before merging. To enforce these as required checks that block merges, configure GitHub branch protection rules to require this workflow's status checks.
 
 ---
 

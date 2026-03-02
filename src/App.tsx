@@ -66,7 +66,7 @@ export default function App() {
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'envios', label: 'Envíos', icon: Send },
     { id: 'configuracion', label: 'Configuración', icon: Settings },
-    { id: 'package', label: 'Package', icon: Package }
+    { id: 'package', label: 'Paquete', icon: Package }
   ];
 
   return (

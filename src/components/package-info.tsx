@@ -17,12 +17,21 @@ export function PackageInfo() {
   const fetchPackageJson = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setContent(null);
     try {
       const response = await fetch(GITHUB_API_URL, {
         headers: { Accept: 'application/vnd.github+json' },
       });
       if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+        if (response.status === 403) {
+          throw new Error(
+            `Acceso denegado (403). Es posible que se haya superado el límite de peticiones de la API de GitHub (60/hora por IP) o que el repositorio no sea accesible. Inténtalo más tarde.`
+          );
+        }
+        if (response.status === 404) {
+          throw new Error(`Archivo no encontrado (404). Verifica que el repositorio y la ruta sean correctos.`);
+        }
+        throw new Error(`Error al obtener el archivo desde GitHub (código ${response.status}).`);
       }
       const data = await response.json();
       let decoded: string;

@@ -32,12 +32,21 @@ export default function App() {
     try {
       const headers = { Authorization: `Bearer ${publicAnonKey}` };
 
+      const fetchJson = async (url: string, label: string) => {
+        const response = await fetch(url, { headers });
+        const json = await response.json();
+        if (!response.ok) {
+          throw new Error(`Error HTTP ${response.status} al cargar ${label}`);
+        }
+        return json;
+      };
+
       // Use Promise.allSettled instead of Promise.all to handle partial failures
       const results = await Promise.allSettled([
-        fetch(`${baseUrl}/camareros`, { headers }).then(r => r.json()),
-        fetch(`${baseUrl}/pedidos`, { headers }).then(r => r.json()),
-        fetch(`${baseUrl}/coordinadores`, { headers }).then(r => r.json()),
-        fetch(`${baseUrl}/clientes`, { headers }).then(r => r.json()),
+        fetchJson(`${baseUrl}/camareros`, 'camareros'),
+        fetchJson(`${baseUrl}/pedidos`, 'pedidos'),
+        fetchJson(`${baseUrl}/coordinadores`, 'coordinadores'),
+        fetchJson(`${baseUrl}/clientes`, 'clientes'),
       ]);
 
       const [camarerosResult, pedidosResult, coordinadoresResult, clientesResult] = results;

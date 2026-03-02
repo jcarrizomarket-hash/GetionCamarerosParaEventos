@@ -60,9 +60,9 @@ console.log(colors.bright + '═'.repeat(64) + colors.reset);
 
 console.log('\n' + colors.bright + '📚 Documentación disponible:' + colors.reset);
 console.log(colors.cyan + '  • START_HERE.md' + colors.reset + '           - Inicio rápido (5 min)');
-console.log(colors.cyan + '  • STEP1_TEST_PANEL.md' + colors.reset + '    - Guía visual detallada');
-console.log(colors.cyan + '  • READY_TO_USE.md' + colors.reset + '        - Estado completo del sistema');
+console.log(colors.cyan + '  • TESTING_SETUP.md' + colors.reset + '       - Configuración de testing');
 console.log(colors.cyan + '  • TESTING_SUMMARY.md' + colors.reset + '     - Documentación completa');
+console.log(colors.cyan + '  • WHATSAPP_SETUP.md' + colors.reset + '      - Configuración de WhatsApp');
 
 console.log('\n' + colors.bright + '🧪 Tests desde línea de comandos:' + colors.reset);
 console.log(colors.yellow + '  $ npm run test:unit' + colors.reset + '        - Tests unitarios (2s)');

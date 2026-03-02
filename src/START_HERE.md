@@ -146,11 +146,13 @@ Significa que configuraste un número de teléfono en vez del Phone Number ID.
 
 | Archivo | Descripción | Tiempo |
 |---------|-------------|--------|
-| `STEP1_TEST_PANEL.md` | Guía visual detallada con screenshots | 5 min |
 | `QUICK_TEST_GUIDE.md` | Guía rápida de testing | 2 min |
 | `TESTING_SUMMARY.md` | Resumen completo del sistema de tests | 10 min |
+| `TESTING_SETUP.md` | Configuración del entorno de testing | 10 min |
 | `WHATSAPP_SETUP.md` | Configuración de WhatsApp Business API | 15 min |
-| `tests/manual/testing-guide.md` | 27 procedimientos de prueba manual | 30 min |
+| `EMAIL_SETUP.md` | Configuración de Email | 10 min |
+| `ARCHITECTURE.md` | Arquitectura del sistema | 15 min |
+| `tests/manual/testing-guide.md` | Procedimientos de prueba manual | 30 min |
 
 ---
 
@@ -190,11 +192,23 @@ npm run test:e2e:ui   # Playwright UI
 
 Una vez que hayas probado el Panel de Pruebas:
 
-1. ✅ **Lee** `STEP1_TEST_PANEL.md` para detalles visuales
-2. ✅ **Ejecuta** `npm run test:all` para la batería completa
-3. ✅ **Explora** la pestaña "Resultados" del panel
-4. ✅ **Configura** WhatsApp Business API (opcional) con `WHATSAPP_SETUP.md`
+1. ✅ **Ejecuta** `npm run test:all` para la batería completa
+2. ✅ **Explora** la pestaña "Resultados" del panel
+3. ✅ **Configura** WhatsApp Business API (opcional) con `WHATSAPP_SETUP.md`
+4. ✅ **Configura** Email (opcional) con `EMAIL_SETUP.md`
 5. ✅ **Revisa** los logs en la consola del navegador (F12)
+
+### Para Desarrolladores
+
+- Lee `ARCHITECTURE.md` para entender la estructura del sistema
+- Consulta `REFACTOR_GUIDE.md` para mejores prácticas
+- Revisa `TESTING_SETUP.md` para configurar el entorno de testing
+
+### Para Administradores
+
+- Configura WhatsApp Business API con `WHATSAPP_SETUP.md`
+- Configura el servicio de email con `EMAIL_SETUP.md`
+- Revisa `EMAIL_SYSTEM_OVERVIEW.md` para el overview del sistema de email
 
 ---
 

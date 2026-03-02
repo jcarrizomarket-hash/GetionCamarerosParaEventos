@@ -169,7 +169,11 @@ sistema-gestion-camareros/
 
 ## 📚 Documentación
 
-### Guías Principales
+### Inicio Rápido
+
+- **[START_HERE.md](./START_HERE.md)**: Guía de inicio rápido para nuevos desarrolladores y administradores
+
+### Arquitectura y Diseño
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Arquitectura completa del sistema
 - **[REFACTOR_GUIDE.md](./REFACTOR_GUIDE.md)**: Guía de refactorización y mejores prácticas
@@ -244,7 +248,7 @@ Este número está pre-configurado en todos los tests y en el Panel de Pruebas p
 - **[TESTING_SUMMARY.md](./TESTING_SUMMARY.md)** - Resumen ejecutivo completo
 - **[TESTING_SETUP.md](./TESTING_SETUP.md)** - Configuración detallada
 - **[tests/README.md](./tests/README.md)** - Sistema de testing
-- **[tests/manual/testing-guide.md](./tests/manual/testing-guide.md)** - 27 procedimientos paso a paso
+- **[tests/manual/testing-guide.md](./tests/manual/testing-guide.md)** - Procedimientos de prueba paso a paso
 
 ### 🎯 Casos de Prueba Críticos
 

@@ -256,16 +256,39 @@ supabase secrets set SUPABASE_FN_SECRET=your-secret
 
 ## 📚 Documentation
 
+### Onboarding & Guides
+
 | Document | Description |
 |---|---|
-| [MIGRATION.md](./MIGRATION.md) | How to upgrade between versions |
-| [CHANGELOG.md](./CHANGELOG.md) | Full version history |
+| [src/START_HERE.md](./src/START_HERE.md) | Quick-start guide for new developers and admins |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
+| [MIGRATION.md](./MIGRATION.md) | How to upgrade between versions |
+
+### Architecture & Design
+
+| Document | Description |
+|---|---|
 | [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) | System architecture |
 | [src/REFACTOR_GUIDE.md](./src/REFACTOR_GUIDE.md) | Refactoring guide |
 | [src/MIGRATION_EXAMPLE.md](./src/MIGRATION_EXAMPLE.md) | Before/after migration example |
+| [CHANGELOG.md](./CHANGELOG.md) | Full version history |
+
+### Configuration
+
+| Document | Description |
+|---|---|
 | [src/EMAIL_SETUP.md](./src/EMAIL_SETUP.md) | Email service configuration |
+| [src/EMAIL_SYSTEM_OVERVIEW.md](./src/EMAIL_SYSTEM_OVERVIEW.md) | Email system overview |
 | [src/WHATSAPP_SETUP.md](./src/WHATSAPP_SETUP.md) | WhatsApp API configuration |
+
+### Testing
+
+| Document | Description |
+|---|---|
+| [src/TESTING_SETUP.md](./src/TESTING_SETUP.md) | Testing environment setup |
+| [src/TESTING_SUMMARY.md](./src/TESTING_SUMMARY.md) | Full testing summary |
+| [src/QUICK_TEST_GUIDE.md](./src/QUICK_TEST_GUIDE.md) | Quick testing reference |
+| [src/tests/manual/testing-guide.md](./src/tests/manual/testing-guide.md) | Manual testing procedures |
 
 ---
 

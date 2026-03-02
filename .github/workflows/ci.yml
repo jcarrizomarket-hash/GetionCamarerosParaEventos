@@ -37,7 +37,8 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        run: npx vitest run --config src/vitest.config.ts
+        working-directory: src
+        run: npx vitest run --config vitest.config.ts
 
       - name: Build
         run: npm run build

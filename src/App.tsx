@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
@@ -10,52 +10,80 @@ import { Configuracion } from './components/configuracion';
 import { ErrorBoundary } from './components/error-boundary';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { logger } from './utils/logger';
+import type { Camarero, Pedido, Coordinador, Cliente } from './types';
 
-// Aplicación de Gestión de Camareros para Eventos v2.2
-// Última actualización: Panel de Admin con gestión de Altas
+// Aplicación de Gestión de Camareros para Eventos v3.0
+// Última actualización: TypeScript estricto y resiliencia mejorada
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [camareros, setCamareros] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
-  const [coordinadores, setCoordinadores] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [camareros, setCamareros] = useState<Camarero[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [coordinadores, setCoordinadores] = useState<Coordinador[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  const cargarDatos = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-  const cargarDatos = async () => {
     try {
-      const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
-        fetch(`${baseUrl}/camareros`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/pedidos`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/coordinadores`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/clientes`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        })
+      const headers = { Authorization: `Bearer ${publicAnonKey}` };
+
+      // Use Promise.allSettled instead of Promise.all to handle partial failures
+      const results = await Promise.allSettled([
+        fetch(`${baseUrl}/camareros`, { headers }).then(r => r.json()),
+        fetch(`${baseUrl}/pedidos`, { headers }).then(r => r.json()),
+        fetch(`${baseUrl}/coordinadores`, { headers }).then(r => r.json()),
+        fetch(`${baseUrl}/clientes`, { headers }).then(r => r.json()),
       ]);
 
-      const camarerosData = await camarerosRes.json();
-      const pedidosData = await pedidosRes.json();
-      const coordinadoresData = await coordinadoresRes.json();
-      const clientesData = await clientesRes.json();
+      const [camarerosResult, pedidosResult, coordinadoresResult, clientesResult] = results;
 
-      if (camarerosData.success) setCamareros(camarerosData.data);
-      if (pedidosData.success) setPedidos(pedidosData.data);
-      if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
-      if (clientesData.success) setClientes(clientesData.data);
-    } catch (error) {
-      logger.error('Error al cargar datos', error);
+      // Process each result independently — if one fails, the others still work
+      if (camarerosResult.status === 'fulfilled' && camarerosResult.value.success) {
+        setCamareros(camarerosResult.value.data);
+      } else if (camarerosResult.status === 'rejected') {
+        logger.error('Error loading camareros', camarerosResult.reason);
+      }
+
+      if (pedidosResult.status === 'fulfilled' && pedidosResult.value.success) {
+        setPedidos(pedidosResult.value.data);
+      } else if (pedidosResult.status === 'rejected') {
+        logger.error('Error loading pedidos', pedidosResult.reason);
+      }
+
+      if (coordinadoresResult.status === 'fulfilled' && coordinadoresResult.value.success) {
+        setCoordinadores(coordinadoresResult.value.data);
+      } else if (coordinadoresResult.status === 'rejected') {
+        logger.error('Error loading coordinadores', coordinadoresResult.reason);
+      }
+
+      if (clientesResult.status === 'fulfilled' && clientesResult.value.success) {
+        setClientes(clientesResult.value.data);
+      } else if (clientesResult.status === 'rejected') {
+        logger.error('Error loading clientes', clientesResult.reason);
+      }
+
+      // Check if ALL failed
+      const allFailed = results.every(r => r.status === 'rejected');
+      if (allFailed) {
+        setError('No se pudo conectar con el servidor. Compruebe su conexión.');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido al cargar datos';
+      setError(message);
+      logger.error('Error al cargar datos', err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [baseUrl]);
+
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -99,7 +127,31 @@ export default function App() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Cargando datos...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-700">{error}</p>
+          <button
+            onClick={cargarDatos}
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {/* Content */}
+      {!loading && (
       <div className="p-6">
         <ErrorBoundary>
           {activeTab === 'dashboard' && (
@@ -182,6 +234,7 @@ export default function App() {
           {/* Remove whatsapp-test tab content as it's now inside Configuracion */}
         </ErrorBoundary>
       </div>
+      )}
     </div>
   );
 }

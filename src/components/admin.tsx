@@ -2,10 +2,6 @@ import { exportToCSV } from '../utils/file-export';
 
 interface AdminProps {
   coordinadores: any[];
-  setCoordinadores: (coordinadores: any[]) => void;
-  baseUrl: string;
-  publicAnonKey: string;
-  cargarDatos: () => void;
   camareros: any[];
   pedidos: any[];
 }

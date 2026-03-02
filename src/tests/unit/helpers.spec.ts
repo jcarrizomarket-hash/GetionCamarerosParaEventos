@@ -21,7 +21,7 @@ import {
   isPedidoCompleto,
   calcularPorcentajeConfirmacion,
   parsearFechaEvento,
-} from '../../src/utils/helpers';
+} from '../../utils/helpers';
 
 describe('calcularHoras', () => {
   it('debe calcular correctamente las horas trabajadas', () => {

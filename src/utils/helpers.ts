@@ -1,4 +1,4 @@
-import { logger } from '../../utils/logger';
+import { logger } from './logger';
 /**
  * Utilidades reutilizables para el sistema de gestión de camareros
  */

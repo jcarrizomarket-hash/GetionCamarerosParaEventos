@@ -1,5 +1,5 @@
 {
-  "name": "Event Waitstaff Management App",
+  "name": "event-waitstaff-management-app",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -30,13 +30,12 @@
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@supabase/supabase-js": "^2.39.3",
-    "@testing-library/react": "^14.0.0",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
     "hono": "^4.0.0",
     "input-otp": "^1.4.2",
+    "jsdom": "^28.1.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.31",
     "lucide-react": "^0.487.0",
@@ -56,6 +55,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "@testing-library/react": "^14.0.0",
     "@types/node": "^20.10.0",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "eslint": "^9.0.0",

@@ -1,7 +1,7 @@
 import { Edit2, Calendar, Trash2, Users } from 'lucide-react';
 import { CamareroDetail } from './CamareroDetail';
 
-interface CamarerосListProps {
+interface CamarerosListProps {
   listaCamareros: any[];
   verApercibidos: boolean;
   selectedCamarero: any;
@@ -58,7 +58,7 @@ export function CamarerosList({
   setTipoDisponibilidad,
   agregarDisponibilidad,
   eliminarDisponibilidad,
-}: CamarerосListProps) {
+}: CamarerosListProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-6 border-b border-gray-200 bg-gray-50 flex justify-between items-center">

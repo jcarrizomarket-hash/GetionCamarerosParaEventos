@@ -1,10 +1,1 @@
-import { exportCSV } from '../utils/file-export';
-
-// ... other code ...
-
-const exportarExcel = () => {
-    // ... prepare data ...
-    exportCSV(data, 'exported-file.csv');
-};
-
-// ... rest of the code ...
+// This file should be deleted. The real admin component is at src/components/admin.tsx

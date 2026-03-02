@@ -88,8 +88,12 @@ export default function App() {
         logger.error('Error loading clientes', clientesResult.reason);
       }
 
-      // Check if ALL failed
-      const allFailed = results.every(r => r.status === 'rejected');
+      // Check if ALL failed (including fulfilled responses that indicate failure)
+      const allFailed = results.every(r => {
+        if (r.status === 'rejected') return true;
+        const value: any = r.value;
+        return !value || value.success === false;
+      });
       if (allFailed) {
         setError('No se pudo conectar con el servidor. Compruebe su conexión.');
       }

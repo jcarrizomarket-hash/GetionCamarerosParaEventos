@@ -9,20 +9,13 @@ const app = new Hono();
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Middleware de seguridad simple
-const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
-  // Solo validar en métodos mutantes
-  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
-    }
+// Middleware de autenticación JWT Bearer
+const requireAuth = async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+    return c.json({ success: false, error: 'No autorizado. Se requiere Authorization: Bearer <token>.' }, 401);
   }
-  
   await next();
 };
 
@@ -42,7 +35,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -58,7 +51,7 @@ app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -70,7 +63,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -92,7 +85,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -123,7 +116,7 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -135,7 +128,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -157,7 +150,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -185,7 +178,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -197,7 +190,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -219,7 +212,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -1200,22 +1193,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
-    
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.error('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1536,7 +1513,7 @@ async function enviarEmailGenerico({ destinatario, cc, asunto, htmlBody, attachm
 }
 
 // Endpoint para verificar qué servicio de email está configurado
-app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
+app.get('/make-server-25b11ac0/verificar-email-config', requireAuth, async (c) => {
   try {
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
@@ -1686,17 +1663,20 @@ app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
 });
 
 // ============== VERIFICAR CONFIGURACIÓN DE WHATSAPP ==============
-app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
+app.get('/make-server-25b11ac0/verificar-whatsapp-config', requireAuth, async (c) => {
   try {
     const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY');
     const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID');
     
     if (!whatsappApiKey || !whatsappPhoneId) {
+      const missingVars = [];
+      if (!whatsappApiKey) missingVars.push('WHATSAPP_API_KEY');
+      if (!whatsappPhoneId) missingVars.push('WHATSAPP_PHONE_ID');
       return c.json({
         configured: false,
         hasToken: !!whatsappApiKey,
         phoneId: !!whatsappPhoneId,
-        message: 'WhatsApp Business API no está configurado. Necesitas configurar WHATSAPP_API_KEY y WHATSAPP_PHONE_ID en las variables de entorno.',
+        message: `WhatsApp Business API no está configurado. Falta configurar: ${missingVars.join(', ')}.`,
         configSource: 'environment'
       });
     }
@@ -2193,7 +2173,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireAuth, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2499,7 +2479,7 @@ app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
 });
 
 // Regenerar token QR para un pedido
-app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireAuth, async (c) => {
   try {
     const pedidoId = c.req.param('id');
     const pedidoData = await kv.get(`pedido:${pedidoId}`);

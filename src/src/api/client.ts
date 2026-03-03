@@ -29,34 +29,20 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
   if (!supabaseFunctionEndpoint) {
     console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
     return '';
   }
   return supabaseFunctionEndpoint;
 };
 
 // Headers comunes para todas las peticiones
-const getHeaders = (includeSecret: boolean = false): HeadersInit => {
+const getHeaders = (): HeadersInit => {
   const { publicAnonKey } = getApiConfig();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${publicAnonKey}`,
   };
-
-  // Agregar secret header si se requiere (para operaciones mutantes)
-  if (includeSecret && typeof import.meta !== 'undefined') {
-    const fnSecret = import.meta.env?.VITE_SUPABASE_FN_SECRET;
-    if (fnSecret) {
-      headers['x-fn-secret'] = fnSecret;
-    }
-  }
 
   return headers;
 };
@@ -126,7 +112,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -142,7 +128,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -158,7 +144,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -205,7 +191,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -221,7 +207,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -237,7 +223,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -284,7 +270,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -300,7 +286,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -314,9 +300,9 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -348,7 +334,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(),
       body: JSON.stringify(cliente),
     });
     return handleResponse<Cliente>(response);
@@ -450,6 +436,6 @@ export function getConfig() {
  * Validar si la configuración está completa
  */
 export function isConfigValid(): boolean {
-  const { projectId, publicAnonKey } = getApiConfig();
-  return Boolean(projectId && publicAnonKey);
+  const { publicAnonKey } = getApiConfig();
+  return Boolean(publicAnonKey && getBaseUrl());
 }

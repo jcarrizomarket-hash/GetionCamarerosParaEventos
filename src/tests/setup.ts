@@ -16,7 +16,6 @@ global.import = {
     env: {
       VITE_SUPABASE_PROJECT_ID: 'test-project-id',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-      VITE_SUPABASE_FN_SECRET: 'test-secret',
     },
   },
 } as any;

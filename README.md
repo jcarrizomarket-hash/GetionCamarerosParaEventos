@@ -226,20 +226,10 @@ All checks are intended to pass before merging. To enforce these as required che
 
 ## 🔐 Security
 
-Mutation endpoints (POST, PUT, DELETE) require a function secret header in addition to the Supabase auth token.
+All endpoints require a Supabase JWT Bearer token (`Authorization: Bearer <token>`).  
+Mutation endpoints (POST, PUT, DELETE) and sensitive diagnostic GET endpoints enforce this check server-side.
 
-```bash
-# Generate a secure secret
-openssl rand -hex 32
-
-# Add to .env (frontend)
-VITE_SUPABASE_FN_SECRET=your-secret
-
-# Add to Supabase function secrets (backend)
-supabase secrets set SUPABASE_FN_SECRET=your-secret
-```
-
-The centralized API client (`src/api/client.ts`) handles adding this header automatically.
+The frontend uses **Supabase email/password authentication**: after login, the Supabase JWT is automatically included in all API requests via `Authorization: Bearer`. No `VITE_SUPABASE_FN_SECRET` is required.
 
 See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
@@ -247,7 +237,9 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Frontend
+
+The production frontend is hosted at **https://appservice.jcarrizo.com**.
 
 ```bash
 npm run build
@@ -257,15 +249,17 @@ Required environment variables on the hosting platform:
 ```
 VITE_SUPABASE_PROJECT_ID
 VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET
 ```
 
 ### Backend (Supabase Functions)
 
+The API runs as a Supabase Edge Function:
+
 ```bash
 supabase functions deploy make-server-25b11ac0
-supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
+
+API base URL: `https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0`
 
 ---
 

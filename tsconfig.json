@@ -1,1 +1,62 @@
-{"compilerOptions": {"target": "ES2020", "useDefineForClassFields": true, "lib": ["ES2020", "DOM", "DOM.Iterable"], "module": "ESNext", "skipLibCheck": true, "esModuleInterop": true, "allowSyntheticDefaultImports": true, "moduleResolution": "node", "resolveJsonModule": true, "noEmit": true, "isolatedModules": true, "jsx": "react-jsx", "allowImportingTsExtensions": true, "strict": true, "noFallthroughCasesInSwitch": true, "noImplicitAny": false, "skipDefaultLibCheck": true, "types": ["react", "react-dom", "node"], "baseUrl": ".", "paths": {"@/*": ["src/*"], "@components/*": ["src/components/*"], "@utils/*": ["src/utils/*"], "@schemas/*": ["src/schemas/*"], "@types/*": ["src/types/*"]}, "useUnknownInCatchVariables": false}, "include": ["src", "vite-env.d.ts"], "exclude": ["node_modules", "dist", "build", "src/supabase", "src/tests", "src/utils/api-client.ts", "src/schemas/index.ts"]}
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": false,
+    "skipDefaultLibCheck": true,
+    "types": [
+      "react",
+      "react-dom",
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@components/*": [
+        "src/components/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@schemas/*": [
+        "src/schemas/*"
+      ],
+      "@types/*": [
+        "src/types/*"
+      ]
+    },
+    "useUnknownInCatchVariables": false
+  },
+  "include": [
+    "src",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "src/supabase",
+    "src/tests",
+    "src/utils/api-client.ts",
+    "src/schemas/index.ts"
+  ]
+}

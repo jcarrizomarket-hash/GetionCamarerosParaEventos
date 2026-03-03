@@ -7,7 +7,7 @@ interface CoordinadoresProps {
   setCoordinadores: (coordinadores: any[]) => void;
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => void;
+  cargarDatos: () => Promise<void>;
 }
 
 export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, publicAnonKey, cargarDatos }: CoordinadoresProps) {
@@ -15,7 +15,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
-  const [editingCoordinador, setEditingCoordinador] = useState(null);
+  const [editingCoordinador, setEditingCoordinador] = useState<any>(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

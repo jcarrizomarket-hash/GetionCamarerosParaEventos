@@ -15,7 +15,7 @@ export interface CamarerosProps {
   coordinadores?: any[];
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => void;
+  cargarDatos: () => Promise<void>;
 }
 
 export interface Metricas {

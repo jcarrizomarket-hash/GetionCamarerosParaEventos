@@ -14,14 +14,14 @@ import { useHoraSalida } from './useHoraSalida';
 // v1.0.3 - Verificación completa de React keys
 
 export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
   const [showQRControl, setShowQRControl] = useState(false);
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual');
 
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map((p: any) => [p.id, p])).values()) as any[], [pedidos]);
+  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map((c: any) => [c.id, c])).values()) as any[], [camareros]);
 
   const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos });
   const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos });

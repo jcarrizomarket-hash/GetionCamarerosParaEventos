@@ -33,7 +33,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();
@@ -52,9 +52,9 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
   };
 
   // Deduplicar datos
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
-  const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map(c => [c.id, c])).values()), [clientes]);
+  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map((p: any) => [p.id, p])).values()) as any[], [pedidos]);
+  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map((c: any) => [c.id, c])).values()) as any[], [camareros]);
+  const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map((c: any) => [c.id, c])).values()) as any[], [clientes]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
@@ -95,7 +95,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     // Calcular camareros necesarios (considerando ocupación mínima de 5 horas)
     const calcularCamarerosNecesarios = (eventos) => {
       // Crear un mapa de franjas horarias ocupadas por día
-      const ocupacionPorDia = {};
+      const ocupacionPorDia: Record<string, any[]> = {};
 
       eventos.forEach(evento => {
         const dia = evento.diaEvento;
@@ -124,7 +124,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       let maxCamareros = 0;
       Object.values(ocupacionPorDia).forEach(franjas => {
         // Crear eventos de inicio y fin
-        const eventos = [];
+        const eventos: any[] = [];
         franjas.forEach(franja => {
           eventos.push({ tiempo: franja.inicio, tipo: 'inicio', cantidad: franja.cantidad });
           eventos.push({ tiempo: franja.fin, tipo: 'fin', cantidad: franja.cantidad });

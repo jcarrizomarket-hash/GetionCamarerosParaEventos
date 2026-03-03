@@ -321,7 +321,7 @@ export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores,
         }
       };
 
-      let warnings = [];
+      let warnings: string[] = [];
       if (camarerosSinTelefono.length > 0) {
         warnings.push(`${camarerosSinTelefono.length} camarero(s) sin teléfono configurado`);
       }

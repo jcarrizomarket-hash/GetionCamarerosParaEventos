@@ -12,7 +12,7 @@ interface PedidosProps {
   coordinadores: any[];
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => void;
+  cargarDatos: () => Promise<void>;
 }
 
 export function Pedidos({ 
@@ -25,7 +25,7 @@ export function Pedidos({
   cargarDatos 
 }: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();

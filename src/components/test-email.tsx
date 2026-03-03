@@ -150,7 +150,7 @@ export function TestEmail({ baseUrl, publicAnonKey }: TestEmailProps) {
       logger.error('Error al enviar email de prueba:', error);
       setResultado({
         success: false,
-        message: `❌ Error de conexión: ${error.message}`
+        message: `❌ Error de conexión: ${(error as Error).message}`
       });
     } finally {
       setEnviando(false);

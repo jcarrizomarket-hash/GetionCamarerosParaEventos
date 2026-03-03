@@ -4,5 +4,5 @@ export interface GestionPedidosProps {
   camareros: any[];
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => void;
+  cargarDatos: () => Promise<void>;
 }

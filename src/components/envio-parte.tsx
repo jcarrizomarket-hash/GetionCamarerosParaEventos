@@ -5,7 +5,7 @@ import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
 
 export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState<any>(null);
   const [showPrintView, setShowPrintView] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailData, setEmailData] = useState({
@@ -18,8 +18,8 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
   const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   // Deduplicar pedidos y ordenar descendentemente
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
-    .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento)); // Orden ascendente: fecha más próxima arriba
+  const uniquePedidos = (Array.from(new Map(pedidos.map((p: any) => [p.id, p])).values()) as any[])
+    .sort((a: any, b: any) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()); // Orden ascendente: fecha más próxima arriba
 
   const imprimirParte = () => {
     window.print();
@@ -200,7 +200,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                       
                       // Buscar emails del cliente
                       const clienteData = clientes.find(c => c.nombre === pedido.cliente);
-                      const emailsCliente = [];
+                      const emailsCliente: string[] = [];
                       
                       if (clienteData?.mail1) emailsCliente.push(clienteData.mail1);
                       if (clienteData?.mail2) emailsCliente.push(clienteData.mail2);

@@ -1,1 +1,1 @@
-{"scripts": {"lint": "eslint .","type-check": "tsc --noEmit"}}
+{"scripts":{"lint":"eslint .","type-check":"tsc --noEmit"},"dependencies":{"jsdom":"^28.1.0"}}

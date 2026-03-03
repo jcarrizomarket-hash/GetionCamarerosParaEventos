@@ -104,9 +104,10 @@ The app will be available at `http://localhost:5173`.
 ```bash
 VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_FN_SECRET=your-function-secret
 ```
 
-See [`src/.env.example`](./src/.env.example) for the full list.
+See [`.env.example`](./.env.example) for the full list.
 
 ---
 
@@ -247,7 +248,9 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Frontend (Azure App Service)
+
+The production frontend is served from **https://appservice.jcarrizo.com**.
 
 ```bash
 npm run build
@@ -262,10 +265,15 @@ VITE_SUPABASE_FN_SECRET
 
 ### Backend (Supabase Functions)
 
+The API runs on Supabase Edge Functions. Deploy with:
+
 ```bash
 supabase functions deploy make-server-25b11ac0
 supabase secrets set SUPABASE_FN_SECRET=your-secret
+supabase secrets set SUPABASE_JWT_SECRET=your-supabase-jwt-secret
 ```
+
+The `SUPABASE_JWT_SECRET` is used to validate incoming JWT tokens on every request. You can find it in your Supabase project under **Settings → API → JWT Settings**.
 
 ---
 

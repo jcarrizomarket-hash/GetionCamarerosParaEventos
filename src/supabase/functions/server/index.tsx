@@ -3,11 +3,13 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './middleware.ts';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger(console.log));
+app.use('*', requireAuth);
 
 // Middleware de seguridad simple
 const requireSecret = async (c, next) => {
@@ -1200,22 +1202,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
-    
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.error('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1849,7 +1835,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
     
     return c.json({
       success: true,
-      data: mensajesOrdenados
+      mensajes: mensajesOrdenados
     });
   } catch (error) {
     console.error('Error al obtener mensajes del chat:', error);

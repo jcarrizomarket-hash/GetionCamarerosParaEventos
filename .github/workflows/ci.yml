@@ -10,10 +10,12 @@ jobs:
   quality:
     name: Code Quality & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
     strategy:
+      fail-fast: true
       matrix:
         node-version: [20]
 

@@ -71,8 +71,10 @@ export async function logFunctionAccess(c: Context, next: () => Promise<void>) {
 
 /**
  * Middleware para validar que el request tenga un token de autorización
- * (Bearer token de Supabase)
+ * (Bearer token de Supabase) y que sea un JWT válido firmado por Supabase.
  */
+let _jwtSecretWarningLogged = false;
+
 export async function requireAuth(c: Context, next: () => Promise<void>) {
   const authHeader = c.req.header('Authorization');
   
@@ -86,10 +88,32 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
     );
   }
 
-  // Aquí podrías validar el token con Supabase si es necesario
-  // const token = authHeader.split(' ')[1];
-  // const { data, error } = await supabase.auth.getUser(token);
-  
+  const token = authHeader.split(' ')[1];
+  const jwtSecret = Deno.env.get('SUPABASE_JWT_SECRET');
+
+  if (jwtSecret) {
+    try {
+      const { jwtVerify } = await import('npm:jose@5.9.6');
+      const secret = new TextEncoder().encode(jwtSecret);
+      await jwtVerify(token, secret);
+    } catch (_err) {
+      const path = new URL(c.req.url).pathname;
+      console.warn(`❌ Token JWT inválido o expirado: ${c.req.method} ${path}`);
+      return c.json(
+        {
+          success: false,
+          error: 'No autorizado. Token JWT inválido o expirado.',
+        },
+        401
+      );
+    }
+  } else {
+    if (!_jwtSecretWarningLogged) {
+      console.warn('⚠️ SUPABASE_JWT_SECRET no configurado. Omitiendo validación de firma JWT.');
+      _jwtSecretWarningLogged = true;
+    }
+  }
+
   return next();
 }
 

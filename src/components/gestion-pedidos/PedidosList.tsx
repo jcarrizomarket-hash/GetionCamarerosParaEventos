@@ -106,7 +106,7 @@ export function PedidosList({
           <h3 className="font-semibold text-gray-800">Próximos Eventos</h3>
         </div>
         <div className="divide-y divide-gray-100">
-          {pedidosOrdenados.filter(p => new Date(p.diaEvento) >= new Date().setHours(0,0,0,0)).slice(0, 5).map(pedido => {
+          {pedidosOrdenados.filter(p => new Date(p.diaEvento) >= new Date(new Date().setHours(0,0,0,0))).slice(0, 5).map(pedido => {
             const totalReq = (parseInt(pedido.cantidadCamareros || 0)) + (parseInt(pedido.cantidadCamareros2 || 0));
             const asigs = pedido.asignaciones || [];
             const enviados = asigs.filter(a => a.estado === 'enviado').length;

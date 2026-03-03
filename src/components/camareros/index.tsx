@@ -9,12 +9,12 @@ import { CamarerosList } from './CamarerosList';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingCamarero, setEditingCamarero] = useState(null);
+  const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
 
   // Estados para calendario avanzado
-  const [selectedCamarero, setSelectedCamarero] = useState(null);
+  const [selectedCamarero, setSelectedCamarero] = useState<any>(null);
   const [showCalendario, setShowCalendario] = useState(false);
 
   // Estado formulario disponibilidad
@@ -23,7 +23,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [fechaFin, setFechaFin] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
-  const [diasSeleccionados, setDiasSeleccionados] = useState([]);
+  const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([]);
   const [tipoDisponibilidad, setTipoDisponibilidad] = useState('disponible');
 
   const initialFormState: FormData = {
@@ -125,7 +125,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
   // --- Gestión de Disponibilidad Avanzada ---
   const generarFechas = () => {
-    const fechasGeneradas = [];
+    const fechasGeneradas: {fecha: string; tipo: string; horario: string}[] = [];
     const horarioStr = (horaInicio && horaFin) ? `${horaInicio} - ${horaFin}` : '';
 
     const start = new Date(fechaInicio);
@@ -299,7 +299,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const exportarAExcel = () => exportarAExcelUtil(camareros);
 
   const importarDesdeExcel = async (event: any) =>
-    importarDesdeExcelUtil(event, camareros, baseUrl, publicAnonKey, cargarDatos);
+    importarDesdeExcelUtil(event, camareros, baseUrl, publicAnonKey, cargarDatos as () => Promise<void>);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

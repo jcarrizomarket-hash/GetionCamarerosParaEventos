@@ -25,7 +25,7 @@ export function Pedidos({
   cargarDatos 
 }: PedidosProps) {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();
@@ -95,7 +95,7 @@ export function Pedidos({
               coordinadores={coordinadores}
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
-              cargarDatos={cargarDatos}
+              cargarDatos={cargarDatos as () => Promise<void>}
             />
           )}
 

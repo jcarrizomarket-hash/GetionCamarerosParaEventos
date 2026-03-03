@@ -15,10 +15,10 @@ import { logger } from './utils/logger';
 // Última actualización: Panel de Admin con gestión de Altas
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [camareros, setCamareros] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
-  const [coordinadores, setCoordinadores] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  const [camareros, setCamareros] = useState<any[]>([]);
+  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [coordinadores, setCoordinadores] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 

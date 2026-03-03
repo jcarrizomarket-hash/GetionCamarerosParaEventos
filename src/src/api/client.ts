@@ -3,7 +3,6 @@
  * Unifica todas las llamadas al backend con manejo de errores consistente
  */
 
-import { logger } from '../../utils/logger';
 import type { 
   ApiResponse, 
   Pedido, 
@@ -13,52 +12,27 @@ import type {
   WhatsAppConfig,
   EmailConfig 
 } from '../types';
-import { supabaseFunctionEndpoint, supabaseAnonKey, supabaseProjectId } from '../../config/env';
+import { supabaseFunctionEndpoint, supabaseAnonKey } from '../../config/env';
 import { fetchWithRetry } from '../utils/retry';
 
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_RETRY_ATTEMPTS = 3;
 
-// Configuración de la API - lee de variables de entorno
-const getApiConfig = () => {
-  return {
-    projectId: supabaseProjectId,
-    publicAnonKey: supabaseAnonKey,
-  };
-};
-
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
   if (!supabaseFunctionEndpoint) {
     console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
     return '';
   }
   return supabaseFunctionEndpoint;
 };
 
-// Headers comunes para todas las peticiones
-const getHeaders = (includeSecret: boolean = false): HeadersInit => {
-  const { publicAnonKey } = getApiConfig();
-  const headers: HeadersInit = {
+// Headers comunes para todas las peticiones (JWT-only, sin shared secrets)
+const getHeaders = (): HeadersInit => {
+  return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
+    'Authorization': `Bearer ${supabaseAnonKey}`,
   };
-
-  // Agregar secret header si se requiere (para operaciones mutantes)
-  if (includeSecret && typeof import.meta !== 'undefined') {
-    const fnSecret = import.meta.env?.VITE_SUPABASE_FN_SECRET;
-    if (fnSecret) {
-      headers['x-fn-secret'] = fnSecret;
-    }
-  }
-
-  return headers;
 };
 
 // Función auxiliar para manejar respuestas
@@ -126,7 +100,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -142,7 +116,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -158,7 +132,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -205,7 +179,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -221,7 +195,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -237,7 +211,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -284,7 +258,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -300,7 +274,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -316,7 +290,7 @@ export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> 
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -348,7 +322,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // Requiere secret
       body: JSON.stringify(cliente),
     });
     return handleResponse<Cliente>(response);
@@ -443,13 +417,12 @@ export async function enviarEmailParte(params: {
  * Exportar configuración actual para debugging
  */
 export function getConfig() {
-  return getApiConfig();
+  return { endpoint: supabaseFunctionEndpoint };
 }
 
 /**
  * Validar si la configuración está completa
  */
 export function isConfigValid(): boolean {
-  const { projectId, publicAnonKey } = getApiConfig();
-  return Boolean(projectId && publicAnonKey);
+  return Boolean(supabaseFunctionEndpoint && supabaseAnonKey);
 }

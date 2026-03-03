@@ -10,7 +10,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
   const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   // Cargar clientes
   useEffect(() => {
@@ -130,7 +130,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     if (!camareroObj) return null;
 
     // 2. Iterar Pedidos para buscar asignaciones
-    let eventosTrabajados = [];
+    let eventosTrabajados: any[] = [];
     let totalEventos = 0;
     let totalMinutos = 0;
     let cancelaciones = 0; // Difícil de trackear sin histórico, usaremos placeholder o lógica si existe
@@ -276,7 +276,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
 
         // Table
         const tableColumn = ["Fecha", "Lugar", "Camareros", "Horas Hombre"];
-        const tableRows = [];
+        const tableRows: any[] = [];
 
         clientAnalytics.pedidosDetallados.forEach(p => {
             const row = [
@@ -320,7 +320,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
 
         // Table
         const tableColumn = ["Fecha", "Cliente", "Lugar", "Horas", "Estado"];
-        const tableRows = [];
+        const tableRows: any[] = [];
 
         waiterAnalytics.eventosTrabajados.forEach(e => {
             const row = [

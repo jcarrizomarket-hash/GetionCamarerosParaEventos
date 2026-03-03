@@ -9,27 +9,56 @@ const app = new Hono();
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Middleware de seguridad simple
-const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
-  // Solo validar en métodos mutantes
-  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
-    }
-  }
-  
-  await next();
-};
-
+// Supabase client with service role key for data operations
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
+
+// Supabase auth client (anon key) for JWT validation – singleton
+const supabaseAuth = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+);
+
+// Middleware de seguridad: acepta JWT de usuario Supabase o el x-fn-secret heredado
+const requireSecret = async (c, next) => {
+  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (!methodsToProtect.includes(c.req.method)) {
+    return next();
+  }
+
+  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
+  const providedSecret = c.req.header('x-fn-secret');
+
+  // Accept legacy x-fn-secret if configured and matches
+  if (expectedSecret && providedSecret === expectedSecret) {
+    return next();
+  }
+
+  // Accept valid Supabase user JWT (primary auth mechanism)
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const { data: { user } } = await supabaseAuth.auth.getUser(token);
+      if (user) {
+        return next();
+      }
+    } catch (_e) {
+      // JWT validation failed, fall through
+    }
+  }
+
+  // If no secret configured, allow through (development mode)
+  if (!expectedSecret) {
+    console.warn(`⚠️ SUPABASE_FN_SECRET no configurado. Mutación permitida sin autenticación: ${c.req.method} ${c.req.url}`);
+    return next();
+  }
+
+  console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
+  return c.json({ success: false, error: 'No autorizado' }, 401);
+};
 
 // ============== CLIENTES ==============
 app.get('/make-server-25b11ac0/clientes', async (c) => {
@@ -1200,7 +1229,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
 // Obtener mensajes de un chat
 app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
@@ -1214,8 +1242,6 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   }
 });
 
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1828,52 +1854,6 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
     
   } catch (error) {
     console.error('❌ Error al enviar WhatsApp:', error);
-    return c.json({
-      success: false,
-      error: String(error)
-    }, 500);
-  }
-});
-
-// ============== CHAT GRUPAL ==============
-// Obtener mensajes de un chat grupal
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.getByPrefix(`chat-mensaje:${chatId}:`);
-    
-    // Ordenar por timestamp
-    const mensajesOrdenados = mensajes.sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    
-    return c.json({
-      success: true,
-      data: mensajesOrdenados
-    });
-  } catch (error) {
-    console.error('Error al obtener mensajes del chat:', error);
-    return c.json({
-      success: false,
-      error: String(error)
-    }, 500);
-  }
-});
-
-// Crear mensaje en chat grupal
-app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
-  try {
-    const mensaje = await c.req.json();
-    const key = `chat-mensaje:${mensaje.chatId}:${mensaje.id}`;
-    
-    await kv.set(key, mensaje);
-    
-    return c.json({
-      success: true,
-      data: mensaje
-    });
-  } catch (error) {
-    console.error('Error al crear mensaje en chat:', error);
     return c.json({
       success: false,
       error: String(error)

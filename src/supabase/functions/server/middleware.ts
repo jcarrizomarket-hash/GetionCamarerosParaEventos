@@ -4,6 +4,19 @@
  */
 
 import type { Context } from 'npm:hono';
+import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+
+// Singleton Supabase client for JWT validation (uses anon key, not service role)
+let _authClient: ReturnType<typeof createClient> | null = null;
+const getAuthClient = () => {
+  if (!_authClient) {
+    _authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+  }
+  return _authClient;
+};
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
@@ -29,30 +42,42 @@ export async function requireFunctionSecret(c: Context, next: () => Promise<void
   // Obtener el secret del entorno
   const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
   
-  // Si no hay secret configurado, registrar advertencia pero permitir la petición
-  // (útil para desarrollo local)
+  // Obtener el secret del header (backward compatibility)
+  const providedSecret = c.req.header('x-fn-secret');
+
+  // Accept legacy x-fn-secret if configured and matches
+  if (expectedSecret && providedSecret === expectedSecret) {
+    return next();
+  }
+
+  // Accept valid Supabase user JWT as the primary auth mechanism
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const { data: { user } } = await getAuthClient().auth.getUser(token);
+      if (user) {
+        return next();
+      }
+    } catch (_e) {
+      // JWT validation failed, fall through to secret check
+    }
+  }
+
+  // If no secret configured, allow (development mode)
   if (!expectedSecret) {
     console.warn('⚠️ SUPABASE_FN_SECRET no está configurado. Se recomienda configurarlo en producción.');
     return next();
   }
 
-  // Obtener el secret del header
-  const providedSecret = c.req.header('x-fn-secret');
-
-  // Validar que coincidan
-  if (providedSecret !== expectedSecret) {
-    console.warn(`❌ Intento de acceso no autorizado al endpoint ${c.req.method} ${c.req.url}`);
-    return c.json(
-      {
-        success: false,
-        error: 'No autorizado. Header x-fn-secret inválido o ausente.',
-      },
-      401
-    );
-  }
-
-  // Secret válido, continuar
-  return next();
+  console.warn(`❌ Intento de acceso no autorizado al endpoint ${c.req.method} ${c.req.url}`);
+  return c.json(
+    {
+      success: false,
+      error: 'No autorizado. Se requiere JWT de usuario válido o header x-fn-secret.',
+    },
+    401
+  );
 }
 
 /**
@@ -70,8 +95,8 @@ export async function logFunctionAccess(c: Context, next: () => Promise<void>) {
 }
 
 /**
- * Middleware para validar que el request tenga un token de autorización
- * (Bearer token de Supabase)
+ * Middleware para validar que el request tenga un token JWT válido de Supabase Auth
+ * Requerido para endpoints que exigen un usuario autenticado con email/contraseña.
  */
 export async function requireAuth(c: Context, next: () => Promise<void>) {
   const authHeader = c.req.header('Authorization');
@@ -86,10 +111,24 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
     );
   }
 
-  // Aquí podrías validar el token con Supabase si es necesario
-  // const token = authHeader.split(' ')[1];
-  // const { data, error } = await supabase.auth.getUser(token);
-  
+  const token = authHeader.split(' ')[1];
+
+  // Validate token with Supabase Auth
+  const { data: { user }, error } = await getAuthClient().auth.getUser(token);
+
+  if (error || !user) {
+    console.warn('❌ Token JWT inválido o expirado:', error?.message);
+    return c.json(
+      {
+        success: false,
+        error: 'No autorizado. Token JWT inválido o expirado.',
+      },
+      401
+    );
+  }
+
+  // Store user in context for downstream handlers
+  c.set('user', user);
   return next();
 }
 
@@ -166,7 +205,7 @@ export function corsMiddleware(options?: {
 }) {
   const defaultOrigin = '*';
   const defaultMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
-  const defaultAllowHeaders = ['Content-Type', 'Authorization', 'x-fn-secret'];
+  const defaultAllowHeaders = ['Content-Type', 'Authorization'];
   
   return async (c: Context, next: () => Promise<void>) => {
     const origin = options?.origin || defaultOrigin;

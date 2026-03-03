@@ -29,34 +29,20 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
   if (!supabaseFunctionEndpoint) {
-    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
+    logger.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
     return '';
   }
   return supabaseFunctionEndpoint;
 };
 
 // Headers comunes para todas las peticiones
-const getHeaders = (includeSecret: boolean = false): HeadersInit => {
+const getHeaders = (_includeSecret: boolean = false): HeadersInit => {
   const { publicAnonKey } = getApiConfig();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${publicAnonKey}`,
   };
-
-  // Agregar secret header si se requiere (para operaciones mutantes)
-  if (includeSecret && typeof import.meta !== 'undefined') {
-    const fnSecret = import.meta.env?.VITE_SUPABASE_FN_SECRET;
-    if (fnSecret) {
-      headers['x-fn-secret'] = fnSecret;
-    }
-  }
 
   return headers;
 };

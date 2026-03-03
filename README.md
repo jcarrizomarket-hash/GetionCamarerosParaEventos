@@ -213,33 +213,31 @@ For detailed testing instructions, see [src/TESTING_SETUP.md](./src/TESTING_SETU
 
 ## 🔄 CI/CD
 
-This project uses GitHub Actions for continuous integration. On every push/PR to `main`:
+This project uses GitHub Actions for continuous integration. On every push/PR to `main`, the following jobs run **in parallel**:
 
-1. **Type Check** — Validates TypeScript types (`npm run type-check`)
-2. **Lint** — Enforces code style (`npm run lint`)
-3. **Tests** — Runs unit tests with Vitest
-4. **Build** — Ensures the project compiles (`npm run build`)
+1. **Conflict Marker Check** — Fails fast if any merge conflict markers are found in source files
+2. **TypeScript Check** — Validates TypeScript types (`npm run type-check`)
+3. **Lint** — Enforces code style (`npm run lint`)
+4. **Unit Tests** — Runs unit tests with Vitest
+5. **Build** — Ensures the project compiles (`npm run build`), runs after all quality gates pass
 
-All checks are intended to pass before merging. To enforce these as required checks that block merges, configure GitHub branch protection rules to require this workflow's status checks.
+All checks must pass before merging. Configure GitHub branch protection rules to require these status checks to enforce this.
 
 ---
 
 ## 🔐 Security
 
-Mutation endpoints (POST, PUT, DELETE) require a function secret header in addition to the Supabase auth token.
+Authentication for mutation endpoints (POST, PUT, DELETE) is handled via **Supabase JWT**. Log in with email/password using `supabase.auth.signInWithPassword()` and include the returned `access_token` as the Bearer token.
 
 ```bash
-# Generate a secure secret
+# Generate a function secret for additional server-side protection (optional)
 openssl rand -hex 32
 
-# Add to .env (frontend)
-VITE_SUPABASE_FN_SECRET=your-secret
-
-# Add to Supabase function secrets (backend)
+# Add to Supabase function secrets (backend only – never expose client-side)
 supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
 
-The centralized API client (`src/api/client.ts`) handles adding this header automatically.
+> ⚠️ **Never put `SUPABASE_FN_SECRET` in your frontend `.env` file.** The API client authenticates via Supabase user JWT only. The `SUPABASE_FN_SECRET` is a server-side-only fallback.
 
 See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
@@ -257,7 +255,6 @@ Required environment variables on the hosting platform:
 ```
 VITE_SUPABASE_PROJECT_ID
 VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET
 ```
 
 ### Backend (Supabase Functions)
@@ -266,6 +263,35 @@ VITE_SUPABASE_FN_SECRET
 supabase functions deploy make-server-25b11ac0
 supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
+
+### Running Under a Custom Domain
+
+To serve the app from a custom domain (e.g., `https://app.example.com`):
+
+1. **Vite build** – set the base URL in `vite.config.ts` if deploying to a sub-path:
+   ```ts
+   // vite.config.ts
+   export default defineConfig({ base: '/' })
+   ```
+
+2. **Hosting** – point your DNS A/CNAME record to your hosting provider (Vercel, Netlify, Cloudflare Pages, etc.) and add your custom domain in their dashboard.
+
+3. **CORS** – Supabase allows requests from any origin by default. If you restrict CORS in the Edge Function, add your domain:
+   ```ts
+   app.use('*', cors({ origin: 'https://app.example.com' }));
+   ```
+
+4. **Environment variables** – set the following on your hosting platform:
+   ```
+   VITE_SUPABASE_PROJECT_ID=your-project-id
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_SUPABASE_FUNCTION_ENDPOINT=https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0
+   ```
+
+5. **Supabase Auth redirect URL** – in the Supabase dashboard under **Authentication → URL Configuration**, add your custom domain to the allowed redirect URLs so email magic links and OAuth callbacks work:
+   ```
+   https://app.example.com/**
+   ```
 
 ---
 

@@ -293,14 +293,14 @@ app.delete('/pedidos/:id', requireFunctionSecret, handler);
 
 ### Variables de Entorno en Producción
 
-1. **Frontend** (Vercel/Netlify/etc):
+1. **Frontend** (https://appservice.jcarrizo.com):
    ```
    VITE_SUPABASE_PROJECT_ID=...
    VITE_SUPABASE_ANON_KEY=...
-   VITE_SUPABASE_FN_SECRET=...  # Opcional
+   VITE_SUPABASE_FN_SECRET=...
    ```
 
-2. **Backend** (Supabase Functions):
+2. **Backend** (Supabase Functions — `https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0`):
    ```
    SUPABASE_URL=...
    SUPABASE_ANON_KEY=...

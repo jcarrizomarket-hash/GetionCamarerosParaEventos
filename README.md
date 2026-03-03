@@ -247,7 +247,11 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Frontend — https://appservice.jcarrizo.com
+
+The production frontend is served from **https://appservice.jcarrizo.com**.
+
+Build and deploy the static output to your hosting platform (Azure App Service or equivalent):
 
 ```bash
 npm run build
@@ -262,10 +266,15 @@ VITE_SUPABASE_FN_SECRET
 
 ### Backend (Supabase Functions)
 
+The API remains on the Supabase Functions domain:
+`https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0`
+
 ```bash
 supabase functions deploy make-server-25b11ac0
 supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
+
+The Edge Function is configured to allow CORS requests from `https://appservice.jcarrizo.com` (and `localhost` for local development).
 
 ---
 

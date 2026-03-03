@@ -29,9 +29,8 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
+  if (!supabaseFunctionEndpoint) {
+    logger.warn('Supabase Function endpoint no está configurado. Configure VITE_SUPABASE_FUNCTION_ENDPOINT o VITE_SUPABASE_PROJECT_ID.');
     return '';
   }
   return supabaseFunctionEndpoint;

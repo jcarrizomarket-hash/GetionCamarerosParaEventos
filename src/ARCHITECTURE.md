@@ -79,14 +79,15 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 
 ### Niveles de Protección
 
-1. **Frontend**: 
-   - Solo usa `SUPABASE_ANON_KEY` (pública)
-   - Opcionalmente `VITE_SUPABASE_FN_SECRET` para operaciones mutantes
+1. **Frontend** (https://appservice.jcarrizo.com):
+   - Usa únicamente `VITE_SUPABASE_ANON_KEY` (pública por diseño)
+   - **No** almacena ni expone secretos compartidos
 
-2. **Backend (Edge Functions)**:
-   - Middleware `requireFunctionSecret`: Valida header `x-fn-secret` para POST/PUT/DELETE
+2. **Backend (Edge Functions)** (dominio Supabase Functions):
+   - CORS restringido a `https://appservice.jcarrizo.com`
+   - Middleware `requireAuth`: Valida header `Authorization: Bearer` en todas las peticiones
    - `SUPABASE_SERVICE_ROLE_KEY`: Solo en servidor, NUNCA expuesta al frontend
-   - Validación de tokens de autenticación
+   - Validación de JWT de Supabase en cada request
 
 3. **Database**:
    - Row Level Security (RLS) configurado en Supabase
@@ -95,15 +96,10 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 ### Headers de Seguridad
 
 ```typescript
-// Operaciones de lectura (GET)
+// Todas las peticiones (GET, POST, PUT, DELETE)
 headers: {
-  'Authorization': 'Bearer SUPABASE_ANON_KEY'
-}
-
-// Operaciones mutantes (POST/PUT/DELETE)
-headers: {
-  'Authorization': 'Bearer SUPABASE_ANON_KEY',
-  'x-fn-secret': 'SUPABASE_FN_SECRET'  // Validado por middleware
+  'Content-Type': 'application/json',
+  'Authorization': 'Bearer VITE_SUPABASE_ANON_KEY'  // JWT validado por Supabase
 }
 ```
 
@@ -258,16 +254,16 @@ npx playwright show-report
 
 ```typescript
 import { 
-  requireFunctionSecret,  // Valida x-fn-secret para mutaciones
-  requireAuth,            // Valida token de autenticación
+  requireAuth,            // Valida token Bearer JWT (uso principal)
+  requireFunctionSecret,  // @deprecated – solo para llamadas server-to-server
   rateLimit,              // Previene abuso con rate limiting
   errorLogger,            // Logging de errores con contexto
-  corsMiddleware,         // CORS configurable
+  corsMiddleware,         // CORS configurable (por defecto: appservice.jcarrizo.com)
 } from './supabase/functions/server/middleware';
 
 // Uso en el servidor
-app.post('/pedidos', requireFunctionSecret, async (c) => {
-  // Solo se ejecuta si x-fn-secret es válido
+app.post('/pedidos', requireAuth, async (c) => {
+  // Solo se ejecuta si Bearer JWT es válido
 });
 ```
 
@@ -276,36 +272,47 @@ app.post('/pedidos', requireFunctionSecret, async (c) => {
 ```typescript
 // En supabase/functions/server/index.tsx
 import { Hono } from 'npm:hono';
-import { requireFunctionSecret, errorLogger } from './middleware';
+import { cors } from 'npm:hono/cors';
+import { requireAuth, errorLogger } from './middleware';
 
 const app = new Hono();
 
-// Middleware global
+// CORS restringido al frontend en producción
+app.use('*', cors({ origin: 'https://appservice.jcarrizo.com' }));
+
+// Middleware global de logging
 app.use('*', errorLogger);
 
 // Middleware específico por ruta
-app.post('/pedidos', requireFunctionSecret, handler);
-app.put('/pedidos/:id', requireFunctionSecret, handler);
-app.delete('/pedidos/:id', requireFunctionSecret, handler);
+app.post('/pedidos', requireAuth, handler);
+app.put('/pedidos/:id', requireAuth, handler);
+app.delete('/pedidos/:id', requireAuth, handler);
 ```
 
 ## 🚀 Despliegue
 
+### Arquitectura de Despliegue
+
+| Capa | URL | Tecnología |
+|------|-----|------------|
+| Frontend | https://appservice.jcarrizo.com | Azure App Service |
+| Backend API | https://\<project-id\>.supabase.co/functions/v1/make-server-25b11ac0 | Supabase Edge Functions |
+
 ### Variables de Entorno en Producción
 
-1. **Frontend** (Vercel/Netlify/etc):
+1. **Frontend** (Azure App Service):
    ```
    VITE_SUPABASE_PROJECT_ID=...
    VITE_SUPABASE_ANON_KEY=...
-   VITE_SUPABASE_FN_SECRET=...  # Opcional
+   VITE_SUPABASE_FUNCTION_ENDPOINT=https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0
    ```
+   Configure el redirect URL de Supabase Auth a `https://appservice.jcarrizo.com`.
 
 2. **Backend** (Supabase Functions):
    ```
    SUPABASE_URL=...
    SUPABASE_ANON_KEY=...
    SUPABASE_SERVICE_ROLE_KEY=...
-   SUPABASE_FN_SECRET=...
    WHATSAPP_PHONE_ID=...
    WHATSAPP_API_KEY=...
    EMAIL_FROM=...
@@ -315,8 +322,9 @@ app.delete('/pedidos/:id', requireFunctionSecret, handler);
 ### Checklist de Despliegue
 
 - [ ] Configurar todas las variables de entorno
-- [ ] Generar `SUPABASE_FN_SECRET` seguro (32+ caracteres)
-- [ ] Verificar que el middleware de seguridad está activo
+- [ ] Configurar el redirect URL de Supabase Auth a `https://appservice.jcarrizo.com`
+- [ ] Verificar que el middleware `requireAuth` está activo en rutas de mutación
+- [ ] Verificar que CORS está restringido a `https://appservice.jcarrizo.com`
 - [ ] Ejecutar tests antes de desplegar: `npm test && npx playwright test`
 - [ ] Revisar logs del servidor para errores
 - [ ] Verificar que emails y WhatsApp funcionan

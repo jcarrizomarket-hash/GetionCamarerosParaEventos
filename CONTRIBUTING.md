@@ -64,8 +64,10 @@ Edit `.env` with your Supabase credentials:
 ```bash
 VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
-# NOTE: Do not put Supabase function secrets in Vite env vars (VITE_*).
-# Configure any SUPABASE_FN_SECRET only in your backend/server environment, not in this .env file.
+# Optional: override the auto-derived API endpoint
+# VITE_SUPABASE_FUNCTION_ENDPOINT=https://your-project-id.supabase.co/functions/v1/make-server-25b11ac0
+# NOTE: Do NOT add any shared secret here. Server-side secrets (service role key, etc.)
+# must only be set in Supabase Function secrets – never in this file.
 ```
 
 ### 3. Start the Development Server

@@ -1,20 +1,17 @@
 /**
  * Middleware de seguridad para proteger las Supabase Functions
- * Valida un header secreto para operaciones mutantes (POST, PUT, DELETE)
+ * Autenticación mediante Authorization Bearer JWT (Supabase anon key)
  */
 
 import type { Context } from 'npm:hono';
 
 /**
  * Middleware que requiere un header secreto para operaciones mutantes
- * 
- * Uso en el servidor:
- * ```typescript
- * app.post('/pedidos', requireFunctionSecret, async (c) => {
- *   // Tu código aquí - solo se ejecuta si el secret es válido
- * });
- * ```
- * 
+ *
+ * @deprecated Use `requireAuth` (Bearer JWT) instead.
+ * This middleware is kept for server-to-server calls only and must
+ * NEVER be activated by setting SUPABASE_FN_SECRET on the frontend.
+ *
  * @param c - Contexto de Hono
  */
 export async function requireFunctionSecret(c: Context, next: () => Promise<void>) {
@@ -56,15 +53,14 @@ export async function requireFunctionSecret(c: Context, next: () => Promise<void
 }
 
 /**
- * Middleware opcional más flexible que solo registra pero no bloquea
- * Útil durante migración gradual
+ * Middleware opcional que registra cada request
  */
 export async function logFunctionAccess(c: Context, next: () => Promise<void>) {
   const method = c.req.method;
   const url = c.req.url;
-  const hasSecret = Boolean(c.req.header('x-fn-secret'));
+  const hasAuth = Boolean(c.req.header('Authorization'));
   
-  console.log(`📡 ${method} ${url} - Secret: ${hasSecret ? '✅' : '❌'}`);
+  console.log(`📡 ${method} ${url} - Auth: ${hasAuth ? '✅' : '❌'}`);
   
   return next();
 }
@@ -164,9 +160,9 @@ export function corsMiddleware(options?: {
   methods?: string[];
   allowHeaders?: string[];
 }) {
-  const defaultOrigin = '*';
+  const defaultOrigin = 'https://appservice.jcarrizo.com';
   const defaultMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
-  const defaultAllowHeaders = ['Content-Type', 'Authorization', 'x-fn-secret'];
+  const defaultAllowHeaders = ['Content-Type', 'Authorization'];
   
   return async (c: Context, next: () => Promise<void>) => {
     const origin = options?.origin || defaultOrigin;

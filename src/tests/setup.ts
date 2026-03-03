@@ -16,7 +16,7 @@ global.import = {
     env: {
       VITE_SUPABASE_PROJECT_ID: 'test-project-id',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-      VITE_SUPABASE_FN_SECRET: 'test-secret',
+      VITE_SUPABASE_FUNCTION_ENDPOINT: 'https://test-project-id.supabase.co/functions/v1/make-server-25b11ac0',
     },
   },
 } as any;

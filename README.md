@@ -104,9 +104,11 @@ The app will be available at `http://localhost:5173`.
 ```bash
 VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
+# Optional: override the auto-derived API endpoint
+# VITE_SUPABASE_FUNCTION_ENDPOINT=https://your-project-id.supabase.co/functions/v1/make-server-25b11ac0
 ```
 
-See [`src/.env.example`](./src/.env.example) for the full list.
+See [`.env.example`](./.env.example) for the full list.
 
 ---
 
@@ -226,20 +228,16 @@ All checks are intended to pass before merging. To enforce these as required che
 
 ## 🔐 Security
 
-Mutation endpoints (POST, PUT, DELETE) require a function secret header in addition to the Supabase auth token.
+All requests from the frontend authenticate using the Supabase anon JWT sent as an `Authorization: Bearer` header. **No shared secret is ever stored or shipped to the browser.**
 
 ```bash
-# Generate a secure secret
-openssl rand -hex 32
-
-# Add to .env (frontend)
-VITE_SUPABASE_FN_SECRET=your-secret
-
-# Add to Supabase function secrets (backend)
-supabase secrets set SUPABASE_FN_SECRET=your-secret
+# The anon key is public by design – Supabase validates it on every request.
+# Keep it in your .env as VITE_SUPABASE_ANON_KEY.
+# All server-side secrets (service role key, WhatsApp key, etc.) must be set
+# in Supabase Function secrets ONLY – never in the frontend .env file.
 ```
 
-The centralized API client (`src/api/client.ts`) handles adding this header automatically.
+The centralized API client (`src/src/api/client.ts`) sends `Authorization: Bearer <VITE_SUPABASE_ANON_KEY>` on every request.
 
 See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
@@ -247,7 +245,9 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Frontend – Azure App Service
+
+The production frontend is served at **https://appservice.jcarrizo.com**.
 
 ```bash
 npm run build
@@ -257,15 +257,21 @@ Required environment variables on the hosting platform:
 ```
 VITE_SUPABASE_PROJECT_ID
 VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET
+VITE_SUPABASE_FUNCTION_ENDPOINT   # e.g. https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0
 ```
+
+Configure the Supabase Auth redirect URL to `https://appservice.jcarrizo.com`.
 
 ### Backend (Supabase Functions)
 
 ```bash
 supabase functions deploy make-server-25b11ac0
-supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
+
+The function is deployed to the Supabase Functions domain:
+`https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0`
+
+CORS is restricted to `https://appservice.jcarrizo.com`. No frontend-facing secrets need to be set.
 
 ---
 

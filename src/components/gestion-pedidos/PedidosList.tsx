@@ -53,7 +53,7 @@ export function PedidosList({
 
         <div className="p-6">
           <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day: any) => (
               <div key={day} className="bg-gray-50 p-2 text-center text-xs font-semibold text-gray-500 uppercase">
                 {day}
               </div>
@@ -68,7 +68,7 @@ export function PedidosList({
             {Array.from({ length: monthData.days }).map((_, i) => {
               const day = i + 1;
               const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const pedidosDia = pedidosMes.filter(p => p.diaEvento === dateStr);
+              const pedidosDia = pedidosMes.filter((p: any) => p.diaEvento === dateStr);
 
               return (
                 <div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition-colors">
@@ -106,11 +106,11 @@ export function PedidosList({
           <h3 className="font-semibold text-gray-800">Próximos Eventos</h3>
         </div>
         <div className="divide-y divide-gray-100">
-          {pedidosOrdenados.filter(p => new Date(p.diaEvento) >= new Date().setHours(0,0,0,0)).slice(0, 5).map(pedido => {
+          {pedidosOrdenados.filter((p: any) => new Date(p.diaEvento).getTime() >= new Date().setHours(0,0,0,0)).slice(0, 5).map((pedido: any) => {
             const totalReq = (parseInt(pedido.cantidadCamareros || 0)) + (parseInt(pedido.cantidadCamareros2 || 0));
             const asigs = pedido.asignaciones || [];
-            const enviados = asigs.filter(a => a.estado === 'enviado').length;
-            const confirmados = asigs.filter(a => a.estado === 'confirmado').length;
+            const enviados = asigs.filter((a: any) => a.estado === 'enviado').length;
+            const confirmados = asigs.filter((a: any) => a.estado === 'confirmado').length;
             const asignadosTotal = asigs.length;
             const faltantes = Math.max(0, totalReq - asignadosTotal);
 

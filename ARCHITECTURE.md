@@ -1,36 +1,86 @@
-# Architecture and Security Improvements Documentation
+# Architecture and Security Documentation
 
 ## Overview
-This document provides comprehensive details regarding the architectural considerations and security improvements implemented within the GetionCamarerosParaEventos application.
+This document describes the architecture and security model of GetionCamarerosParaEventos.
+See also [README.md](../README.md) and the related issue/PR [#157](https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/issues/157).
 
-## Architectural Overview
-1. **Microservices Architecture**: Adopted microservices to enhance scalability and maintainability.
-   - Services are loosely coupled and independently deployable.
-   - Each microservice is responsible for a specific functionality, allowing for easier updates and modifications.
+## Deployment: Option A
 
-2. **Database Design**: Implemented a robust database schema with normalization to reduce redundancy.
-   - Utilized NoSQL databases for high availability and scalability.
-   - Established read and write replicas to ensure data consistency and reduce latency.
+The canonical deployment (Option A) consists of:
 
-3. **API Gateway**: Deployed an API Gateway to manage all requests to the microservices.
-   - Provides a single entry point for client requests.
-   - Facilitates load balancing, caching, and security features like rate limiting and authentication. 
+| Layer | Service | URL |
+|---|---|---|
+| Frontend | Azure App Service | `https://appservice.jcarrizo.com` |
+| API | Supabase Edge Functions | `https://<project-id>.supabase.co/functions/v1/make-server-25b11ac0` |
+| Auth | Supabase Auth (email/password) | Redirect URL: `https://appservice.jcarrizo.com` |
 
-## Security Improvements
-1. **Authentication and Authorization**: Implemented OAuth2 and JWT for secure API access.
-   - Users are required to authenticate before accessing protected resources.
-   - JWT tokens ensure stateless authentication, improving performance.
+### Supabase Auth Redirect URLs
 
-2. **Data Encryption**: Ensured data is encrypted in transit and at rest.
-   - Utilized TLS for securing data during transmission.
-   - Sensitive data stored in the database is encrypted using industry-standard algorithms.
+Configure these in **Supabase Dashboard → Authentication → URL Configuration**:
 
-3. **Input Validation and Sanitization**: Conducted thorough input validation and sanitization processes to prevent attacks such as SQL injection and XSS.
-   - Used frameworks and libraries that inherently provide security features.
+- **Site URL**: `https://appservice.jcarrizo.com`
+- **Additional Redirect URLs** (for local development only):
+  - `http://localhost:5173`
+  - `http://localhost:3000`
 
-4. **Regular Security Audits**: Established a routine for regular security audits and vulnerability assessments.
-   - Engaged third-party security firms for penetration testing. 
-   - Ensured timely patching and updating of dependencies to mitigate risks.
+## Security
+
+### Authentication and Authorization
+
+All sensitive API endpoints are protected by **JWT-only authentication** using Supabase Auth.
+
+1. Users authenticate with email/password via `supabase.auth.signInWithPassword()`.
+2. Supabase returns a signed JWT (`access_token`) valid for the session duration.
+3. The frontend injects this token into every API request via `setAuthToken(token)` from `src/api/client.ts`.
+4. The Edge Function validates the token with `supabase.auth.getUser(token)` on every sensitive request.
+5. Requests without a valid JWT receive HTTP 401.
+
+**No client-side shared secrets** (`VITE_SUPABASE_FN_SECRET`) are used. The old `x-fn-secret` header approach has been removed.
+
+#### Protected endpoints (require valid user JWT)
+
+- `GET /camareros`, `GET /coordinadores`, `GET /pedidos`, `GET /clientes` — data listings
+- `GET /informes/*` — reports
+- `GET /chats/*`, `GET /chat-mensajes/*` — chat data
+- `GET /diagnostico-chats` — diagnostics
+- All `POST`, `PUT`, `DELETE` data-mutation endpoints
+
+#### Public endpoints (no JWT required)
+
+- `GET /confirmar/:token` — waiter confirmation link (token-based)
+- `GET /no-confirmar/:token` — waiter rejection link (token-based)
+- `GET /whatsapp-webhook`, `POST /whatsapp-webhook` — Meta webhook
+- `GET /qr-scan/:token` — QR scan page
+- `GET /verificar-whatsapp-config`, `GET /verificar-email-config` — admin config checks
+
+### CORS Policy
+
+The Edge Function enforces a **restricted CORS allowlist**:
+
+```
+Allowed origins:
+  https://appservice.jcarrizo.com   ← production
+  http://localhost:5173             ← local dev (not in production builds)
+  http://localhost:3000             ← local dev (not in production builds)
+```
+
+All other origins receive no `Access-Control-Allow-Origin` header and are blocked by the browser.
+
+### Data Encryption
+
+- All data is transmitted over TLS (HTTPS).
+- Supabase stores data encrypted at rest.
+
+### Input Validation and Sanitization
+
+- Request bodies are parsed via Hono's JSON parser.
+- Database queries use Supabase's parameterized query builder (RLS enabled).
+
+### Security Audits
+
+- Dependencies are audited with `npm audit` in CI.
+- Regularly update dependencies to mitigate known vulnerabilities.
 
 ## Conclusion
-The architecture and security enhancements laid out in this documentation aim to ensure a robust, secure, and scalable application capable of handling user needs efficiently. Regular updates and adherence to best practices are essential for maintaining system integrity and security.
+
+The JWT-only, origin-restricted architecture described here provides a strong security baseline for Option A deployment while maintaining developer ergonomics for local development.

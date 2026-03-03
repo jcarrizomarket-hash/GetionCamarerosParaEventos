@@ -9,12 +9,12 @@ import { CamarerosList } from './CamarerosList';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingCamarero, setEditingCamarero] = useState(null);
+  const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
 
   // Estados para calendario avanzado
-  const [selectedCamarero, setSelectedCamarero] = useState(null);
+  const [selectedCamarero, setSelectedCamarero] = useState<any>(null);
   const [showCalendario, setShowCalendario] = useState(false);
 
   // Estado formulario disponibilidad
@@ -23,7 +23,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [fechaFin, setFechaFin] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
-  const [diasSeleccionados, setDiasSeleccionados] = useState([]);
+  const [diasSeleccionados, setDiasSeleccionados] = useState<any[]>([]);
   const [tipoDisponibilidad, setTipoDisponibilidad] = useState('disponible');
 
   const initialFormState: FormData = {
@@ -72,20 +72,20 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     const hoy = new Date();
     const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
-    const activos = camareros.filter(c => c.estado !== 'apercibido');
+    const activos = camareros.filter((c: any) => c.estado !== 'apercibido');
     const totalActivos = activos.length;
-    const totalApercibidos = camareros.filter(c => c.estado === 'apercibido').length;
+    const totalApercibidos = camareros.filter((c: any) => c.estado === 'apercibido').length;
 
     const noDisponiblesIds = new Set(
       activos
-        .filter(c => c.disponibilidad?.some(d => d.fecha === hoyStr && d.tipo === 'no-disponible'))
-        .map(c => c.id)
+        .filter((c: any) => c.disponibilidad?.some(d => d.fecha === hoyStr && d.tipo === 'no-disponible'))
+        .map((c: any) => c.id)
     );
 
-    const pedidosHoy = pedidos.filter(p => p.diaEvento === hoyStr);
+    const pedidosHoy = pedidos.filter((p: any) => p.diaEvento === hoyStr);
     const asignadosIds = new Set();
-    pedidosHoy.forEach(p => {
-      if (p.asignaciones) p.asignaciones.forEach(a => asignadosIds.add(a.camareroId));
+    pedidosHoy.forEach((p: any) => {
+      if (p.asignaciones) p.asignaciones.forEach((a: any) => asignadosIds.add(a.camareroId));
     });
 
     const ocupadosOIndisponibles = new Set([...noDisponiblesIds, ...asignadosIds]);
@@ -111,21 +111,21 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const toggleListValue = (field: string, value: string) => {
     setFormData(prev => {
       const list = prev[field] || [];
-      if (list.includes(value)) return { ...prev, [field]: list.filter(item => item !== value) };
+      if (list.includes(value)) return { ...prev, [field]: list.filter((item: any) => item !== value) };
       return { ...prev, [field]: [...list, value] };
     });
   };
 
   const toggleDiaSemana = (diaIndex: number) => {
     setDiasSeleccionados(prev => {
-      if (prev.includes(diaIndex)) return prev.filter(d => d !== diaIndex);
+      if (prev.includes(diaIndex)) return prev.filter((d: any) => d !== diaIndex);
       return [...prev, diaIndex];
     });
   };
 
   // --- Gestión de Disponibilidad Avanzada ---
   const generarFechas = () => {
-    const fechasGeneradas = [];
+    const fechasGeneradas: any[] = [];
     const horarioStr = (horaInicio && horaFin) ? `${horaInicio} - ${horaFin}` : '';
 
     const start = new Date(fechaInicio);
@@ -169,8 +169,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
     const disponibilidadActual = selectedCamarero.disponibilidad || [];
 
-    const fechasNuevasSet = new Set(nuevasFechas.map(f => f.fecha));
-    const disponibilidadFiltrada = disponibilidadActual.filter(d => !fechasNuevasSet.has(d.fecha));
+    const fechasNuevasSet = new Set(nuevasFechas.map((f: any) => f.fecha));
+    const disponibilidadFiltrada = disponibilidadActual.filter((d: any) => !fechasNuevasSet.has(d.fecha));
 
     const disponibilidadFinal = [...disponibilidadFiltrada, ...nuevasFechas];
 
@@ -196,7 +196,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
 
   const eliminarDisponibilidad = async (fecha: string) => {
     if (!selectedCamarero) return;
-    const disponibilidad = selectedCamarero.disponibilidad.filter(d => d.fecha !== fecha);
+    const disponibilidad = selectedCamarero.disponibilidad.filter((d: any) => d.fecha !== fecha);
     try {
       const response = await fetch(`${baseUrl}/camareros/${selectedCamarero.id}`, {
         method: 'PUT',
@@ -289,7 +289,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   };
 
   const listaCamareros = camareros
-    .filter(c => verApercibidos ? c.estado === 'apercibido' : (c.estado !== 'apercibido' || !c.estado))
+    .filter((c: any) => verApercibidos ? c.estado === 'apercibido' : (c.estado !== 'apercibido' || !c.estado))
     .sort((a, b) => {
       if (a.codigo && b.codigo) return a.codigo.localeCompare(b.codigo);
       return a.numero - b.numero;

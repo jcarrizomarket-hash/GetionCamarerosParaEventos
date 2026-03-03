@@ -285,18 +285,18 @@ export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores,
     addTestResult('Estadísticas', 'info', 'Recopilando estadísticas del sistema...');
     
     try {
-      const camarerosSinTelefono = camareros.filter(c => !c.telefono);
-      const camarerosConTelefono = camareros.filter(c => c.telefono);
-      const coordinadoresSinTelefono = coordinadores.filter(c => !c.telefono);
-      const coordinadoresConTelefono = coordinadores.filter(c => c.telefono);
+      const camarerosSinTelefono = camareros.filter((c: any) => !c.telefono);
+      const camarerosConTelefono = camareros.filter((c: any) => c.telefono);
+      const coordinadoresSinTelefono = coordinadores.filter((c: any) => !c.telefono);
+      const coordinadoresConTelefono = coordinadores.filter((c: any) => c.telefono);
       
-      const pedidosConAsignaciones = pedidos.filter(p => p.asignaciones?.length > 0);
+      const pedidosConAsignaciones = pedidos.filter((p: any) => p.asignaciones?.length > 0);
       const totalAsignaciones = pedidos.reduce((sum, p) => sum + (p.asignaciones?.length || 0), 0);
       const asignacionesConfirmadas = pedidos.reduce((sum, p) => {
-        return sum + (p.asignaciones?.filter(a => a.estado === 'confirmado').length || 0);
+        return sum + (p.asignaciones?.filter((a: any) => a.estado === 'confirmado').length || 0);
       }, 0);
       const asignacionesEnviadas = pedidos.reduce((sum, p) => {
-        return sum + (p.asignaciones?.filter(a => a.estado === 'enviado').length || 0);
+        return sum + (p.asignaciones?.filter((a: any) => a.estado === 'enviado').length || 0);
       }, 0);
 
       const stats = {
@@ -321,7 +321,7 @@ export function WhatsAppTest({ baseUrl, publicAnonKey, camareros, coordinadores,
         }
       };
 
-      let warnings = [];
+      let warnings: string[] = [];
       if (camarerosSinTelefono.length > 0) {
         warnings.push(`${camarerosSinTelefono.length} camarero(s) sin teléfono configurado`);
       }

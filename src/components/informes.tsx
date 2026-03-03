@@ -10,7 +10,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
   const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   // Cargar clientes
   useEffect(() => {
@@ -51,7 +51,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     if (tipoInforme !== 'cliente' || !clienteSeleccionado) return null;
 
     // 1. Filtrar Pedidos del Cliente
-    const pedidosCliente = pedidos.filter(p => {
+    const pedidosCliente = pedidos.filter((p: any) => {
        const matchCliente = p.cliente === clienteSeleccionado;
        if (!matchCliente) return false;
        // Filtro fecha
@@ -69,7 +69,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     let totalCamareros = 0;
     let totalMinutos = 0;
 
-    const pedidosDetallados = pedidosCliente.map(p => {
+    const pedidosDetallados = pedidosCliente.map((p: any) => {
         const cant1 = parseInt(p.cantidadCamareros || 0);
         const min1 = parseDuration(p.totalHoras || '');
         
@@ -92,7 +92,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     // 3. Porcentaje del Total (Market Share)
     // Usamos el total de pedidos en la DB (sin filtro de fecha para tener referencia global, o con filtro si se desea relativo al periodo)
     // Para "market share" usualmente es relativo al periodo.
-    const totalPedidosGlobales = pedidos.filter(p => {
+    const totalPedidosGlobales = pedidos.filter((p: any) => {
        // Aplicar mismo filtro de fecha para ser justos en el %
        const fecha = new Date(p.diaEvento);
        fecha.setHours(0,0,0,0);
@@ -126,16 +126,16 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     if (tipoInforme !== 'camarero' || !camareroSeleccionado) return null;
 
     // 1. Encontrar Camarero
-    const camareroObj = camareros.find(c => c.id === camareroSeleccionado);
+    const camareroObj = camareros.find((c: any) => c.id === camareroSeleccionado);
     if (!camareroObj) return null;
 
     // 2. Iterar Pedidos para buscar asignaciones
-    let eventosTrabajados = [];
+    let eventosTrabajados: any[] = [];
     let totalEventos = 0;
     let totalMinutos = 0;
     let cancelaciones = 0; // Difícil de trackear sin histórico, usaremos placeholder o lógica si existe
 
-    pedidos.forEach(p => {
+    pedidos.forEach((p: any) => {
         // Filtro fecha
        const fecha = new Date(p.diaEvento);
        fecha.setHours(0,0,0,0);
@@ -147,7 +147,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
        if (!p.asignaciones) return;
 
        // Buscar si el camarero está asignado
-       const asignacion = p.asignaciones.find(a => a.camareroId === camareroSeleccionado);
+       const asignacion = p.asignaciones.find((a: any) => a.camareroId === camareroSeleccionado);
        
        if (asignacion) {
            // Determinar horas (Turno 1 o Turno 2? No está explícito en asignación, 
@@ -177,7 +177,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     const ausencias = 0; 
 
     // Rendimiento: Eventos Confirmados / Total Asignados
-    const confirmados = eventosTrabajados.filter(e => e.estado === 'confirmado').length;
+    const confirmados = eventosTrabajados.filter((e: any) => e.estado === 'confirmado').length;
     const rendimiento = totalEventos > 0 ? ((confirmados / totalEventos) * 100).toFixed(0) : 0;
 
     return {
@@ -200,7 +200,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     let filename = "";
 
     if (tipoInforme === 'cliente' && clientAnalytics) {
-        const clienteObj = clientes.find(c => c.nombre === clienteSeleccionado);
+        const clienteObj = clientes.find((c: any) => c.nombre === clienteSeleccionado);
         const codigoCliente = clienteObj?.numero || 'N/A';
         
         filename = `informe_cliente_${codigoCliente}_${new Date().toISOString().slice(0,10)}.csv`;
@@ -209,7 +209,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
         csvContent += `Código Cliente: ${codigoCliente}\n`;
         csvContent += "Fecha,Lugar,Camareros,Horas Total\n";
         // Rows
-        clientAnalytics.pedidosDetallados.forEach(p => {
+        clientAnalytics.pedidosDetallados.forEach((p: any) => {
             csvContent += `${new Date(p.diaEvento).toLocaleDateString()},"${p.lugar}",${p.totalCams},${formatDuration(p.totalHorasHombre)}\n`;
         });
         // Footer (KPIs)
@@ -218,7 +218,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
         csvContent += `Total Horas:,${clientAnalytics.totalHoras}\n`;
 
     } else if (tipoInforme === 'camarero' && waiterAnalytics) {
-        const cam = camareros.find(c => c.id === camareroSeleccionado);
+        const cam = camareros.find((c: any) => c.id === camareroSeleccionado);
         const codigoCamarero = cam?.numero || 'N/A';
         
         filename = `informe_camarero_${codigoCamarero}_${new Date().toISOString().slice(0,10)}.csv`;
@@ -227,7 +227,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
         csvContent += `Código Camarero: ${codigoCamarero}\n`;
         csvContent += "Fecha,Cliente,Lugar,Horas,Estado\n";
         // Rows
-        waiterAnalytics.eventosTrabajados.forEach(e => {
+        waiterAnalytics.eventosTrabajados.forEach((e: any) => {
             csvContent += `${new Date(e.fecha).toLocaleDateString()},"${e.cliente}","${e.lugar}",${e.horas},${e.estado}\n`;
         });
         // Footer (KPIs)
@@ -252,7 +252,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
     const doc = new jsPDF();
 
     if (tipoInforme === 'cliente' && clientAnalytics) {
-        const clienteObj = clientes.find(c => c.nombre === clienteSeleccionado);
+        const clienteObj = clientes.find((c: any) => c.nombre === clienteSeleccionado);
         const codigoCliente = clienteObj?.numero || 'N/A';
 
         doc.setFontSize(18);
@@ -276,9 +276,9 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
 
         // Table
         const tableColumn = ["Fecha", "Lugar", "Camareros", "Horas Hombre"];
-        const tableRows = [];
+        const tableRows: any[] = [];
 
-        clientAnalytics.pedidosDetallados.forEach(p => {
+        clientAnalytics.pedidosDetallados.forEach((p: any) => {
             const row = [
                 new Date(p.diaEvento).toLocaleDateString(),
                 p.lugar,
@@ -297,7 +297,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
         doc.save(`informe_cliente_${codigoCliente}.pdf`);
 
     } else if (tipoInforme === 'camarero' && waiterAnalytics) {
-        const cam = camareros.find(c => c.id === camareroSeleccionado);
+        const cam = camareros.find((c: any) => c.id === camareroSeleccionado);
         const nombreCamarero = cam ? `${cam.nombre} ${cam.apellido}` : 'Desconocido';
         const codigoCamarero = cam?.numero || 'N/A';
 
@@ -320,9 +320,9 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
 
         // Table
         const tableColumn = ["Fecha", "Cliente", "Lugar", "Horas", "Estado"];
-        const tableRows = [];
+        const tableRows: any[] = [];
 
-        waiterAnalytics.eventosTrabajados.forEach(e => {
+        waiterAnalytics.eventosTrabajados.forEach((e: any) => {
             const row = [
                 new Date(e.fecha).toLocaleDateString(),
                 e.cliente,
@@ -408,7 +408,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                         <option key="cliente-empty" value="">-- Seleccione --</option>
-                        {clientes.map(c => (
+                        {clientes.map((c: any) => (
                             <option key={c.id} value={c.nombre}>{c.nombre}</option>
                         ))}
                     </select>
@@ -422,7 +422,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                         <option key="camarero-empty" value="">-- Seleccione --</option>
-                        {camareros.map(c => (
+                        {camareros.map((c: any) => (
                             <option key={c.id} value={c.id}>#{c.numero} - {c.nombre} {c.apellido}</option>
                         ))}
                     </select>
@@ -580,7 +580,7 @@ export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                          {waiterAnalytics.eventosTrabajados.map((e) => (
+                          {waiterAnalytics.eventosTrabajados.map((e: any) => (
                               <tr key={`evento-${e.fecha}-${e.cliente}-${e.lugar}`} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                       {new Date(e.fecha).toLocaleDateString()}

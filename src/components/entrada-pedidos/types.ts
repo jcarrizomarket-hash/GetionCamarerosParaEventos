@@ -83,5 +83,5 @@ export interface EntradaPedidosProps {
   coordinadores?: Coordinador[];
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => Promise<void>;
+  cargarDatos: () => void | Promise<void>;
 }

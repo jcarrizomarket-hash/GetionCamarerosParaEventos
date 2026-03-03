@@ -38,7 +38,7 @@ export async function importarDesdeExcel(
   camareros: any[],
   baseUrl: string,
   publicAnonKey: string,
-  cargarDatos: () => Promise<void>
+  cargarDatos: () => void | Promise<void>
 ): Promise<void> {
   const file = event.target.files[0];
   if (!file) return;

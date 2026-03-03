@@ -4,7 +4,7 @@ import { useState } from 'react';
 interface PedidoActionsConfig {
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => Promise<void>;
+  cargarDatos: () => void | Promise<void>;
 }
 
 export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: PedidoActionsConfig) {

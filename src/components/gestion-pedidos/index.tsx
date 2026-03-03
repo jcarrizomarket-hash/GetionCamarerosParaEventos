@@ -14,14 +14,14 @@ import { useHoraSalida } from './useHoraSalida';
 // v1.0.3 - Verificación completa de React keys
 
 export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
   const [showQRControl, setShowQRControl] = useState(false);
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual');
 
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+  const uniquePedidos = useMemo(() => (Array.from(new Map(pedidos.map((p: any) => [p.id, p])).values()) as any[]), [pedidos]);
+  const uniqueCamareros = useMemo(() => (Array.from(new Map(camareros.map((c: any) => [c.id, c])).values()) as any[]), [camareros]);
 
   const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos });
   const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos });
@@ -33,7 +33,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
       let hayActualizaciones = false;
       for (const pedido of uniquePedidos) {
         const asignaciones = pedido.asignaciones || [];
-        const asignacionesFiltradas = asignaciones.filter(a => {
+        const asignacionesFiltradas = asignaciones.filter((a: any) => {
           if (a.estado === 'rechazado' && a.eliminacionProgramada) {
             const fechaEliminacion = new Date(a.eliminacionProgramada);
             if (ahora >= fechaEliminacion) { hayActualizaciones = true; return false; }
@@ -63,7 +63,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
   const monthData = getDaysInMonth(currentDate);
 
-  const pedidosMes = uniquePedidos.filter(p => {
+  const pedidosMes = uniquePedidos.filter((p: any) => {
     const fecha = new Date(p.diaEvento);
     return fecha.getMonth() === currentDate.getMonth() && fecha.getFullYear() === currentDate.getFullYear();
   });
@@ -76,7 +76,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   );
 
   const camarerosDisponibles = uniqueCamareros
-    .filter(c => {
+    .filter((c: any) => {
       const search = filtroCamarero.toLowerCase();
       const matchSearch =
         c.nombre.toLowerCase().includes(search) ||

@@ -24,9 +24,9 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values());
-  const uniqueCamareros = Array.from(new Map(camareros.map(c => [c.id, c])).values());
-  const uniqueCoordinadores = Array.from(new Map(coordinadores.map(c => [c.id, c])).values());
+  const uniquePedidos = (Array.from(new Map(pedidos.map(p => [p.id, p])).values()) as any[]);
+  const uniqueCamareros = (Array.from(new Map(camareros.map(c => [c.id, c])).values()) as any[]);
+  const uniqueCoordinadores = (Array.from(new Map(coordinadores.map(c => [c.id, c])).values()) as any[]);
 
   // Inicializar coordinador
   useEffect(() => {

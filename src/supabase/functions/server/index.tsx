@@ -4,35 +4,55 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
 
+const ALLOWED_ORIGINS = [
+  'https://appservice.jcarrizo.com',
+  // Permitido en desarrollo local (documentado):
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
 const app = new Hono();
 
-app.use('*', cors());
+app.use('*', cors({
+  origin: (origin: string): string | null => {
+    if (!origin) return null;
+    if (ALLOWED_ORIGINS.includes(origin)) return origin;
+    return null;
+  },
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+}));
 app.use('*', logger(console.log));
-
-// Middleware de seguridad simple
-const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
-  // Solo validar en métodos mutantes
-  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
-    }
-  }
-  
-  await next();
-};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+// Middleware JWT: valida el Bearer token del usuario mediante Supabase Auth
+// Se aplica a todos los endpoints sensibles (GET/POST/PUT/DELETE con datos privados)
+const requireJWT = async (c: any, next: () => Promise<void>) => {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`❌ Sin header Authorization: ${c.req.method} ${c.req.url}`);
+    return c.json({ success: false, error: 'No autorizado. Se requiere Authorization Bearer.' }, 401);
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    console.warn(`❌ JWT inválido o expirado: ${c.req.method} ${c.req.url}`);
+    return c.json({ success: false, error: 'No autorizado. Token JWT inválido o expirado.' }, 401);
+  }
+
+  await next();
+};
+
 // ============== CLIENTES ==============
-app.get('/make-server-25b11ac0/clientes', async (c) => {
+app.get('/make-server-25b11ac0/clientes', requireJWT, async (c) => {
   try {
     const clientes = await kv.getByPrefix('cliente:');
     return c.json({ success: true, data: clientes });
@@ -42,7 +62,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireJWT, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -58,7 +78,7 @@ app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -70,7 +90,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -82,7 +102,7 @@ app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
 });
 
 // ============== CAMAREROS ==============
-app.get('/make-server-25b11ac0/camareros', async (c) => {
+app.get('/make-server-25b11ac0/camareros', requireJWT, async (c) => {
   try {
     const camareros = await kv.getByPrefix('camarero:');
     return c.json({ success: true, data: camareros });
@@ -92,7 +112,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireJWT, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -123,7 +143,7 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -135,7 +155,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -147,7 +167,7 @@ app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
 });
 
 // ============== COORDINADORES ==============
-app.get('/make-server-25b11ac0/coordinadores', async (c) => {
+app.get('/make-server-25b11ac0/coordinadores', requireJWT, async (c) => {
   try {
     const coordinadores = await kv.getByPrefix('coordinador:');
     return c.json({ success: true, data: coordinadores });
@@ -157,7 +177,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireJWT, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -185,7 +205,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -197,7 +217,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -209,7 +229,7 @@ app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) =
 });
 
 // ============== PEDIDOS/EVENTOS ==============
-app.get('/make-server-25b11ac0/pedidos', async (c) => {
+app.get('/make-server-25b11ac0/pedidos', requireJWT, async (c) => {
   try {
     const pedidos = await kv.getByPrefix('pedido:');
     return c.json({ success: true, data: pedidos });
@@ -219,7 +239,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireJWT, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -260,7 +280,7 @@ app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
+app.put('/make-server-25b11ac0/pedidos/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -276,7 +296,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', requireJWT, async (c) => {
   try {
     const id = c.req.param('id');
     console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);
@@ -290,7 +310,7 @@ app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
 });
 
 // ============== INFORMES ==============
-app.get('/make-server-25b11ac0/informes/cliente', async (c) => {
+app.get('/make-server-25b11ac0/informes/cliente', requireJWT, async (c) => {
   try {
     const { cliente, desde, hasta } = c.req.query();
     const pedidos = await kv.getByPrefix('pedido:');
@@ -308,7 +328,7 @@ app.get('/make-server-25b11ac0/informes/cliente', async (c) => {
   }
 });
 
-app.get('/make-server-25b11ac0/informes/camarero', async (c) => {
+app.get('/make-server-25b11ac0/informes/camarero', requireJWT, async (c) => {
   try {
     const { camareroId, desde, hasta } = c.req.query();
     const pedidos = await kv.getByPrefix('pedido:');
@@ -342,7 +362,7 @@ app.get('/make-server-25b11ac0/informes/camarero', async (c) => {
 });
 
 // ============== CONFIRMACIONES ==============
-app.post('/make-server-25b11ac0/guardar-token', async (c) => {
+app.post('/make-server-25b11ac0/guardar-token', requireJWT, async (c) => {
   try {
     const { token, pedidoId, camareroId, coordinadorId } = await c.req.json();
     
@@ -722,7 +742,7 @@ app.get('/make-server-25b11ac0/no-confirmar/:token', async (c) => {
 
 // ============== CHATS GRUPALES ==============
 // Crear chat grupal cuando todos confirmen
-app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
+app.post('/make-server-25b11ac0/crear-chat-grupal', requireJWT, async (c) => {
   try {
     const { pedidoId, coordinadorId } = await c.req.json();
     
@@ -806,7 +826,7 @@ app.post('/make-server-25b11ac0/crear-chat-grupal', async (c) => {
 });
 
 // Diagnóstico completo de chats
-app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
+app.get('/make-server-25b11ac0/diagnostico-chats', requireJWT, async (c) => {
   try {
     console.log('🔍 === EJECUTANDO DIAGNÓSTICO COMPLETO DE CHATS ===');
     
@@ -967,7 +987,7 @@ app.get('/make-server-25b11ac0/diagnostico-chats', async (c) => {
 });
 
 // Reparar chats faltantes automáticamente
-app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
+app.post('/make-server-25b11ac0/reparar-chats', requireJWT, async (c) => {
   try {
     console.log('🔧 === INICIANDO REPARACIÓN DE CHATS ===');
     
@@ -1119,7 +1139,7 @@ app.post('/make-server-25b11ac0/reparar-chats', async (c) => {
 });
 
 // Obtener chats del coordinador (con limpieza automática de expirados)
-app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
+app.get('/make-server-25b11ac0/chats/:coordinadorId', requireJWT, async (c) => {
   try {
     const coordinadorId = c.req.param('coordinadorId');
     console.log(`🔍 Buscando chats para coordinadorId: ${coordinadorId}`);
@@ -1175,7 +1195,7 @@ app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
 });
 
 // Enviar mensaje al chat
-app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
+app.post('/make-server-25b11ac0/chat-mensaje', requireJWT, async (c) => {
   try {
     const { chatId, mensaje, remitente, remitenteNombre } = await c.req.json();
     
@@ -1200,9 +1220,8 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
 // Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
+app.get('/make-server-25b11ac0/chat-mensajes/:chatId', requireJWT, async (c) => {
   try {
     const chatId = c.req.param('chatId');
     const mensajes = await kv.get(`${chatId}:mensajes`) || [];
@@ -1214,8 +1233,6 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   }
 });
 
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1604,7 +1621,7 @@ app.get('/make-server-25b11ac0/verificar-email-config', async (c) => {
 });
 
 // Endpoint para enviar parte por email
-app.post('/make-server-25b11ac0/enviar-email-parte', async (c) => {
+app.post('/make-server-25b11ac0/enviar-email-parte', requireJWT, async (c) => {
   try {
     const { destinatario, cc, asunto, mensaje, parteHTML, pedido } = await c.req.json();
     
@@ -1747,7 +1764,7 @@ app.get('/make-server-25b11ac0/verificar-whatsapp-config', async (c) => {
 });
 
 // ============== ENVIAR WHATSAPP ==============
-app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
+app.post('/make-server-25b11ac0/enviar-whatsapp', requireJWT, async (c) => {
   try {
     const { telefono, mensaje } = await c.req.json();
     
@@ -1837,7 +1854,7 @@ app.post('/make-server-25b11ac0/enviar-whatsapp', async (c) => {
 
 // ============== CHAT GRUPAL ==============
 // Obtener mensajes de un chat grupal
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
+app.get('/make-server-25b11ac0/chat-mensajes/:chatId', requireJWT, async (c) => {
   try {
     const chatId = c.req.param('chatId');
     const mensajes = await kv.getByPrefix(`chat-mensaje:${chatId}:`);
@@ -1861,7 +1878,7 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
 });
 
 // Crear mensaje en chat grupal
-app.post('/make-server-25b11ac0/chat-mensajes', async (c) => {
+app.post('/make-server-25b11ac0/chat-mensajes', requireJWT, async (c) => {
   try {
     const mensaje = await c.req.json();
     const key = `chat-mensaje:${mensaje.chatId}:${mensaje.id}`;
@@ -2193,7 +2210,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireJWT, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2254,7 +2271,7 @@ app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
 
 // ============== ENVÍOS - MENSAJES GRUPALES ==============
 // Enviar mensaje de confirmación a todos los camareros asignados a un evento
-app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
+app.post('/make-server-25b11ac0/enviar-mensaje-grupal', requireJWT, async (c) => {
   try {
     const { pedidoId, mensaje } = await c.req.json();
     console.log('📤 Enviando mensaje grupal para pedido:', pedidoId);
@@ -2361,7 +2378,7 @@ app.post('/make-server-25b11ac0/enviar-mensaje-grupal', async (c) => {
 
 // ============== ENVÍOS - PARTES DE SERVICIO ==============
 // Enviar parte de servicio por WhatsApp y/o Email
-app.post('/make-server-25b11ac0/enviar-parte', async (c) => {
+app.post('/make-server-25b11ac0/enviar-parte', requireJWT, async (c) => {
   try {
     const { eventoId, clienteEmail, clienteTelefono, mensaje } = await c.req.json();
     console.log('📋 Enviando parte de servicio para evento:', eventoId);
@@ -2499,7 +2516,7 @@ app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
 });
 
 // Regenerar token QR para un pedido
-app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireJWT, async (c) => {
   try {
     const pedidoId = c.req.param('id');
     const pedidoData = await kv.get(`pedido:${pedidoId}`);

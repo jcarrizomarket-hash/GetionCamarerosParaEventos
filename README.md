@@ -22,7 +22,7 @@ The original design is available at [Figma](https://www.figma.com/design/Nq9oM07
 - [Configuration](#-configuration)
 - [Testing](#-testing)
 - [CI/CD](#-cicd)
-- [Security](#-security)
+- [Security & Authentication](#-security--authentication)
 - [Deployment](#-deployment)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
@@ -224,48 +224,74 @@ All checks are intended to pass before merging. To enforce these as required che
 
 ---
 
-## 🔐 Security
+## 🔐 Security & Authentication
 
-Mutation endpoints (POST, PUT, DELETE) require a function secret header in addition to the Supabase auth token.
+Sensitive endpoints (all data GET, and all POST/PUT/DELETE operations) require a valid **Supabase Auth JWT** sent as a Bearer token.
 
-```bash
-# Generate a secure secret
-openssl rand -hex 32
+### Setting Up Supabase Auth
 
-# Add to .env (frontend)
-VITE_SUPABASE_FN_SECRET=your-secret
+1. Enable Email/Password auth in your Supabase project:
+   - Dashboard → Authentication → Providers → Email → Enable
+2. Set the **Site URL** and **Redirect URLs** in Authentication → URL Configuration:
+   - **Site URL**: `https://appservice.jcarrizo.com`
+   - **Additional Redirect URLs**: `http://localhost:5173` (dev only)
+3. Users sign in with `supabase.auth.signInWithPassword({ email, password })`.
+4. The frontend passes the session `access_token` as `Authorization: Bearer <token>` on every API call.
 
-# Add to Supabase function secrets (backend)
-supabase secrets set SUPABASE_FN_SECRET=your-secret
+```typescript
+// After successful sign-in, inject the token into the API client:
+import { setAuthToken } from './src/api/client';
+const { data } = await supabase.auth.signInWithPassword({ email, password });
+setAuthToken(data.session?.access_token ?? null);
+
+// On sign-out:
+await supabase.auth.signOut();
+setAuthToken(null);
 ```
 
-The centralized API client (`src/api/client.ts`) handles adding this header automatically.
-
-See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
+> **Note:** `VITE_SUPABASE_FN_SECRET` is no longer required. The old shared-secret approach has been replaced by JWT-only authentication.
 
 ---
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Option A: Frontend on appservice.jcarrizo.com + Supabase Functions (recommended)
+
+This is the **canonical deployment** configuration for this project.
+
+| Layer | Service |
+|---|---|
+| Frontend | Azure App Service — `https://appservice.jcarrizo.com` |
+| API | Supabase Edge Functions |
+| Auth | Supabase Auth (email/password) |
+
+#### Frontend deployment
 
 ```bash
 npm run build
 ```
 
-Required environment variables on the hosting platform:
+Upload the `dist/` folder to your Azure App Service (or any static host).
+
+Required environment variables:
 ```
-VITE_SUPABASE_PROJECT_ID
-VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET
+VITE_SUPABASE_PROJECT_ID=your-project-id
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### Backend (Supabase Functions)
+#### Backend (Supabase Functions)
 
 ```bash
 supabase functions deploy make-server-25b11ac0
-supabase secrets set SUPABASE_FN_SECRET=your-secret
 ```
+
+No additional secrets are needed beyond the auto-injected Supabase variables.
+
+#### CORS policy
+
+The Edge Function allows requests **only** from:
+- `https://appservice.jcarrizo.com` (production)
+- `http://localhost:5173` and `http://localhost:3000` (local development — not sent to production builds)
 
 ---
 
@@ -341,5 +367,5 @@ This project is licensed under the MIT License.
 
 ---
 
-**Version:** 2.0.0 | **Last updated:** January 2026
+**Version:** 2.1.0 | **Last updated:** March 2026 | **Related:** [#157](https://github.com/jcarrizomarket-hash/GetionCamarerosParaEventos/issues/157)
   

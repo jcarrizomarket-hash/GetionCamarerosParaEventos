@@ -33,7 +33,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();
@@ -52,9 +52,9 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
   };
 
   // Deduplicar datos
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
-  const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map(c => [c.id, c])).values()), [clientes]);
+  const uniquePedidos = useMemo(() => (Array.from(new Map(pedidos.map((p: any) => [p.id, p])).values()) as any[]), [pedidos]);
+  const uniqueCamareros = useMemo(() => (Array.from(new Map(camareros.map((c: any) => [c.id, c])).values()) as any[]), [camareros]);
+  const uniqueClientes = useMemo(() => (Array.from(new Map(clientes.map((c: any) => [c.id, c])).values()) as any[]), [clientes]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
@@ -74,19 +74,19 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
     // Filtrar eventos
-    const eventosDiarios = uniquePedidos.filter(p => {
+    const eventosDiarios = uniquePedidos.filter((p: any) => {
       const fecha = new Date(p.diaEvento);
       fecha.setHours(0, 0, 0, 0);
       return fecha.getTime() === today.getTime();
     });
 
-    const eventosSemanales = uniquePedidos.filter(p => {
+    const eventosSemanales = uniquePedidos.filter((p: any) => {
       const fecha = new Date(p.diaEvento);
       fecha.setHours(0, 0, 0, 0);
       return fecha >= monday && fecha <= nextSunday;
     });
 
-    const eventosMensuales = uniquePedidos.filter(p => {
+    const eventosMensuales = uniquePedidos.filter((p: any) => {
       const fecha = new Date(p.diaEvento);
       fecha.setHours(0, 0, 0, 0);
       return fecha >= firstDayOfMonth && fecha <= lastDayOfMonth;
@@ -97,7 +97,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       // Crear un mapa de franjas horarias ocupadas por día
       const ocupacionPorDia = {};
 
-      eventos.forEach(evento => {
+      eventos.forEach((evento: any) => {
         const dia = evento.diaEvento;
         if (!ocupacionPorDia[dia]) {
           ocupacionPorDia[dia] = [];
@@ -122,10 +122,10 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
 
       // Calcular el máximo de camareros simultáneos por día
       let maxCamareros = 0;
-      Object.values(ocupacionPorDia).forEach(franjas => {
+      Object.values(ocupacionPorDia).forEach((franjas: any) => {
         // Crear eventos de inicio y fin
-        const eventos = [];
-        franjas.forEach(franja => {
+        const eventos: any[] = [];
+        franjas.forEach((franja: any) => {
           eventos.push({ tiempo: franja.inicio, tipo: 'inicio', cantidad: franja.cantidad });
           eventos.push({ tiempo: franja.fin, tipo: 'fin', cantidad: franja.cantidad });
         });
@@ -135,7 +135,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
 
         // Calcular ocupación simultánea
         let ocupacionActual = 0;
-        eventos.forEach(evento => {
+        eventos.forEach((evento: any) => {
           if (evento.tipo === 'inicio') {
             ocupacionActual += evento.cantidad;
           } else {
@@ -153,19 +153,19 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     const camarerosNecesariosMensual = calcularCamarerosNecesarios(eventosMensuales);
 
     // Calcular estados de camareros
-    const camarerosDisponibles = uniqueCamareros.filter(c => !c.estado || c.estado === 'disponible').length;
-    const camarerosApercibidos = uniqueCamareros.filter(c => c.estado === 'apercibido').length;
-    const camarerosActivos = uniqueCamareros.filter(c => c.estado === 'activo').length;
-    const camarerosReserva = uniqueCamareros.filter(c => c.estado === 'reserva').length;
+    const camarerosDisponibles = uniqueCamareros.filter((c: any) => !c.estado || c.estado === 'disponible').length;
+    const camarerosApercibidos = uniqueCamareros.filter((c: any) => c.estado === 'apercibido').length;
+    const camarerosActivos = uniqueCamareros.filter((c: any) => c.estado === 'activo').length;
+    const camarerosReserva = uniqueCamareros.filter((c: any) => c.estado === 'reserva').length;
 
     // Calcular estados de mensajes
     let mensajesSinEnviar = 0;
     let mensajesEnviados = 0;
     let mensajesSinConfirmar = 0;
 
-    uniquePedidos.forEach(pedido => {
+    uniquePedidos.forEach((pedido: any) => {
       const asignaciones = pedido.asignaciones || [];
-      asignaciones.forEach(asig => {
+      asignaciones.forEach((asig: any) => {
         if (!asig.estado || asig.estado === '') {
           mensajesSinEnviar++;
         } else if (asig.estado === 'enviado') {

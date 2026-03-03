@@ -29,36 +29,40 @@ const getApiConfig = () => {
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
-<<<<<<< copilot/implement-centralized-logging
-  const { projectId } = getApiConfig();
-  if (!projectId) {
-    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado');
-=======
   if (!supabaseFunctionEndpoint) {
-    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
->>>>>>> main
+    logger.warn('VITE_SUPABASE_PROJECT_ID no está configurado. Por favor configura VITE_SUPABASE_FUNCTION_ENDPOINT o VITE_SUPABASE_PROJECT_ID en tu archivo .env.');
     return '';
   }
   return supabaseFunctionEndpoint;
 };
 
+// Token de autenticación del usuario (JWT de Supabase Auth)
+// Se actualiza mediante setAuthToken() cuando el usuario inicia sesión
+let _authToken: string | null = null;
+
+/**
+ * Establece el JWT del usuario para las peticiones autenticadas.
+ * Debe llamarse al iniciar sesión con Supabase Auth y al cerrar sesión (null).
+ *
+ * Ejemplo:
+ * ```typescript
+ * const { data } = await supabase.auth.signInWithPassword({ email, password });
+ * setAuthToken(data.session?.access_token ?? null);
+ * ```
+ */
+export function setAuthToken(token: string | null): void {
+  _authToken = token;
+}
+
 // Headers comunes para todas las peticiones
-const getHeaders = (includeSecret: boolean = false): HeadersInit => {
+// Siempre envía el JWT del usuario (o el anon key como fallback público)
+const getHeaders = (): HeadersInit => {
   const { publicAnonKey } = getApiConfig();
-  const headers: HeadersInit = {
+  const token = _authToken ?? publicAnonKey;
+  return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
+    'Authorization': `Bearer ${token}`,
   };
-
-  // Agregar secret header si se requiere (para operaciones mutantes)
-  if (includeSecret && typeof import.meta !== 'undefined') {
-    const fnSecret = import.meta.env?.VITE_SUPABASE_FN_SECRET;
-    if (fnSecret) {
-      headers['x-fn-secret'] = fnSecret;
-    }
-  }
-
-  return headers;
 };
 
 // Función auxiliar para manejar respuestas
@@ -126,7 +130,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -142,7 +146,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -158,7 +162,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -205,7 +209,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -221,7 +225,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -237,7 +241,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -284,7 +288,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -300,7 +304,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -316,7 +320,7 @@ export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> 
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -348,7 +352,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
-      headers: getHeaders(true), // Requiere secret
+      headers: getHeaders(), // JWT via Authorization Bearer
       body: JSON.stringify(cliente),
     });
     return handleResponse<Cliente>(response);

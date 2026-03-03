@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
 
-const ApiContext = createContext();
+const ApiContext = createContext<any>(null);
 
 export const ApiProvider = ({ children }) => {
     const config = {

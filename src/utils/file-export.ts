@@ -9,8 +9,8 @@
  * @param {Array<Object>} data - The data to be exported.
  * @param {string} filename - The name of the file to save the data to.
  */
-function exportToCSV(data, filename) {
-    const csvRows = [];
+function exportToCSV(data: any[], filename: string) {
+    const csvRows: string[] = [];
 
     // Get the headers
     const headers = Object.keys(data[0]);
@@ -37,7 +37,7 @@ function exportToCSV(data, filename) {
  * @param {Array<Object>} data - The data to be exported.
  * @param {string} filename - The name of the file to save the data to.
  */
-function exportToJSON(data, filename) {
+function exportToJSON(data: any, filename: string) {
     const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(jsonBlob);

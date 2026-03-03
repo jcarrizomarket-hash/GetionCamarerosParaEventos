@@ -5,7 +5,7 @@ interface HoraSalidaConfig {
   uniquePedidos: any[];
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => Promise<void>;
+  cargarDatos: () => void | Promise<void>;
 }
 
 export function useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos }: HoraSalidaConfig) {

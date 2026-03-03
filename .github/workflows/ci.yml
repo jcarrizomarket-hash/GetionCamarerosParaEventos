@@ -32,7 +32,7 @@ jobs:
 
       - name: Check for merge conflict markers
         run: |
-          if grep -rn "<<<<<<< \|======= \|>>>>>>> " --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" src/ 2>/dev/null; then
+          if grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" src/ 2>/dev/null; then
             echo "ERROR: Merge conflict markers found in source files"
             exit 1
           fi

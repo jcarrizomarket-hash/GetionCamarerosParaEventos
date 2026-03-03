@@ -193,6 +193,11 @@ export function formatPhoneNumber(phone: string, defaultCountryCode: string = '3
   // Eliminar el + si existe
   cleaned = cleaned.replace('+', '');
   
+  // Si el código de país es '1' (USA/Canadá) y el número tiene 10 dígitos, agregar código
+  if (defaultCountryCode === '1' && cleaned.length === 10) {
+    return defaultCountryCode + cleaned;
+  }
+
   // Si tiene 9 dígitos (formato español sin código de país), agregar código
   if (cleaned.length === 9 && !cleaned.startsWith(defaultCountryCode)) {
     cleaned = defaultCountryCode + cleaned;

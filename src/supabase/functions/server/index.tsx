@@ -9,20 +9,18 @@ const app = new Hono();
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Middleware de seguridad simple
+// Middleware de seguridad: valida Authorization Bearer para operaciones mutantes
 const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
   // Solo validar en métodos mutantes
   const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
   if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
+      return c.json({ success: false, error: 'No autorizado. Authorization Bearer requerido.' }, 401);
     }
   }
-  
+
   await next();
 };
 
@@ -1178,21 +1176,24 @@ app.get('/make-server-25b11ac0/chats/:coordinadorId', async (c) => {
 app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   try {
     const { chatId, mensaje, remitente, remitenteNombre } = await c.req.json();
-    
-    const mensajesKey = `${chatId}:mensajes`;
-    const mensajes = await kv.get(mensajesKey) || [];
-    
+
+    if (!chatId || !mensaje || !remitente) {
+      return c.json({ success: false, error: 'chatId, mensaje y remitente son requeridos' }, 400);
+    }
+
+    const id = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const nuevoMensaje = {
-      id: `msg:${Date.now()}`,
-      remitente, // coordinadorId o camareroId
+      id,
+      chatId,
+      remitente,
       remitenteNombre,
       mensaje,
-      fecha: new Date().toISOString()
+      timestamp: new Date().toISOString()
     };
-    
-    mensajes.push(nuevoMensaje);
-    await kv.set(mensajesKey, mensajes);
-    
+
+    // Write with prefix scheme (normalized storage)
+    await kv.set(`chat-mensaje:${chatId}:${id}`, nuevoMensaje);
+
     return c.json({ success: true, mensaje: nuevoMensaje });
   } catch (error) {
     console.error('Error al enviar mensaje:', error);
@@ -1200,22 +1201,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
-    
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.error('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -1841,12 +1826,19 @@ app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
   try {
     const chatId = c.req.param('chatId');
     const mensajes = await kv.getByPrefix(`chat-mensaje:${chatId}:`);
-    
-    // Ordenar por timestamp
-    const mensajesOrdenados = mensajes.sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+
+    // Compat: also read legacy array storage to avoid losing existing messages
+    const legacyMensajes: any[] = (await kv.get(`${chatId}:mensajes`) as any[]) || [];
+    const existingIds = new Set(mensajes.map((m: any) => m.id));
+    const mensajesLegacy = legacyMensajes.filter((m: any) => !existingIds.has(m.id));
+
+    const todos = [...mensajes, ...mensajesLegacy];
+
+    // Sort by timestamp (fallback to fecha for legacy records)
+    const mensajesOrdenados = todos.sort((a: any, b: any) =>
+      new Date(a.timestamp || a.fecha || 0).getTime() - new Date(b.timestamp || b.fecha || 0).getTime()
     );
-    
+
     return c.json({
       success: true,
       data: mensajesOrdenados

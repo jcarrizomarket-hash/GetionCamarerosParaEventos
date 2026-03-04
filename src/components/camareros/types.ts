@@ -1,11 +1,23 @@
 export const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
 export const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
 export const ESPECIALIDADES = ['Coctelería', 'Banquetes', 'Restaurant', 'Buffet', 'VIP'];
-export const TIPOS_PERFIL = [
+
+/** Shape returned by the Supabase `roles` table */
+export interface Role {
+  id: number;
+  name: string;
+  display_name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+/** Offline / demo fallback – mirrors the seeded rows in the DB migration */
+export const TIPOS_PERFIL: { codigo: string; label: string }[] = [
   { codigo: 'CAM', label: 'Camarero' },
   { codigo: 'COC', label: 'Cocina' },
   { codigo: 'PIC', label: 'Pica' },
-  { codigo: 'AZA', label: 'Azafata' }
+  { codigo: 'AZA', label: 'Azafata' },
 ];
 
 export interface CamarerosProps {

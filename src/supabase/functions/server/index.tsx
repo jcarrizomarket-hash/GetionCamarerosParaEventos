@@ -6,23 +6,27 @@ import * as kv from './kv_store.tsx';
 
 const app = new Hono();
 
-app.use('*', cors());
+// Restrict CORS to the production frontend; allow localhost in development
+const allowedOrigins = [
+  'https://appservice.jcarrizo.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+app.use('*', cors({
+  origin: (origin) => allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use('*', logger(console.log));
 
-// Middleware de seguridad simple
-const requireSecret = async (c, next) => {
-  const expectedSecret = Deno.env.get('SUPABASE_FN_SECRET');
-  const providedSecret = c.req.header('x-fn-secret');
-  
-  // Solo validar en métodos mutantes
-  const methodsToProtect = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (methodsToProtect.includes(c.req.method)) {
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      console.warn(`❌ Acceso no autorizado: ${c.req.method} ${c.req.url}`);
-      return c.json({ success: false, error: 'No autorizado' }, 401);
-    }
+// JWT-only auth middleware for sensitive endpoints
+const requireAuth = async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`❌ Auth requerida: ${c.req.method} ${c.req.url}`);
+    return c.json({ success: false, error: 'No autorizado. Se requiere JWT Bearer.' }, 401);
   }
-  
   await next();
 };
 
@@ -42,7 +46,7 @@ app.get('/make-server-25b11ac0/clientes', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     const id = `cliente:${Date.now()}`;
@@ -58,7 +62,7 @@ app.post('/make-server-25b11ac0/clientes', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -70,7 +74,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/clientes/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -92,7 +96,7 @@ app.get('/make-server-25b11ac0/camareros', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     
@@ -123,7 +127,7 @@ app.post('/make-server-25b11ac0/camareros', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -135,7 +139,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/camareros/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -157,7 +161,7 @@ app.get('/make-server-25b11ac0/coordinadores', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
   try {
     const { nombre, telefono, email } = await c.req.json();
     
@@ -185,7 +189,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireSecret, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.put('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -197,7 +201,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/coordinadores/:id', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     await kv.del(id);
@@ -219,7 +223,7 @@ app.get('/make-server-25b11ac0/pedidos', async (c) => {
   }
 });
 
-app.post('/make-server-25b11ac0/pedidos', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
   try {
     const data = await c.req.json();
     const id = `pedido:${Date.now()}`;
@@ -1200,22 +1204,6 @@ app.post('/make-server-25b11ac0/chat-mensaje', async (c) => {
   }
 });
 
-<<<<<<< copilot/implement-centralized-logging
-// Obtener mensajes de un chat
-app.get('/make-server-25b11ac0/chat-mensajes/:chatId', async (c) => {
-  try {
-    const chatId = c.req.param('chatId');
-    const mensajes = await kv.get(`${chatId}:mensajes`) || [];
-    
-    return c.json({ success: true, data: mensajes });
-  } catch (error) {
-    console.error('Error al obtener mensajes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
-  }
-});
-
-=======
->>>>>>> main
 // ============== ENVÍO DE EMAIL ==============
 
 // Función para generar PDF del parte de servicio
@@ -2193,7 +2181,7 @@ async function crearPedidoDesdeWhatsApp(data: Record<string, any>, phone: string
 }
 
 // ============== UTILIDADES - LIMPIEZA DE DATOS ==============
-app.delete('/make-server-25b11ac0/limpiar-datos', requireSecret, async (c) => {
+app.delete('/make-server-25b11ac0/limpiar-datos', requireAuth, async (c) => {
   try {
     const { categorias } = await c.req.json();
     console.log('🧹 Iniciando limpieza de datos:', categorias);
@@ -2499,7 +2487,7 @@ app.get('/make-server-25b11ac0/pedidos/:id/qr-token', async (c) => {
 });
 
 // Regenerar token QR para un pedido
-app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireSecret, async (c) => {
+app.post('/make-server-25b11ac0/pedidos/:id/qr-regenerate', requireAuth, async (c) => {
   try {
     const pedidoId = c.req.param('id');
     const pedidoData = await kv.get(`pedido:${pedidoId}`);

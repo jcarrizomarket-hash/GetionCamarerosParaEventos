@@ -14,7 +14,7 @@ import { useHoraSalida } from './useHoraSalida';
 // v1.0.3 - Verificación completa de React keys
 
 export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, publicAnonKey, cargarDatos }: GestionPedidosProps) {
-  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filtroCamarero, setFiltroCamarero] = useState('');
   const [showQRControl, setShowQRControl] = useState(false);
@@ -23,8 +23,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
   const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
 
-  const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos });
-  const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos });
+  const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });
+  const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });
 
   // --- Efecto para eliminar asignaciones rechazadas después de 5 horas ---
   useEffect(() => {

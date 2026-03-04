@@ -4,7 +4,7 @@ import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCir
 import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
 
-export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }) {
+export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: { pedidos: any[]; camareros: any[]; coordinadores: any[]; clientes: any[]; baseUrl: string; publicAnonKey: string }) {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [showPrintView, setShowPrintView] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -18,8 +18,8 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
   const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   // Deduplicar pedidos y ordenar descendentemente
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
-    .sort((a, b) => new Date(a.diaEvento) - new Date(b.diaEvento)); // Orden ascendente: fecha más próxima arriba
+  const uniquePedidos: any[] = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
+    .sort((a: any, b: any) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()); // Orden ascendente: fecha más próxima arriba
 
   const imprimirParte = () => {
     window.print();
@@ -121,7 +121,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
     `;
   };
 
-  const pedidoSeleccionado = uniquePedidos.find(p => p.id === selectedPedido);
+  const pedidoSeleccionado = uniquePedidos.find(p => p.id === selectedPedido) as any;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -200,7 +200,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                       
                       // Buscar emails del cliente
                       const clienteData = clientes.find(c => c.nombre === pedido.cliente);
-                      const emailsCliente = [];
+                      const emailsCliente: string[] = [];
                       
                       if (clienteData?.mail1) emailsCliente.push(clienteData.mail1);
                       if (clienteData?.mail2) emailsCliente.push(clienteData.mail2);

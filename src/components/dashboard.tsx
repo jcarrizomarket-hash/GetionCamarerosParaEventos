@@ -33,7 +33,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
     cargarClientes();
@@ -95,7 +95,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
     // Calcular camareros necesarios (considerando ocupación mínima de 5 horas)
     const calcularCamarerosNecesarios = (eventos) => {
       // Crear un mapa de franjas horarias ocupadas por día
-      const ocupacionPorDia = {};
+      const ocupacionPorDia: Record<string, {inicio: number; fin: number; cantidad: number}[]> = {};
 
       eventos.forEach(evento => {
         const dia = evento.diaEvento;
@@ -124,7 +124,7 @@ export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAno
       let maxCamareros = 0;
       Object.values(ocupacionPorDia).forEach(franjas => {
         // Crear eventos de inicio y fin
-        const eventos = [];
+        const eventos: {tiempo: number; tipo: string; cantidad: number}[] = [];
         franjas.forEach(franja => {
           eventos.push({ tiempo: franja.inicio, tipo: 'inicio', cantidad: franja.cantidad });
           eventos.push({ tiempo: franja.fin, tipo: 'fin', cantidad: franja.cantidad });

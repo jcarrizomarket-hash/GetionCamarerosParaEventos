@@ -10,7 +10,7 @@
  * @param {string} filename - The name of the file to save the data to.
  */
 function exportToCSV(data, filename) {
-    const csvRows = [];
+    const csvRows: string[] = [];
 
     // Get the headers
     const headers = Object.keys(data[0]);

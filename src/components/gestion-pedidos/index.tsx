@@ -10,6 +10,7 @@ import { getDaysInMonth, isPedidoCompleto, buildFilasTabla, getResumenData, expo
 import { PedidoSummaryTable } from './PedidoSummaryTable';
 import { usePedidoActions } from './usePedidoActions';
 import { useHoraSalida } from './useHoraSalida';
+import { deduplicarPorId } from '../../utils/deduplicar';
 
 // v1.0.3 - Verificación completa de React keys
 
@@ -20,8 +21,8 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [showQRControl, setShowQRControl] = useState(false);
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual');
 
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
+  const uniquePedidos = useMemo(() => deduplicarPorId(pedidos), [pedidos]);
+  const uniqueCamareros = useMemo(() => deduplicarPorId(camareros), [camareros]);
 
   const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });
   const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });

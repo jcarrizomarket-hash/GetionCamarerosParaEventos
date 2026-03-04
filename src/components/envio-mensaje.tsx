@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
 import { supabaseFunctionEndpoint } from '../config/env';
+import { deduplicarPorId } from '../utils/deduplicar';
 
 // v2.0.0 - Interfaz tipo WhatsApp Web completa
 interface EnvioMensajeProps {
@@ -24,9 +25,9 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos
-  const uniquePedidos = Array.from(new Map(pedidos.map(p => [p.id, p])).values());
-  const uniqueCamareros = Array.from(new Map(camareros.map(c => [c.id, c])).values());
-  const uniqueCoordinadores = Array.from(new Map(coordinadores.map(c => [c.id, c])).values());
+  const uniquePedidos = deduplicarPorId(pedidos);
+  const uniqueCamareros = deduplicarPorId(camareros);
+  const uniqueCoordinadores = deduplicarPorId(coordinadores);
 
   // Inicializar coordinador
   useEffect(() => {

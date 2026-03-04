@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Send, Users, ChevronDown, MessageCircle, Check, CheckCheck } from 'lucide-react';
+import { deduplicarPorId } from '../utils/deduplicar';
 
 interface ChatGrupalProps {
   pedidos: any[];
@@ -31,20 +32,11 @@ export function ChatGrupal({ pedidos, camareros, coordinadores, baseUrl, publicA
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
   // Deduplicar datos con useMemo para evitar recrear arrays en cada render
-  const uniquePedidos = useMemo(() => 
-    Array.from(new Map(pedidos.map(p => [p.id, p])).values()),
-    [pedidos]
-  );
+  const uniquePedidos = useMemo(() => deduplicarPorId(pedidos), [pedidos]);
   
-  const uniqueCamareros = useMemo(() => 
-    Array.from(new Map(camareros.map(c => [c.id, c])).values()),
-    [camareros]
-  );
+  const uniqueCamareros = useMemo(() => deduplicarPorId(camareros), [camareros]);
   
-  const uniqueCoordinadores = useMemo(() => 
-    Array.from(new Map(coordinadores.map(c => [c.id, c])).values()),
-    [coordinadores]
-  );
+  const uniqueCoordinadores = useMemo(() => deduplicarPorId(coordinadores), [coordinadores]);
 
   // Inicializar coordinador actual
   useEffect(() => {

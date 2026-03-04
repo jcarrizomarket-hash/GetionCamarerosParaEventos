@@ -5,6 +5,7 @@ import type { EntradaPedidosProps, FormData, Pedido } from './types';
 import { PedidoEntryDetail } from './PedidoEntryDetail';
 import { PedidoEntryForm } from './PedidoEntryForm';
 import { PedidoEntryList } from './PedidoEntryList';
+import { deduplicarPorId } from '../../utils/deduplicar';
 
 export function EntradaPedidos({
   clientes,
@@ -46,11 +47,11 @@ export function EntradaPedidos({
   const [formData, setFormData] = useState<FormData>(initialFormState);
 
   const uniqueClientes = useMemo(() => {
-    return Array.from(new Map(clientes.map((c) => [c.id, c])).values());
+    return deduplicarPorId(clientes);
   }, [clientes]);
 
   const uniquePedidos = useMemo(() => {
-    return Array.from(new Map(pedidos.map((p) => [p.id, p])).values());
+    return deduplicarPorId(pedidos);
   }, [pedidos]);
 
   // --- Lógica del Calendario ---

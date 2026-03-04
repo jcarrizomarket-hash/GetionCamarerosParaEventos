@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { QrCode, Copy, RefreshCw, X, Check, Download } from 'lucide-react';
 import QRCodeLib from 'qrcode';
+import { logger } from '../utils/logger';
 
 interface QRControlProps {
   pedido: any;
@@ -37,7 +38,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
         setQrData({ token: data.token, url: data.url });
       }
     } catch (error) {
-      console.error('Error al cargar token QR:', error);
+      logger.error('Error al cargar token QR', error instanceof Error ? { message: error.message } : { error });
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
         setQrData({ token: data.token, url: data.url });
       }
     } catch (error) {
-      console.error('Error al regenerar token QR:', error);
+      logger.error('Error al regenerar token QR', error instanceof Error ? { message: error.message } : { error });
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
       });
       setQrImageUrl(qrDataURL);
     } catch (error) {
-      console.error('Error al generar imagen QR:', error);
+      logger.error('Error al generar imagen QR', error instanceof Error ? { message: error.message } : { error });
     }
   };
 

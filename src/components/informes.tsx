@@ -2,8 +2,17 @@ import { useState, useMemo } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
+import type { Camarero, Pedido, Cliente } from '../src/types';
 
-export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey }) {
+interface InformesProps {
+  camareros: Camarero[];
+  pedidos: Pedido[];
+  clientes: Cliente[];
+  baseUrl: string;
+  publicAnonKey: string;
+}
+
+export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey }: InformesProps) {
   const [tipoInforme, setTipoInforme] = useState('cliente');
   const [clienteSeleccionado, setClienteSeleccionado] = useState('');
   const [camareroSeleccionado, setCamareroSeleccionado] = useState('');

@@ -35,6 +35,21 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+// ============== IDIOMAS ==============
+app.get('/make-server-25b11ac0/idiomas', requireAuth, async (c) => {
+  try {
+    const { data, error } = await supabase.from('idiomas').select('id, nombre').order('nombre');
+    if (error) {
+      console.error('Error al obtener idiomas:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    return c.json({ success: true, data: data ?? [] });
+  } catch (error) {
+    console.error('Error al obtener idiomas:', error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 // ============== CLIENTES ==============
 app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   try {

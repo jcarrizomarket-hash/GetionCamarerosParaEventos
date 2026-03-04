@@ -1,4 +1,9 @@
 export const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Francés', 'Alemán', 'Italiano'];
+
+export interface Idioma {
+  id: number;
+  nombre: string;
+}
 export const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
 export const ESPECIALIDADES = ['Coctelería', 'Banquetes', 'Restaurant', 'Buffet', 'VIP'];
 export const TIPOS_PERFIL = [
@@ -16,6 +21,21 @@ export interface CamarerosProps {
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
+}
+
+export interface CamareroFormProps {
+  showForm: boolean;
+  editingCamarero: any;
+  activeFormTab: string;
+  setActiveFormTab: (tab: string) => void;
+  formData: FormData;
+  setFormData: (data: FormData) => void;
+  handleSubmit: (e: any) => void;
+  resetForm: () => void;
+  toggleListValue: (field: string, value: string) => void;
+  coordinadores: any[];
+  generarCodigo: (tipoPerfil: string) => void;
+  idiomas: string[];
 }
 
 export interface Metricas {

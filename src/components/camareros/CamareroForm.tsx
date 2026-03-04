@@ -2,6 +2,7 @@ import { XCircle } from 'lucide-react';
 import { IDIOMAS, CERTIFICACIONES, ESPECIALIDADES, TIPOS_PERFIL } from './types';
 import { FormData } from './types';
 
+
 interface CamareroFormProps {
   showForm: boolean;
   editingCamarero: any;
@@ -16,6 +17,8 @@ interface CamareroFormProps {
   generarCodigo: (tipoPerfil: string) => void;
   /** Profile-type options loaded from the DB; falls back to TIPOS_PERFIL */
   roles?: { codigo: string; label: string }[];
+  /** Language options loaded from the DB `idiomas` table; falls back to IDIOMAS */
+  idiomas?: string[];
 }
 
 export function CamareroForm({
@@ -31,6 +34,7 @@ export function CamareroForm({
   coordinadores,
   generarCodigo,
   roles = TIPOS_PERFIL,
+  idiomas = IDIOMAS,
 }: CamareroFormProps) {
   if (!showForm) return null;
 
@@ -153,7 +157,7 @@ export function CamareroForm({
             <div>
               <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 border-b pb-2">Idiomas</h4>
               <div className="flex flex-wrap gap-3 mb-3">
-                {IDIOMAS.map(idioma => (
+                {idiomas.map(idioma => (
                   <button key={idioma} type="button" onClick={() => toggleListValue('idiomas', idioma)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${formData.idiomas.includes(idioma) ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-600'}`}>{idioma}</button>
                 ))}
               </div>

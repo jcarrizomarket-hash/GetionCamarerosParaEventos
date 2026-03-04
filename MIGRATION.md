@@ -49,23 +49,22 @@ if (result.success && result.data) {
 
 ---
 
-#### 2. Security Header – `x-fn-secret` Required for Mutations
+#### 2. Security – JWT-Only Auth (No Shared Secret)
 
 **Before (v1.x):** POST, PUT, DELETE requests only required the Supabase `Authorization` header.
 
-**After (v2.0):** Mutation endpoints (`POST`, `PUT`, `DELETE`) require an additional `x-fn-secret` header.
+**Before (v2.0):** Mutation endpoints also required an `x-fn-secret` header (`VITE_SUPABASE_FN_SECRET`).
+
+**Now (v2.1+):** All sensitive endpoints — including GETs — require only a valid Supabase session JWT as a Bearer token. There is no client-side shared secret.
 
 ```typescript
-// ✅ v2.0 – Mutation request headers
+// ✅ Current – JWT-only for all protected endpoints
 headers: {
-  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-  'x-fn-secret': `${SUPABASE_FN_SECRET}`
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
 }
 ```
 
-The API client handles this automatically. Set the `VITE_SUPABASE_FN_SECRET` environment variable and it will be included in all mutation requests.
-
-**Impact:** Mutations performed without the `x-fn-secret` header will be rejected with `401 Unauthorized`.
+**Impact:** Remove `VITE_SUPABASE_FN_SECRET` from your `.env` file and hosting platform variables. The `x-fn-secret` header is no longer sent or validated.
 
 ---
 
@@ -77,11 +76,10 @@ The API client handles this automatically. Set the `VITE_SUPABASE_FN_SECRET` env
 |---|---|---|
 | `VITE_SUPABASE_PROJECT_ID` | ✅ Yes | Supabase Project ID |
 | `VITE_SUPABASE_ANON_KEY` | ✅ Yes | Supabase anonymous key |
-| `VITE_SUPABASE_FN_SECRET` | ⚠️ Recommended | Secret for mutation endpoints |
 
 **Before (v1.x):** `baseUrl` and `publicAnonKey` were passed as component props.
 
-**After (v2.0):** Configuration is read from environment variables via `src/api/client.ts`.
+**After (v2.0+):** Configuration is read from environment variables via `src/api/client.ts`.
 
 **Impact:** Components that previously accepted `baseUrl` and `publicAnonKey` as props no longer need them; values are read from the environment.
 
@@ -151,20 +149,14 @@ Create your `.env` file and fill in your values:
 touch .env
 ```
 
-Add the new `VITE_SUPABASE_FN_SECRET` variable:
-
-```bash
-# Generate a secure secret
-openssl rand -hex 32
-```
-
-Then add to `.env`:
+Add to `.env`:
 
 ```bash
 VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_SUPABASE_FN_SECRET=your-generated-secret
 ```
+
+> **Note:** `VITE_SUPABASE_FN_SECRET` is no longer used. Remove it from your `.env` file and hosting platform if present.
 
 #### Step 3: Update Component Imports
 

@@ -56,7 +56,7 @@ npm install
 ### 2. Configure Environment Variables
 
 ```bash
-cp src/.env.example .env
+cp .env.example .env
 ```
 
 Edit `.env` with your Supabase credentials:

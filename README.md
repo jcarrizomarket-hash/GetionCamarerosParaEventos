@@ -267,7 +267,7 @@ Required environment variables in Vercel (Project → Settings → Environment V
 - [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
 - [ ] `VITE_SUPABASE_URL` is set (e.g. `https://<id>.supabase.co`)
 - [ ] `VITE_SUPABASE_ANON_KEY` is set
-- [ ] Build command is `npm run build` and output directory is `dist`
+- [ ] Build command is `npm run build` and output directory is `build`
 - [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
 
 **DNS (custom domain `appservice.jcarrizo.com`)**
@@ -288,6 +288,19 @@ Required environment variables in Vercel (Project → Settings → Environment V
 **Security**
 - [ ] Frontend sends `Authorization: Bearer <supabase_anon_key>` — no shared secrets in client ✔
 - [ ] No `x-fn-secret` or `VITE_SUPABASE_FN_SECRET` in client code or Vercel env vars ✔
+
+**After changing Vercel environment variables — redeploy checklist**
+- [ ] In Vercel: *Project → Settings → Environment Variables* — add or update variables
+- [ ] Trigger a new deployment: push a commit, or go to *Deployments → ⋯ → Redeploy*
+- [ ] Verify the new deployment uses the updated env vars (check the build logs for the values being picked up)
+- [ ] Open `https://appservice.jcarrizo.com` and confirm the app loads and connects to Supabase
+
+> **⚠️ Troubleshooting – `NEXT_PUBLIC_*` variables are for Next.js only**
+>
+> This project uses **Vite**, which exposes browser-side variables via the `VITE_` prefix (`import.meta.env.VITE_*`).
+> Variables prefixed with `NEXT_PUBLIC_` are a Next.js convention and will **not** be available in Vite builds —
+> the app will silently receive `undefined` for those values.
+> Always use `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, etc. when configuring this project on Vercel.
 
 ### Backend (Supabase Functions)
 

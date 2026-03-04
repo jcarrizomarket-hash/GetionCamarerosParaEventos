@@ -247,8 +247,8 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 ### Frontend (`https://appservice.jcarrizo.com`) – Vercel
 
 ```bash
-npm run build
-```
+# Manual deploy via CLI
+vercel --prod
 
 Required environment variables in Vercel (Project → Settings → Environment Variables):
 

@@ -106,7 +106,7 @@ VITE_SUPABASE_PROJECT_ID=your-project-id
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-See [`src/.env.example`](./src/.env.example) for the full list.
+See [`.env.example`](./.env.example) for the full list.
 
 ---
 
@@ -244,16 +244,39 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (`https://appservice.jcarrizo.com`)
+### Frontend – Vercel (Option A)
+
+The production frontend lives at `https://appservice.jcarrizo.com` and is deployed to Vercel.
+
+#### 1. Import the repository
+
+In the [Vercel dashboard](https://vercel.com/new) import `jcarrizomarket-hash/GetionCamarerosParaEventos`. Vercel will auto-detect the Vite framework and use the settings in `vercel.json` (`buildCommand: npm run build`, `outputDirectory: build`).
+
+#### 2. Set environment variables
+
+In **Vercel → Project → Settings → Environment Variables** add:
+
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_SUPABASE_PROJECT_ID` | ✅ | Your Supabase project reference ID (e.g. `abcdefghijklmnop`) |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase `anon`/`public` key (JWT, sent as Bearer token) |
+| `VITE_SUPABASE_FUNCTION_ENDPOINT` | optional | Full function URL — defaults to `https://<VITE_SUPABASE_PROJECT_ID>.supabase.co/functions/v1/make-server-25b11ac0` |
+
+> **No client-side shared secrets are needed.** The `anon` key is a public JWT and safe to expose in the browser. All sensitive operations run in the Supabase Edge Function.
+
+#### 3. Custom domain
+
+In **Vercel → Project → Settings → Domains** add `appservice.jcarrizo.com` and follow the DNS instructions (add the CNAME or A record to your DNS provider pointing to Vercel).
+
+After the domain is verified, Vercel issues a TLS certificate automatically.
+
+#### 4. Deploy
 
 ```bash
-npm run build
-```
+# Manual deploy via CLI
+vercel --prod
 
-Required environment variables on the hosting platform:
-```
-VITE_SUPABASE_PROJECT_ID
-VITE_SUPABASE_ANON_KEY
+# Or push to main — GitHub integration triggers a production deployment automatically
 ```
 
 ### Backend (Supabase Functions)

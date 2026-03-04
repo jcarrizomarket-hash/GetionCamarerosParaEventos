@@ -90,7 +90,7 @@ npm install
 
 # 3. Configure environment variables
 # Create a .env file in the project root and add your credentials, e.g.:
-# VITE_SUPABASE_PROJECT_ID=your-project-id
+# VITE_SUPABASE_URL=https://your-project-id.supabase.co
 # VITE_SUPABASE_ANON_KEY=your-anon-key
 
 # 4. Start the development server
@@ -102,7 +102,7 @@ The app will be available at `http://localhost:5173`.
 ### Minimum Environment Variables
 
 ```bash
-VITE_SUPABASE_PROJECT_ID=your-project-id
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
@@ -244,40 +244,50 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend – Vercel (Option A)
-
-The production frontend lives at `https://appservice.jcarrizo.com` and is deployed to Vercel.
-
-#### 1. Import the repository
-
-In the [Vercel dashboard](https://vercel.com/new) import `jcarrizomarket-hash/GetionCamarerosParaEventos`. Vercel will auto-detect the Vite framework and use the settings in `vercel.json` (`buildCommand: npm run build`, `outputDirectory: build`).
-
-#### 2. Set environment variables
-
-In **Vercel → Project → Settings → Environment Variables** add:
-
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_SUPABASE_PROJECT_ID` | ✅ | Your Supabase project reference ID (e.g. `abcdefghijklmnop`) |
-| `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase `anon`/`public` key (JWT, sent as Bearer token) |
-| `VITE_SUPABASE_FUNCTION_ENDPOINT` | optional | Full function URL — defaults to `https://<VITE_SUPABASE_PROJECT_ID>.supabase.co/functions/v1/make-server-25b11ac0` |
-
-> **No client-side shared secrets are needed.** The `anon` key is a public JWT and safe to expose in the browser. All sensitive operations run in the Supabase Edge Function.
-
-#### 3. Custom domain
-
-In **Vercel → Project → Settings → Domains** add `appservice.jcarrizo.com` and follow the DNS instructions (add the CNAME or A record to your DNS provider pointing to Vercel).
-
-After the domain is verified, Vercel issues a TLS certificate automatically.
-
-#### 4. Deploy
+### Frontend (`https://appservice.jcarrizo.com`) – Vercel
 
 ```bash
 # Manual deploy via CLI
 vercel --prod
 
-# Or push to main — GitHub integration triggers a production deployment automatically
-```
+Required environment variables in Vercel (Project → Settings → Environment Variables):
+
+| Variable | Description |
+|---|---|
+| `VITE_SUPABASE_URL` | Full project URL – e.g. `https://<id>.supabase.co`. Set automatically by the Vercel ↔ Supabase integration. |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key. Set automatically by the Vercel ↔ Supabase integration. |
+| `VITE_SUPABASE_FUNCTIONS_URL` | *(Optional)* Base URL for Edge Functions – e.g. `https://<id>.supabase.co/functions/v1`. Derived from `VITE_SUPABASE_URL` when not set. |
+| `VITE_SUPABASE_FUNCTION_ENDPOINT` | *(Optional)* Full URL for the specific function. Derived from `VITE_SUPABASE_FUNCTIONS_URL` when not set. |
+
+> **Tip – Vercel ↔ Supabase integration**: go to your Vercel project → *Storage* → *Connect database* → select your Supabase project. Vercel will populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` automatically for all environments.
+
+#### ✅ Vercel + DNS + Supabase Auth deployment checklist
+
+**Vercel**
+- [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
+- [ ] `VITE_SUPABASE_URL` is set (e.g. `https://<id>.supabase.co`)
+- [ ] `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Build command is `npm run build` and output directory is `dist`
+- [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
+
+**DNS (custom domain `appservice.jcarrizo.com`)**
+- [ ] `CNAME appservice → cname.vercel-dns.com` (or Vercel-assigned A records) is configured at your DNS provider
+- [ ] Vercel project → *Domains* shows `appservice.jcarrizo.com` as **Valid Configuration** with a valid TLS certificate
+- [ ] Redirect `www.appservice.jcarrizo.com` → `appservice.jcarrizo.com` if desired
+
+**Supabase Auth redirect URLs**
+- [ ] In Supabase dashboard → *Authentication → URL Configuration*:
+  - **Site URL**: `https://appservice.jcarrizo.com`
+  - **Redirect URLs** (allow-list): `https://appservice.jcarrizo.com/**` and `http://localhost:5173/**`
+- [ ] Auth emails (magic link, password reset) point to `https://appservice.jcarrizo.com`
+
+**CORS**
+- [ ] Edge Function CORS `allowedOrigins` includes `https://appservice.jcarrizo.com` ✔ (already set in `src/supabase/functions/server/index.tsx`)
+- [ ] Add `https://appservice.jcarrizo.com` to Supabase dashboard → *Edge Functions → CORS* if using per-function CORS settings
+
+**Security**
+- [ ] Frontend sends `Authorization: Bearer <supabase_anon_key>` — no shared secrets in client ✔
+- [ ] No `x-fn-secret` or `VITE_SUPABASE_FN_SECRET` in client code or Vercel env vars ✔
 
 ### Backend (Supabase Functions)
 

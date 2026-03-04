@@ -1,4 +1,4 @@
-import { XCircle } from 'lucide-react';
+import { XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { IDIOMAS, CERTIFICACIONES, ESPECIALIDADES, TIPOS_PERFIL } from './types';
 import { FormData } from './types';
 
@@ -14,6 +14,10 @@ interface CamareroFormProps {
   toggleListValue: (field: string, value: string) => void;
   coordinadores: any[];
   generarCodigo: (tipoPerfil: string) => void;
+  /** Language list loaded from DB; falls back to IDIOMAS constant when absent. */
+  idiomas?: string[];
+  idiomasLoading?: boolean;
+  idiomasError?: string | null;
 }
 
 export function CamareroForm({
@@ -28,7 +32,13 @@ export function CamareroForm({
   toggleListValue,
   coordinadores,
   generarCodigo,
+  idiomas: idiomasFromDb,
+  idiomasLoading = false,
+  idiomasError = null,
 }: CamareroFormProps) {
+  // Use DB-backed list when available; fall back to the hardcoded constant.
+  const idiomasToShow = idiomasFromDb && idiomasFromDb.length > 0 ? idiomasFromDb : IDIOMAS;
+
   if (!showForm) return null;
 
   return (
@@ -149,11 +159,24 @@ export function CamareroForm({
           <div className="space-y-8">
             <div>
               <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 border-b pb-2">Idiomas</h4>
-              <div className="flex flex-wrap gap-3 mb-3">
-                {IDIOMAS.map(idioma => (
-                  <button key={idioma} type="button" onClick={() => toggleListValue('idiomas', idioma)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${formData.idiomas.includes(idioma) ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-600'}`}>{idioma}</button>
-                ))}
-              </div>
+              {idiomasError && (
+                <div className="flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-xs">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>No se pudo cargar la lista desde la base de datos. Usando valores predeterminados.</span>
+                </div>
+              )}
+              {idiomasLoading ? (
+                <div className="flex items-center gap-2 text-gray-500 mb-3">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Cargando idiomas…</span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {idiomasToShow.map(idioma => (
+                    <button key={idioma} type="button" onClick={() => toggleListValue('idiomas', idioma)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${formData.idiomas.includes(idioma) ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-600'}`}>{idioma}</button>
+                  ))}
+                </div>
+              )}
               <input type="text" placeholder="Otros idiomas..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={formData.otrosIdiomas} onChange={(e) => setFormData({ ...formData, otrosIdiomas: e.target.value })} />
             </div>
             <div>

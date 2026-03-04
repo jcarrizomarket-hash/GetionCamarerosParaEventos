@@ -6,8 +6,10 @@ import { exportarAExcel as exportarAExcelUtil, importarDesdeExcel as importarDes
 import { CamareroStats } from './CamareroStats';
 import { CamareroForm } from './CamareroForm';
 import { CamarerosList } from './CamarerosList';
+import { useIdiomas } from '../../hooks/useIdiomas';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
+  const { idiomas, loading: idiomasLoading, error: idiomasError } = useIdiomas();
   const [showForm, setShowForm] = useState(false);
   const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
@@ -367,6 +369,9 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         toggleListValue={toggleListValue}
         coordinadores={coordinadores}
         generarCodigo={generarCodigo}
+        idiomas={idiomas}
+        idiomasLoading={idiomasLoading}
+        idiomasError={idiomasError}
       />
 
       {/* Lista de Camareros */}

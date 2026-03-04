@@ -161,6 +161,37 @@ GetionCamarerosParaEventos/
 supabase functions deploy make-server-25b11ac0
 ```
 
+### Database Migrations
+
+The `supabase/migrations/` directory contains versioned SQL scripts that must
+be applied to your Supabase project before first use.
+
+#### Roles table (`20240101000000_create_roles.sql`)
+
+Creates the `roles` table (waiter profile types) that the frontend loads
+dynamically instead of using a hard-coded constant.
+
+**Option A – Supabase CLI (recommended)**
+
+```bash
+# Link your project (once)
+supabase link --project-ref <your-project-id>
+
+# Push all pending migrations
+supabase db push
+```
+
+**Option B – Dashboard SQL editor**
+
+1. Open your project at [app.supabase.com](https://app.supabase.com)
+2. Go to **SQL Editor → New query**
+3. Paste the contents of `supabase/migrations/20240101000000_create_roles.sql`
+4. Click **Run**
+
+After applying the migration, the four default profile types (`CAM`, `COC`,
+`PIC`, `AZA`) are seeded automatically. The frontend falls back to these same
+values if Supabase is unreachable.
+
 ### WhatsApp Business API
 
 See the full guide: [src/WHATSAPP_SETUP.md](./src/WHATSAPP_SETUP.md)

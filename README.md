@@ -24,6 +24,7 @@ The original design is available at [Figma](https://www.figma.com/design/Nq9oM07
 - [CI/CD](#-cicd)
 - [Security](#-security)
 - [Deployment](#-deployment)
+- [Demo / Production Checklist](#-demo--production-checklist)
 - [Troubleshooting](#-troubleshooting)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
@@ -308,6 +309,35 @@ WHATSAPP_VERIFY_TOKEN # webhook verification token
 
 ---
 
+## ✅ Demo / Production Checklist
+
+Use this checklist before going live or sharing a demo URL.
+
+### Environment variables (Vercel)
+- [ ] `VITE_SUPABASE_URL` is set to `https://<id>.supabase.co`
+- [ ] `VITE_SUPABASE_ANON_KEY` is set (anon/public JWT)
+- [ ] `VITE_SUPABASE_FUNCTIONS_URL` is set if the Edge Function is on a custom domain (optional; defaults to `<VITE_SUPABASE_URL>/functions/v1`)
+- [ ] **No** `NEXT_PUBLIC_*` variables exist in Vercel — those are silently ignored by Vite
+- [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are in Vercel env vars
+
+### Build & deploy
+- [ ] Build command is `npm run build` and output directory is `build`
+- [ ] After any env var change, trigger a new deployment (push a commit or *Deployments → ⋯ → Redeploy* in Vercel)
+- [ ] CI passes (lint, type-check, tests, build) on the deployed commit
+
+### Supabase
+- [ ] Edge Function `make-server-25b11ac0` is deployed: `supabase functions deploy make-server-25b11ac0`
+- [ ] **Site URL** in *Supabase → Authentication → URL Configuration* matches the production domain
+- [ ] **Allowed Redirect URLs** include `https://<your-domain>/**`
+- [ ] Required secrets (`RESEND_API_KEY`, `EMAIL_FROM`, `WHATSAPP_API_KEY`, etc.) are set in *Supabase → Edge Functions → Secrets*
+
+### Smoke test
+- [ ] Open the production URL and confirm the app loads without console errors
+- [ ] Verify at least one API call succeeds (e.g. the pedidos list loads)
+- [ ] Confirm WhatsApp / email sending works end-to-end if those features are enabled
+
+---
+
 ## 🔧 Troubleshooting
 
 ### Vercel deployment: environment variables appear `undefined`
@@ -320,9 +350,9 @@ WHATSAPP_VERIFY_TOKEN # webhook verification token
 
 | ❌ Do NOT use (Next.js convention) | ✅ Use instead (Vite convention) |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `VITE_SUPABASE_PROJECT_ID` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `VITE_SUPABASE_URL` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` |
-| `NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL` | `VITE_SUPABASE_FUNCTION_ENDPOINT` |
+| `NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL` | `VITE_SUPABASE_FUNCTIONS_URL` |
 
 After updating the variable names in Vercel, trigger a new deployment for the changes to take effect.
 

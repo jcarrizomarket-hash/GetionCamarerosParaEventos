@@ -1,6 +1,7 @@
 import { XCircle } from 'lucide-react';
-import { IDIOMAS, CERTIFICACIONES, ESPECIALIDADES, TIPOS_PERFIL } from './types';
+import { IDIOMAS, CERTIFICACIONES, TIPOS_PERFIL } from './types';
 import { FormData } from './types';
+import { useEspecialidades } from '../../hooks/useEspecialidades';
 
 
 interface CamareroFormProps {
@@ -36,6 +37,7 @@ export function CamareroForm({
   roles = TIPOS_PERFIL,
   idiomas = IDIOMAS,
 }: CamareroFormProps) {
+  const { especialidades } = useEspecialidades();
   if (!showForm) return null;
 
   return (
@@ -135,7 +137,7 @@ export function CamareroForm({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Especialidad</label>
                 <div className="flex flex-wrap gap-2">
-                  {ESPECIALIDADES.map(esp => (
+                  {especialidades.map(esp => (
                     <button key={esp} type="button" onClick={() => toggleListValue('especialidades', esp)} className={`px-3 py-1.5 text-sm rounded-full border ${formData.especialidades.includes(esp) ? 'bg-blue-100 text-blue-700 border-blue-200 font-medium' : 'bg-white text-gray-600 border-gray-200'}`}>{esp}</button>
                   ))}
                 </div>

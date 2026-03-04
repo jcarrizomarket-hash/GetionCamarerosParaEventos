@@ -11,6 +11,15 @@ export interface Idioma {
   created_at: string;
 }
 
+/** Shape returned by the Supabase `especialidades` table */
+export interface Especialidad {
+  id: number;
+  nombre: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 /** Shape returned by the Supabase `roles` table */
 export interface Role {
   id: number;

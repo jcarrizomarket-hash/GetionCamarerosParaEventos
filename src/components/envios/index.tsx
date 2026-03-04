@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import { Send, MessageSquare, Users, Bot, FileCheck } from 'lucide-react';
 import type { EnviosProps } from './types';
 import { EnviosList } from './EnviosList';
@@ -75,7 +76,8 @@ ${selectedEvento.notas ? `📝 *Notas:* ${selectedEvento.notas}` : ''}
 Por favor confirma tu asistencia respondiendo este mensaje.`;
 
     try {
-      const response = await fetch(`${baseUrl}/enviar-mensaje-grupal`, {
+      const url = `${baseUrl}/enviar-mensaje-grupal`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,6 +89,12 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
         })
       });
 
+      if (!response.ok) {
+        logger.error(`Error HTTP ${response.status}`, { url, method: 'POST' });
+        alert(`❌ Error al enviar: HTTP ${response.status}`);
+        return;
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -96,7 +104,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
         alert(`❌ Error al enviar: ${result.error}`);
       }
     } catch (error) {
-      console.error('Error al enviar:', error);
+      logger.error('Error al enviar:', error);
       alert('❌ Error al enviar el mensaje');
     }
   };
@@ -260,7 +268,8 @@ ${coordinador?.telefono ? `Tel: ${coordinador.telefono}` : ''}
 Generado: ${new Date().toLocaleString('es-ES')}`;
 
     try {
-      const response = await fetch(`${baseUrl}/enviar-parte`, {
+      const url = `${baseUrl}/enviar-parte`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -273,6 +282,12 @@ Generado: ${new Date().toLocaleString('es-ES')}`;
           mensaje
         })
       });
+
+      if (!response.ok) {
+        logger.error(`Error HTTP ${response.status}`, { url, method: 'POST' });
+        alert(`❌ Error al enviar: HTTP ${response.status}`);
+        return;
+      }
 
       const result = await response.json();
 

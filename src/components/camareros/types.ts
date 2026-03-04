@@ -2,6 +2,15 @@ export const IDIOMAS = ['Castellano', 'Portugués', 'Catalán', 'Inglés', 'Fran
 export const CERTIFICACIONES = ['PRL', 'Manipulación de alimentos', 'Primeros auxilios', 'APPCC', 'RCP'];
 export const ESPECIALIDADES = ['Coctelería', 'Banquetes', 'Restaurant', 'Buffet', 'VIP'];
 
+/** Shape returned by the Supabase `idiomas` table */
+export interface Idioma {
+  id: number;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 /** Shape returned by the Supabase `roles` table */
 export interface Role {
   id: number;

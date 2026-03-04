@@ -7,6 +7,7 @@ import { CamareroStats } from './CamareroStats';
 import { CamareroForm } from './CamareroForm';
 import { CamarerosList } from './CamarerosList';
 import { useRoles } from '../../hooks/useRoles';
+import { useIdiomas } from '../../hooks/useIdiomas';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
@@ -15,6 +16,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [verApercibidos, setVerApercibidos] = useState(false);
 
   const { roles } = useRoles();
+  const { idiomas } = useIdiomas();
 
   // Estados para calendario avanzado
   const [selectedCamarero, setSelectedCamarero] = useState<any>(null);
@@ -371,6 +373,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         coordinadores={coordinadores}
         generarCodigo={generarCodigo}
         roles={roles}
+        idiomas={idiomas}
       />
 
       {/* Lista de Camareros */}

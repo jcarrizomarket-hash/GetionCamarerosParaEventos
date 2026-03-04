@@ -21,7 +21,7 @@ const MAX_RETRY_ATTEMPTS = 3;
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {
   if (!supabaseFunctionEndpoint) {
-    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_FUNCTION_ENDPOINT or VITE_SUPABASE_PROJECT_ID in your .env file.');
+    console.warn('Supabase function endpoint is not configured. Please set VITE_SUPABASE_URL (or VITE_SUPABASE_FUNCTIONS_URL / VITE_SUPABASE_FUNCTION_ENDPOINT) in your .env file.');
     return '';
   }
   return supabaseFunctionEndpoint;

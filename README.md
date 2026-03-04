@@ -24,6 +24,7 @@ The original design is available at [Figma](https://www.figma.com/design/Nq9oM07
 - [CI/CD](#-cicd)
 - [Security](#-security)
 - [Deployment](#-deployment)
+- [Troubleshooting](#-troubleshooting)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
 - [Roadmap](#-roadmap)
@@ -244,24 +245,22 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (`https://appservice.jcarrizo.com`) – Vercel
+> **Framework:** This project uses **Vite** (not Next.js). Environment variables must use the `VITE_` prefix. Do **not** use `NEXT_PUBLIC_*` — that prefix is a Next.js convention and is silently ignored by Vite. See [Troubleshooting](#-troubleshooting) below.
 
-```bash
-# Manual deploy via CLI
-vercel --prod
+### Frontend – Vercel (Option A: `https://appservice.jcarrizo.com`)
 
-Required environment variables in Vercel (Project → Settings → Environment Variables):
+#### 1. Build settings
 
-| Variable | Description |
+| Setting | Value |
 |---|---|
-| `VITE_SUPABASE_URL` | Full project URL – e.g. `https://<id>.supabase.co`. Set automatically by the Vercel ↔ Supabase integration. |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key. Set automatically by the Vercel ↔ Supabase integration. |
-| `VITE_SUPABASE_FUNCTIONS_URL` | *(Optional)* Base URL for Edge Functions – e.g. `https://<id>.supabase.co/functions/v1`. Derived from `VITE_SUPABASE_URL` when not set. |
-| `VITE_SUPABASE_FUNCTION_ENDPOINT` | *(Optional)* Full URL for the specific function. Derived from `VITE_SUPABASE_FUNCTIONS_URL` when not set. |
+| Framework preset | `Vite` (or `Other`) |
+| Build command | `npm run build` |
+| Output directory | `build` |
+| Node.js version | 18.x |
 
-> **Tip – Vercel ↔ Supabase integration**: go to your Vercel project → *Storage* → *Connect database* → select your Supabase project. Vercel will populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` automatically for all environments.
+#### 2. Set environment variables in Vercel
 
-#### ✅ Vercel + DNS + Supabase Auth deployment checklist
+In **Vercel → Project → Settings → Environment Variables** add:
 
 **Vercel**
 - [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
@@ -270,24 +269,14 @@ Required environment variables in Vercel (Project → Settings → Environment V
 - [ ] Build command is `npm run build` and output directory is `build`
 - [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
 
-**DNS (custom domain `appservice.jcarrizo.com`)**
-- [ ] `CNAME appservice → cname.vercel-dns.com` (or Vercel-assigned A records) is configured at your DNS provider
-- [ ] Vercel project → *Domains* shows `appservice.jcarrizo.com` as **Valid Configuration** with a valid TLS certificate
-- [ ] Redirect `www.appservice.jcarrizo.com` → `appservice.jcarrizo.com` if desired
+> **⚠️ Vite only reads variables prefixed with `VITE_`.** Variables with other prefixes (e.g. `NEXT_PUBLIC_SUPABASE_URL`) will be `undefined` at runtime and the app will not connect to Supabase.
 
-**Supabase Auth redirect URLs**
-- [ ] In Supabase dashboard → *Authentication → URL Configuration*:
-  - **Site URL**: `https://appservice.jcarrizo.com`
-  - **Redirect URLs** (allow-list): `https://appservice.jcarrizo.com/**` and `http://localhost:5173/**`
-- [ ] Auth emails (magic link, password reset) point to `https://appservice.jcarrizo.com`
+#### 3. Configure Supabase Auth URLs
 
-**CORS**
-- [ ] Edge Function CORS `allowedOrigins` includes `https://appservice.jcarrizo.com` ✔ (already set in `src/supabase/functions/server/index.tsx`)
-- [ ] Add `https://appservice.jcarrizo.com` to Supabase dashboard → *Edge Functions → CORS* if using per-function CORS settings
+In **Supabase → Authentication → URL Configuration**:
 
-**Security**
-- [ ] Frontend sends `Authorization: Bearer <supabase_anon_key>` — no shared secrets in client ✔
-- [ ] No `x-fn-secret` or `VITE_SUPABASE_FN_SECRET` in client code or Vercel env vars ✔
+- **Site URL:** `https://appservice.jcarrizo.com`
+- **Redirect URLs (allowed):** `https://appservice.jcarrizo.com/**`
 
 **After changing Vercel environment variables — redeploy checklist**
 - [ ] In Vercel: *Project → Settings → Environment Variables* — add or update variables
@@ -316,6 +305,28 @@ WHATSAPP_API_KEY      # Meta Cloud API token (200+ chars, starts with EAA...)
 WHATSAPP_PHONE_ID     # Meta Business phone number ID (numeric)
 WHATSAPP_VERIFY_TOKEN # webhook verification token
 ```
+
+---
+
+## 🔧 Troubleshooting
+
+### Vercel deployment: environment variables appear `undefined`
+
+**Symptom:** The app loads but all Supabase requests fail; variables appear `undefined` in the browser.
+
+**Cause:** This is a **Vite** application. Vite only bundles variables prefixed with `VITE_` into the client build. Any other prefix (including Next.js's `NEXT_PUBLIC_`) is ignored and will not be available at runtime.
+
+**Fix:** In **Vercel → Project → Settings → Environment Variables**, ensure you are using the correct names:
+
+| ❌ Do NOT use (Next.js convention) | ✅ Use instead (Vite convention) |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `VITE_SUPABASE_PROJECT_ID` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` |
+| `NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL` | `VITE_SUPABASE_FUNCTION_ENDPOINT` |
+
+After updating the variable names in Vercel, trigger a new deployment for the changes to take effect.
+
+> **Note:** This project does **not** use Next.js. It is built with Vite + React. If you previously configured a Next.js project and are reusing those environment variable names, they must be renamed to the `VITE_` equivalents above.
 
 ---
 

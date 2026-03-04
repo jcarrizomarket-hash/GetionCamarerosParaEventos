@@ -266,6 +266,7 @@ In **Vercel → Project → Settings → Environment Variables** add:
 - [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
 - [ ] `VITE_SUPABASE_URL` is set (e.g. `https://<id>.supabase.co`)
 - [ ] `VITE_SUPABASE_ANON_KEY` is set
+- [ ] `VITE_SUPABASE_FUNCTIONS_URL` is set (e.g. `https://<id>.supabase.co/functions/v1`); can be omitted only if `VITE_SUPABASE_URL` is set (it will be derived automatically)
 - [ ] Build command is `npm run build` and output directory is `build`
 - [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
 
@@ -320,9 +321,9 @@ WHATSAPP_VERIFY_TOKEN # webhook verification token
 
 | ❌ Do NOT use (Next.js convention) | ✅ Use instead (Vite convention) |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `VITE_SUPABASE_PROJECT_ID` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `VITE_SUPABASE_URL` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` |
-| `NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL` | `VITE_SUPABASE_FUNCTION_ENDPOINT` |
+| `NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL` | `VITE_SUPABASE_FUNCTIONS_URL` |
 
 After updating the variable names in Vercel, trigger a new deployment for the changes to take effect.
 

@@ -262,11 +262,12 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 In **Vercel → Project → Settings → Environment Variables** add:
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_SUPABASE_PROJECT_ID` | ✅ | Supabase project reference ID (e.g. `abcdefghijklmnop`) |
-| `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase `anon`/`public` key (JWT, safe to expose in the browser) |
-| `VITE_SUPABASE_FUNCTION_ENDPOINT` | optional | Full function URL — auto-derived from `VITE_SUPABASE_PROJECT_ID` if omitted |
+**Vercel**
+- [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
+- [ ] `VITE_SUPABASE_URL` is set (e.g. `https://<id>.supabase.co`)
+- [ ] `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Build command is `npm run build` and output directory is `build`
+- [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
 
 > **⚠️ Vite only reads variables prefixed with `VITE_`.** Variables with other prefixes (e.g. `NEXT_PUBLIC_SUPABASE_URL`) will be `undefined` at runtime and the app will not connect to Supabase.
 
@@ -276,6 +277,19 @@ In **Supabase → Authentication → URL Configuration**:
 
 - **Site URL:** `https://appservice.jcarrizo.com`
 - **Redirect URLs (allowed):** `https://appservice.jcarrizo.com/**`
+
+**After changing Vercel environment variables — redeploy checklist**
+- [ ] In Vercel: *Project → Settings → Environment Variables* — add or update variables
+- [ ] Trigger a new deployment: push a commit, or go to *Deployments → ⋯ → Redeploy*
+- [ ] Verify the new deployment uses the updated env vars (check the build logs for the values being picked up)
+- [ ] Open `https://appservice.jcarrizo.com` and confirm the app loads and connects to Supabase
+
+> **⚠️ Troubleshooting – `NEXT_PUBLIC_*` variables are for Next.js only**
+>
+> This project uses **Vite**, which exposes browser-side variables via the `VITE_` prefix (`import.meta.env.VITE_*`).
+> Variables prefixed with `NEXT_PUBLIC_` are a Next.js convention and will **not** be available in Vite builds —
+> the app will silently receive `undefined` for those values.
+> Always use `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, etc. when configuring this project on Vercel.
 
 ### Backend (Supabase Functions)
 

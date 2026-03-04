@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { Button } from './button';
 
 export interface ConfirmDialogProps {
@@ -20,7 +20,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const titleId = 'confirm-dialog-title';
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) return;

@@ -60,10 +60,10 @@ export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey 
     let totalMinutos = 0;
 
     const pedidosDetallados = pedidosCliente.map(p => {
-        const cant1 = parseInt(p.cantidadCamareros || 0);
+        const cant1 = p.cantidadCamareros || 0;
         const min1 = parseDuration(p.totalHoras || '');
         
-        const cant2 = parseInt(p.cantidadCamareros2 || 0);
+        const cant2 = p.cantidadCamareros2 || 0;
         const min2 = parseDuration(p.totalHoras2 || '');
         
         const totalCams = cant1 + cant2;

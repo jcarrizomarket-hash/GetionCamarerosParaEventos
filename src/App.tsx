@@ -45,6 +45,11 @@ export default function App() {
         })
       ]);
 
+      if (!camarerosRes.ok) throw new Error(`Error HTTP ${camarerosRes.status} al cargar camareros`);
+      if (!pedidosRes.ok) throw new Error(`Error HTTP ${pedidosRes.status} al cargar pedidos`);
+      if (!coordinadoresRes.ok) throw new Error(`Error HTTP ${coordinadoresRes.status} al cargar coordinadores`);
+      if (!clientesRes.ok) throw new Error(`Error HTTP ${clientesRes.status} al cargar clientes`);
+
       const camarerosData = await camarerosRes.json();
       const pedidosData = await pedidosRes.json();
       const coordinadoresData = await coordinadoresRes.json();

@@ -1,52 +1,53 @@
-// file-export.ts
-
 /**
- * A collection of utility functions for safely exporting data in CSV and JSON formats.
+ * Utilidades de exportación de archivos.
+ * Funciones para exportar datos a CSV y JSON desde el browser.
  */
 
 /**
- * Exports data to a secure CSV format.
- * @param {Array<Object>} data - The data to be exported.
- * @param {string} filename - The name of the file to save the data to.
+ * Exporta un array de objetos a un archivo CSV y lo descarga en el browser.
+ * El nombre del archivo resultante será `${filename}.csv` (la extensión se añade automáticamente).
  */
-function exportToCSV(data, filename) {
-    const csvRows: string[] = [];
+export function exportToCSV(data: Record<string, unknown>[], filename: string): void {
+  if (data.length === 0) return;
 
-    // Get the headers
-    const headers = Object.keys(data[0]);
-    csvRows.push(headers.join(','));
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    headers.join(','),
+    ...data.map(row =>
+      headers.map(header => {
+        const value = row[header];
+        const str = value === null || value === undefined ? '' : String(value);
+        // Escapar comas y comillas
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"`
+          : str;
+      }).join(',')
+    )
+  ];
 
-    // Format each row of data
-    for (const row of data) {
-        const values = headers.map(header => JSON.stringify(row[header]));
-        csvRows.push(values.join(','));
-    }
-
-    // Create a blob and download the file
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, `${filename}.csv`);
 }
 
 /**
- * Exports data to a secure JSON format.
- * @param {Array<Object>} data - The data to be exported.
- * @param {string} filename - The name of the file to save the data to.
+ * Exporta un objeto o array a un archivo JSON y lo descarga en el browser.
+ * El nombre del archivo resultante será `${filename}.json` (la extensión se añade automáticamente).
  */
-function exportToJSON(data, filename) {
-    const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(jsonBlob);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+export function exportToJSON(data: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `${filename}.json`);
 }
 
-// Example usage:
-// exportToCSV(data, 'data.csv');
-// exportToJSON(data, 'data.json');
+/**
+ * Helper interno: crea un link temporal y dispara la descarga.
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

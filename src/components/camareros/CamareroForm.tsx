@@ -14,6 +14,8 @@ interface CamareroFormProps {
   toggleListValue: (field: string, value: string) => void;
   coordinadores: any[];
   generarCodigo: (tipoPerfil: string) => void;
+  /** Profile-type options loaded from the DB; falls back to TIPOS_PERFIL */
+  roles?: { codigo: string; label: string }[];
 }
 
 export function CamareroForm({
@@ -28,6 +30,7 @@ export function CamareroForm({
   toggleListValue,
   coordinadores,
   generarCodigo,
+  roles = TIPOS_PERFIL,
 }: CamareroFormProps) {
   if (!showForm) return null;
 
@@ -81,7 +84,7 @@ export function CamareroForm({
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${editingCamarero ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   required
                 >
-                  {TIPOS_PERFIL.map(tipo => (
+                  {roles.map(tipo => (
                     <option key={tipo.codigo} value={tipo.codigo}>{tipo.label}</option>
                   ))}
                 </select>

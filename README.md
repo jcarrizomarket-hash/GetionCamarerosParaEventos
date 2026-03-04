@@ -226,20 +226,17 @@ All checks are intended to pass before merging. To enforce these as required che
 
 ## 🔐 Security
 
-Mutation endpoints (POST, PUT, DELETE) require a function secret header in addition to the Supabase auth token.
+All sensitive endpoints (GET and mutation) are protected with **JWT-only** auth using the Supabase session token. There is no client-side shared secret (`x-fn-secret` / `VITE_SUPABASE_FN_SECRET`).
 
-```bash
-# Generate a secure secret
-openssl rand -hex 32
+The frontend at `https://appservice.jcarrizo.com` sends the Supabase `anon` JWT as a Bearer token:
 
-# Add to .env (frontend)
-VITE_SUPABASE_FN_SECRET=your-secret
-
-# Add to Supabase function secrets (backend)
-supabase secrets set SUPABASE_FN_SECRET=your-secret
+```typescript
+headers: {
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+}
 ```
 
-The centralized API client (`src/api/client.ts`) handles adding this header automatically.
+CORS is restricted to `https://appservice.jcarrizo.com` (and `http://localhost:5173` for development). Preflight requests and the `Authorization` header are supported.
 
 See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
@@ -247,7 +244,7 @@ See [src/ARCHITECTURE.md](./src/ARCHITECTURE.md) for a full security overview.
 
 ## 🚀 Deployment
 
-### Frontend (Vercel / Netlify)
+### Frontend (`https://appservice.jcarrizo.com`)
 
 ```bash
 npm run build
@@ -257,14 +254,21 @@ Required environment variables on the hosting platform:
 ```
 VITE_SUPABASE_PROJECT_ID
 VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET
 ```
 
 ### Backend (Supabase Functions)
 
 ```bash
 supabase functions deploy make-server-25b11ac0
-supabase secrets set SUPABASE_FN_SECRET=your-secret
+```
+
+Set the following secrets in the Supabase dashboard (not in `.env`):
+```
+RESEND_API_KEY        # email delivery
+EMAIL_FROM            # sender address
+WHATSAPP_API_KEY      # Meta Cloud API token (200+ chars, starts with EAA...)
+WHATSAPP_PHONE_ID     # Meta Business phone number ID (numeric)
+WHATSAPP_VERIFY_TOKEN # webhook verification token
 ```
 
 ---

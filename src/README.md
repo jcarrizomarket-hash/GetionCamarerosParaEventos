@@ -317,36 +317,25 @@ EMAIL_FROM=tu@email.com
 ### Middleware de Protección
 
 ```typescript
-import { requireFunctionSecret } from './middleware';
+import { requireAuth } from './middleware';
 
-// Proteger endpoints mutantes
-app.post('/pedidos', requireFunctionSecret, handler);
-app.put('/pedidos/:id', requireFunctionSecret, handler);
-app.delete('/pedidos/:id', requireFunctionSecret, handler);
+// Proteger endpoints sensibles (GET y mutaciones)
+app.get('/clientes', requireAuth, handler);
+app.post('/pedidos', requireAuth, handler);
+app.put('/pedidos/:id', requireAuth, handler);
+app.delete('/pedidos/:id', requireAuth, handler);
 ```
 
-### Secret de Función
+### Auth JWT
 
-```bash
-# Generar secret seguro
-openssl rand -hex 32
-
-# Configurar en Supabase
-SUPABASE_FN_SECRET=tu-secret-aleatorio-largo
-```
+La autenticación se realiza exclusivamente mediante JWT Bearer de Supabase. No se utiliza ningún secreto compartido del lado del cliente (`VITE_SUPABASE_FN_SECRET` ha sido eliminado).
 
 ### Headers de Seguridad
 
 ```typescript
-// Operaciones de lectura
+// Todos los endpoints protegidos (GET y mutaciones)
 headers: {
   'Authorization': 'Bearer SUPABASE_ANON_KEY'
-}
-
-// Operaciones mutantes
-headers: {
-  'Authorization': 'Bearer SUPABASE_ANON_KEY',
-  'x-fn-secret': 'SUPABASE_FN_SECRET'
 }
 ```
 
@@ -354,7 +343,7 @@ headers: {
 
 ## 🚀 Despliegue
 
-### Frontend (Vercel/Netlify)
+### Frontend (`https://appservice.jcarrizo.com`)
 
 ```bash
 # Build
@@ -368,7 +357,6 @@ Variables de entorno necesarias:
 ```
 VITE_SUPABASE_PROJECT_ID
 VITE_SUPABASE_ANON_KEY
-VITE_SUPABASE_FN_SECRET (opcional)
 ```
 
 ### Backend (Supabase Functions)

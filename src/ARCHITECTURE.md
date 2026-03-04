@@ -79,14 +79,14 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 
 ### Niveles de Protección
 
-1. **Frontend**: 
+1. **Frontend** (`https://appservice.jcarrizo.com`):
    - Solo usa `SUPABASE_ANON_KEY` (pública)
-   - Opcionalmente `VITE_SUPABASE_FN_SECRET` para operaciones mutantes
+   - No se utiliza ningún secreto compartido del lado del cliente (`VITE_SUPABASE_FN_SECRET` ha sido eliminado)
 
 2. **Backend (Edge Functions)**:
-   - Middleware `requireFunctionSecret`: Valida header `x-fn-secret` para POST/PUT/DELETE
+   - Middleware `requireAuth`: Valida JWT Bearer para todos los endpoints sensibles (GET, POST, PUT, DELETE)
    - `SUPABASE_SERVICE_ROLE_KEY`: Solo en servidor, NUNCA expuesta al frontend
-   - Validación de tokens de autenticación
+   - CORS restringido a `https://appservice.jcarrizo.com` (y `http://localhost:5173` en desarrollo)
 
 3. **Database**:
    - Row Level Security (RLS) configurado en Supabase
@@ -95,15 +95,9 @@ Sistema de gestión de camareros con arquitectura de tres capas:
 ### Headers de Seguridad
 
 ```typescript
-// Operaciones de lectura (GET)
+// Todos los endpoints protegidos (GET y mutaciones)
 headers: {
   'Authorization': 'Bearer SUPABASE_ANON_KEY'
-}
-
-// Operaciones mutantes (POST/PUT/DELETE)
-headers: {
-  'Authorization': 'Bearer SUPABASE_ANON_KEY',
-  'x-fn-secret': 'SUPABASE_FN_SECRET'  // Validado por middleware
 }
 ```
 

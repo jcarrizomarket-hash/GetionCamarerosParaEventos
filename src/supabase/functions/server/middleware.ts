@@ -166,7 +166,7 @@ export function corsMiddleware(options?: {
 }) {
   const defaultOrigin = '*';
   const defaultMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
-  const defaultAllowHeaders = ['Content-Type', 'Authorization', 'x-fn-secret'];
+  const defaultAllowHeaders = ['Content-Type', 'Authorization'];
   
   return async (c: Context, next: () => Promise<void>) => {
     const origin = options?.origin || defaultOrigin;

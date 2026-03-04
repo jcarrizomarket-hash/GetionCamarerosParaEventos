@@ -1,5 +1,4 @@
-import { logger } from '../utils/logger';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { 
   Calendar, 
   Users, 
@@ -23,38 +22,22 @@ import {
   Settings
 } from 'lucide-react';
 import { WhatsAppConfigStatus } from './whatsapp-config-status';
+import { deduplicarPorId } from '../utils/deduplicar';
 
 interface DashboardProps {
   camareros: any[];
   pedidos: any[];
+  clientes: any[];
   setActiveTab: (tab: string) => void;
   baseUrl: string;
   publicAnonKey: string;
 }
 
-export function Dashboard({ camareros, pedidos, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
-  const [clientes, setClientes] = useState<any[]>([]);
-
-  useEffect(() => {
-    cargarClientes();
-  }, []);
-
-  const cargarClientes = async () => {
-    try {
-      const response = await fetch(`${baseUrl}/clientes`, {
-        headers: { Authorization: `Bearer ${publicAnonKey}` }
-      });
-      const data = await response.json();
-      if (data.success) setClientes(data.data);
-    } catch (error) {
-      logger.error('Error al cargar clientes:', error);
-    }
-  };
-
+export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl, publicAnonKey }: DashboardProps) {
   // Deduplicar datos
-  const uniquePedidos = useMemo(() => Array.from(new Map(pedidos.map(p => [p.id, p])).values()), [pedidos]);
-  const uniqueCamareros = useMemo(() => Array.from(new Map(camareros.map(c => [c.id, c])).values()), [camareros]);
-  const uniqueClientes = useMemo(() => Array.from(new Map(clientes.map(c => [c.id, c])).values()), [clientes]);
+  const uniquePedidos = useMemo(() => deduplicarPorId(pedidos), [pedidos]);
+  const uniqueCamareros = useMemo(() => deduplicarPorId(camareros), [camareros]);
+  const uniqueClientes = useMemo(() => deduplicarPorId(clientes), [clientes]);
 
   // Calcular métricas
   const metrics = useMemo(() => {

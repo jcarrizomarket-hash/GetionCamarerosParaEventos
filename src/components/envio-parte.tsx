@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
+import { deduplicarPorId } from '../utils/deduplicar';
 
 export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: { pedidos: any[]; camareros: any[]; coordinadores: any[]; clientes: any[]; baseUrl: string; publicAnonKey: string }) {
   const [selectedPedido, setSelectedPedido] = useState(null);
@@ -18,7 +19,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
   const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   // Deduplicar pedidos y ordenar descendentemente
-  const uniquePedidos: any[] = Array.from(new Map(pedidos.map(p => [p.id, p])).values())
+  const uniquePedidos: any[] = deduplicarPorId(pedidos)
     .sort((a: any, b: any) => new Date(a.diaEvento).getTime() - new Date(b.diaEvento).getTime()); // Orden ascendente: fecha más próxima arriba
 
   const imprimirParte = () => {

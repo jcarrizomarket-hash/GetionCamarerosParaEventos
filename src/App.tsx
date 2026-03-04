@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -19,6 +19,7 @@ export default function App() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [coordinadores, setCoordinadores] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -27,6 +28,7 @@ export default function App() {
   }, []);
 
   const cargarDatos = async () => {
+    setErrorCarga(null);
     try {
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
         fetch(`${baseUrl}/camareros`, {
@@ -53,7 +55,8 @@ export default function App() {
       if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
       if (clientesData.success) setClientes(clientesData.data);
     } catch (error) {
-      logger.error('Error al cargar datos', error);
+      logger.error('Error al cargar datos', error instanceof Error ? { message: error.message } : { error });
+      setErrorCarga('No se pudieron cargar los datos. Verifica la conexión e intenta de nuevo.');
     }
   };
 
@@ -101,11 +104,27 @@ export default function App() {
 
       {/* Content */}
       <div className="p-6">
+        {errorCarga && (
+          <div className="mx-4 mt-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Error al cargar datos</p>
+              <p className="text-sm text-red-600">{errorCarga}</p>
+            </div>
+            <button
+              onClick={cargarDatos}
+              className="ml-auto px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
         <ErrorBoundary>
           {activeTab === 'dashboard' && (
             <Dashboard
               camareros={camareros}
               pedidos={pedidos}
+              clientes={clientes}
               setActiveTab={setActiveTab}
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
@@ -118,6 +137,8 @@ export default function App() {
               setPedidos={setPedidos}
               camareros={camareros}
               coordinadores={coordinadores}
+              clientes={clientes}
+              setClientes={setClientes}
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
@@ -152,6 +173,7 @@ export default function App() {
             <Informes
               camareros={camareros}
               pedidos={pedidos}
+              clientes={clientes}
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
             />

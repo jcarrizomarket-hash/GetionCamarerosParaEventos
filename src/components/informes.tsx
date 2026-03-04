@@ -1,33 +1,14 @@
-import { logger } from '../utils/logger';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 
-export function Informes({ camareros, pedidos, baseUrl, publicAnonKey }) {
+export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey }) {
   const [tipoInforme, setTipoInforme] = useState('cliente');
   const [clienteSeleccionado, setClienteSeleccionado] = useState('');
   const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
-  const [clientes, setClientes] = useState<any[]>([]);
-
-  // Cargar clientes
-  useEffect(() => {
-    cargarClientes();
-  }, []);
-
-  const cargarClientes = async () => {
-    try {
-      const response = await fetch(`${baseUrl}/clientes`, {
-        headers: { Authorization: `Bearer ${publicAnonKey}` }
-      });
-      const data = await response.json();
-      if (data.success) setClientes(data.data);
-    } catch (error) {
-      logger.error('Error al cargar clientes:', error);
-    }
-  };
 
   // Helpers para parsear horas "5h 30m" -> Minutos
   const parseDuration = (str) => {

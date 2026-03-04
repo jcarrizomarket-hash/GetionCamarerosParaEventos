@@ -91,7 +91,7 @@ npm install
 
 # 3. Configure environment variables
 # Create a .env file in the project root and add your credentials, e.g.:
-# VITE_SUPABASE_PROJECT_ID=your-project-id
+# VITE_SUPABASE_URL=https://your-project-id.supabase.co
 # VITE_SUPABASE_ANON_KEY=your-anon-key
 
 # 4. Start the development server
@@ -103,7 +103,7 @@ The app will be available at `http://localhost:5173`.
 ### Minimum Environment Variables
 
 ```bash
-VITE_SUPABASE_PROJECT_ID=your-project-id
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 

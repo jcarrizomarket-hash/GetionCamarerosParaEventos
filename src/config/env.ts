@@ -36,3 +36,36 @@ export const supabaseFunctionEndpoint: string =
   (supabaseFunctionsUrl
     ? `${supabaseFunctionsUrl}/make-server-25b11ac0`
     : '');
+
+/**
+ * Validates that all required environment variables are present.
+ * Call this once at app startup (e.g. in main.tsx) so that missing
+ * Vercel environment variables surface as a clear error instead of
+ * silent undefined values.
+ *
+ * Required vars:
+ *   VITE_SUPABASE_URL       – Supabase project URL
+ *   VITE_SUPABASE_ANON_KEY  – Supabase anon/public key
+ *   VITE_SUPABASE_FUNCTIONS_URL (or derived from VITE_SUPABASE_URL)
+ */
+export function validateRequiredEnvVars(): void {
+  const missing: string[] = [];
+
+  if (!supabaseUrl) {
+    missing.push('VITE_SUPABASE_URL');
+  }
+  if (!supabaseAnonKey) {
+    missing.push('VITE_SUPABASE_ANON_KEY');
+  }
+  if (!supabaseFunctionsUrl) {
+    missing.push('VITE_SUPABASE_FUNCTIONS_URL (or VITE_SUPABASE_URL to derive it)');
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables:\n  ${missing.join('\n  ')}\n\n` +
+      'Set these in Vercel → Project → Settings → Environment Variables ' +
+      'and redeploy. See README.md § Deployment for details.'
+    );
+  }
+}

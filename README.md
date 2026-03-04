@@ -267,6 +267,7 @@ In **Vercel → Project → Settings → Environment Variables** add:
 - [ ] Project is linked to `jcarrizomarket-hash/GetionCamarerosParaEventos` on [vercel.com/jcarrizo-app-service/getion-camareros-para-eventos](https://vercel.com/jcarrizo-app-service/getion-camareros-para-eventos)
 - [ ] `VITE_SUPABASE_URL` is set (e.g. `https://<id>.supabase.co`)
 - [ ] `VITE_SUPABASE_ANON_KEY` is set
+- [ ] `VITE_SUPABASE_FUNCTIONS_URL` is set (e.g. `https://<id>.supabase.co/functions/v1`); can be omitted only if `VITE_SUPABASE_URL` is set (it will be derived automatically)
 - [ ] Build command is `npm run build` and output directory is `build`
 - [ ] No server-side secrets (`SERVICE_ROLE_KEY`, `RESEND_API_KEY`, etc.) are present in Vercel env vars — those live only in Supabase
 

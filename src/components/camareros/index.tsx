@@ -15,6 +15,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
 
+  const { roles } = useRoles();
+
   // Estados para calendario avanzado
   const [selectedCamarero, setSelectedCamarero] = useState<any>(null);
   const [showCalendario, setShowCalendario] = useState(false);

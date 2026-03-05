@@ -192,6 +192,52 @@ After applying the migration, the four default profile types (`CAM`, `COC`,
 `PIC`, `AZA`) are seeded automatically. The frontend falls back to these same
 values if Supabase is unreachable.
 
+#### Especialidades table (`20260304000002_create_especialidades.sql`)
+
+Creates the `especialidades` table (waiter specialty types) that the frontend
+loads dynamically instead of using a hard-coded constant.
+
+**Option A – Supabase CLI (recommended)**
+
+```bash
+supabase db push
+```
+
+**Option B – Dashboard SQL editor**
+
+1. Open your project at [app.supabase.com](https://app.supabase.com)
+2. Go to **SQL Editor → New query**
+3. Paste the contents of `supabase/migrations/20260304000002_create_especialidades.sql`
+4. Click **Run**
+
+After applying the migration, the five default specialty types (`Coctelería`,
+`Banquetes`, `Restaurant`, `Buffet`, `VIP`) are seeded automatically.
+
+#### Idiomas table (`20260305000005_create_idiomas.sql`)
+
+Creates the `idiomas` table (spoken languages) that the frontend loads
+dynamically instead of using a hard-coded `IDIOMAS` constant in
+`src/components/camareros/types.ts`.
+
+**Option A – Supabase CLI (recommended)**
+
+```bash
+supabase db push
+```
+
+**Option B – Dashboard SQL editor**
+
+1. Open your project at [app.supabase.com](https://app.supabase.com)
+2. Go to **SQL Editor → New query**
+3. Paste the contents of `supabase/migrations/20260305000005_create_idiomas.sql`
+4. Click **Run**
+
+After applying the migration, the seven default languages are seeded
+automatically in this order: `Castellano`, `Portugués`, `Catalán`, `Inglés`,
+`Francés`, `Alemán`, `Italiano`. Row Level Security is enabled so that both
+authenticated and anonymous users can read active languages; only the
+service-role key can insert, update, or delete rows.
+
 ### WhatsApp Business API
 
 See the full guide: [src/WHATSAPP_SETUP.md](./src/WHATSAPP_SETUP.md)

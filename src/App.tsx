@@ -20,6 +20,7 @@ export default function App() {
   const [coordinadores, setCoordinadores] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
@@ -62,6 +63,8 @@ export default function App() {
     } catch (error) {
       logger.error('Error al cargar datos', error instanceof Error ? { message: error.message } : { error });
       setErrorCarga('No se pudieron cargar los datos. Verifica la conexión e intenta de nuevo.');
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -74,6 +77,16 @@ export default function App() {
     { id: 'envios', label: 'Envíos', icon: Send },
     { id: 'configuracion', label: 'Configuración', icon: Settings }
   ];
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-600 text-lg font-medium">Cargando datos del sistema...</p>
+        <p className="text-gray-400 text-sm">Gestión de Camareros para Eventos</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

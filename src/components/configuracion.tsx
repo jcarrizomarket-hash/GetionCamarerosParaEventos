@@ -17,14 +17,17 @@ interface ConfiguracionProps {
 }
 
 export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordinadores = [], pedidos = [], clientes = [] }: ConfiguracionProps) {
-    const [activeSubTab, setActiveSubTab] = useState<'whatsapp' | 'chatbot' | 'whatsapp-test' | 'test-panel' | 'test-email' | 'utilidades'>('whatsapp');
+    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+    const [activeSubTab, setActiveSubTab] = useState<string>('whatsapp');
     const subTabs = [
-        { id: 'whatsapp' as const, label: 'WhatsApp', icon: MessageSquare },
-        { id: 'chatbot' as const, label: '🤖 Chatbot', icon: Bot },
-        { id: 'whatsapp-test' as const, label: '🧪 Test de WhatsApp', icon: TestTube2 },
-        { id: 'test-panel' as const, label: 'Panel de Pruebas', icon: TestTube },
-        { id: 'test-email' as const, label: 'Prueba de Email', icon: Mail },
-        { id: 'utilidades' as const, label: 'Utilidades', icon: Settings }
+        { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+        { id: 'chatbot', label: '🤖 Chatbot', icon: Bot },
+        { id: 'whatsapp-test', label: '🧪 Test de WhatsApp', icon: TestTube2 },
+        ...(!isDemoMode ? [
+            { id: 'test-panel', label: 'Panel de Pruebas', icon: TestTube },
+            { id: 'test-email', label: 'Prueba de Email', icon: Mail },
+        ] : []),
+        { id: 'utilidades', label: 'Utilidades', icon: Settings }
     ];
 
     const eliminarPedidoPorNumero = async (numeroPedido: string) => {
@@ -156,10 +159,10 @@ Fecha: ${pedido.diaEvento}`)) {
                     {activeSubTab === 'whatsapp-test' && (
                         <WhatsAppTest baseUrl={baseUrl} publicAnonKey={publicAnonKey} camareros={camareros} coordinadores={coordinadores} pedidos={pedidos} />
                     )}
-                    {activeSubTab === 'test-panel' && (
+                    {activeSubTab === 'test-panel' && !isDemoMode && (
                         <TestPanel />
                     )}
-                    {activeSubTab === 'test-email' && (
+                    {activeSubTab === 'test-email' && !isDemoMode && (
                         <TestEmail baseUrl={baseUrl} publicAnonKey={publicAnonKey} />
                     )}
                     {activeSubTab === 'utilidades' && (

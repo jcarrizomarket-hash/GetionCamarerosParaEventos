@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -8,21 +8,21 @@ import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { ErrorBoundary } from './components/error-boundary';
-import { projectId, publicAnonKey } from './utils/supabase/info';
+import { supabaseFunctionEndpoint as baseUrl, supabaseAnonKey as publicAnonKey } from './config/env';
+import { getCamareros, getPedidos, getCoordinadores, getClientes } from './src/api/client';
+import type { Camarero, Pedido, Coordinador, Cliente } from './src/types';
 import { logger } from './utils/logger';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2
 // Última actualización: Panel de Admin con gestión de Altas
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [camareros, setCamareros] = useState<any[]>([]);
-  const [pedidos, setPedidos] = useState<any[]>([]);
-  const [coordinadores, setCoordinadores] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<any[]>([]);
+  const [camareros, setCamareros] = useState<Camarero[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [coordinadores, setCoordinadores] = useState<Coordinador[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
-
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-25b11ac0`;
 
   useEffect(() => {
     cargarDatos();
@@ -32,34 +32,21 @@ export default function App() {
     setErrorCarga(null);
     try {
       const [camarerosRes, pedidosRes, coordinadoresRes, clientesRes] = await Promise.all([
-        fetch(`${baseUrl}/camareros`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/pedidos`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/coordinadores`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        }),
-        fetch(`${baseUrl}/clientes`, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` }
-        })
+        getCamareros(),
+        getPedidos(),
+        getCoordinadores(),
+        getClientes()
       ]);
 
-      if (!camarerosRes.ok) throw new Error(`Error HTTP ${camarerosRes.status} al cargar camareros`);
-      if (!pedidosRes.ok) throw new Error(`Error HTTP ${pedidosRes.status} al cargar pedidos`);
-      if (!coordinadoresRes.ok) throw new Error(`Error HTTP ${coordinadoresRes.status} al cargar coordinadores`);
-      if (!clientesRes.ok) throw new Error(`Error HTTP ${clientesRes.status} al cargar clientes`);
+      if (!camarerosRes.success) throw new Error(camarerosRes.error || 'Error al cargar camareros');
+      if (!pedidosRes.success) throw new Error(pedidosRes.error || 'Error al cargar pedidos');
+      if (!coordinadoresRes.success) throw new Error(coordinadoresRes.error || 'Error al cargar coordinadores');
+      if (!clientesRes.success) throw new Error(clientesRes.error || 'Error al cargar clientes');
 
-      const camarerosData = await camarerosRes.json();
-      const pedidosData = await pedidosRes.json();
-      const coordinadoresData = await coordinadoresRes.json();
-      const clientesData = await clientesRes.json();
-
-      if (camarerosData.success) setCamareros(camarerosData.data);
-      if (pedidosData.success) setPedidos(pedidosData.data);
-      if (coordinadoresData.success) setCoordinadores(coordinadoresData.data);
-      if (clientesData.success) setClientes(clientesData.data);
+      if (camarerosRes.data) setCamareros(camarerosRes.data);
+      if (pedidosRes.data) setPedidos(pedidosRes.data);
+      if (coordinadoresRes.data) setCoordinadores(coordinadoresRes.data);
+      if (clientesRes.data) setClientes(clientesRes.data);
     } catch (error) {
       logger.error('Error al cargar datos', error instanceof Error ? { message: error.message } : { error });
       setErrorCarga('No se pudieron cargar los datos. Verifica la conexión e intenta de nuevo.');
@@ -80,10 +67,20 @@ export default function App() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-600 text-lg font-medium">Cargando datos del sistema...</p>
-        <p className="text-gray-400 text-sm">Gestión de Camareros para Eventos</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center gap-6 max-w-sm w-full mx-4">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <Users className="w-9 h-9 text-white" />
+          </div>
+          <div className="text-center">
+            <h1 className="text-xl font-bold text-gray-900">Gestión de Camareros</h1>
+            <p className="text-sm text-gray-500 mt-1">para Eventos · v2.2</p>
+          </div>
+          <div className="flex flex-col items-center gap-3 w-full">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-600">Cargando datos del sistema...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -92,14 +89,35 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
-          <h1 className="text-gray-900">Gestión de Camareros para Eventos</h1>
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-gray-900 leading-tight">Gestión de Camareros para Eventos</h1>
+              <p className="text-xs text-gray-500">Sistema de gestión · v2.2</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
+              <div className={`w-2 h-2 rounded-full ${errorCarga ? 'bg-red-500' : camareros.length > 0 || pedidos.length > 0 ? 'bg-green-500' : 'bg-yellow-400'}`} />
+              <span>{errorCarga ? 'Error de conexión' : `${camareros.length} camareros · ${pedidos.length} pedidos`}</span>
+            </div>
+            <button
+              onClick={cargarDatos}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200 hover:border-blue-200"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="flex overflow-x-auto">
+      <div className="bg-white border-b shadow-sm">
+        <div className="flex overflow-x-auto scrollbar-hide px-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -123,16 +141,17 @@ export default function App() {
       {/* Content */}
       <div className="p-6">
         {errorCarga && (
-          <div className="mx-4 mt-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-red-800">Error al cargar datos</p>
-              <p className="text-sm text-red-600">{errorCarga}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 shadow-sm">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-800">Error al cargar datos</p>
+              <p className="text-sm text-red-600 mt-0.5">{errorCarga}</p>
             </div>
             <button
               onClick={cargarDatos}
-              className="ml-auto px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors flex-shrink-0"
             >
+              <RefreshCw className="w-3.5 h-3.5" />
               Reintentar
             </button>
           </div>

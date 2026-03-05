@@ -180,6 +180,7 @@
     "dist",
     "build",
     "src/supabase/functions/server",
+    "src/supabase/functions/migrate-kv-to-sql",
     "src/utils/api-client.ts",
     "src/src"
   ]

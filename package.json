@@ -75,6 +75,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run --config src/vitest.config.ts",
+    "test:watch": "vitest --config src/vitest.config.ts",
+    "test:unit": "vitest run --config src/vitest.config.ts",
+    "test:coverage": "vitest run --config src/vitest.config.ts --coverage",
+    "test:ui": "vitest --config src/vitest.config.ts --ui",
+    "test:e2e": "playwright test --config src/playwright.config.ts",
+    "test:e2e:ui": "playwright test --config src/playwright.config.ts --ui",
+    "test:e2e:headed": "playwright test --config src/playwright.config.ts --headed",
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "audit": "npm audit --audit-level=high"
   }
 }

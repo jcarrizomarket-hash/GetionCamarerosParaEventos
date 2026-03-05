@@ -1,0 +1,56 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  coverage-gate:
+    name: Coverage Gate (min 60%)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Coverage summary comment
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
+
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Report bundle size
+        run: |
+          echo "### Bundle Size" >> $GITHUB_STEP_SUMMARY
+          du -sh build/ >> $GITHUB_STEP_SUMMARY
+          find build -name "*.js" -exec du -sh {} \; | sort -rh | head -10 >> $GITHUB_STEP_SUMMARY

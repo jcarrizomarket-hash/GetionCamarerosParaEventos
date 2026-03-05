@@ -18,11 +18,14 @@ jobs:
 
       - name: Check for merge conflict markers
         run: |
-          if grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" src/ 2>/dev/null; then
-            echo "ERROR: Merge conflict markers found in source files"
+          if grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " \
+            --include="*.ts" --include="*.tsx" --include="*.js" \
+            --include="*.json" --include="*.yml" --include="*.yaml" \
+            src/ .github/ 2>/dev/null; then
+            echo "ERROR: Merge conflict markers found"
             exit 1
           fi
-          echo "No conflict markers found"
+          echo "✅ No conflict markers found"
 
   lint:
     name: Lint
@@ -84,9 +87,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests
-        working-directory: src
-        run: npx vitest run --config vitest.config.ts
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
 
   build:
     name: Build
@@ -109,3 +118,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-dist
+          path: build/
+          retention-days: 7

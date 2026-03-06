@@ -35,6 +35,14 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+// ============================================================
+// AUTHENTICATION POLICY
+// All endpoints require a valid Supabase JWT Bearer token via
+// the requireAuth middleware, EXCEPT:
+//   - GET /confirmar-asistencia  (public confirmation link)
+//   - POST /whatsapp-webhook     (verified by WhatsApp HMAC)
+// ============================================================
+
 // ============== IDIOMAS ==============
 app.get('/make-server-25b11ac0/idiomas', requireAuth, async (c) => {
   try {
@@ -285,7 +293,7 @@ app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
   }
 });
 
-app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
+app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -301,7 +309,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', async (c) => {
   }
 });
 
-app.delete('/make-server-25b11ac0/pedidos/:id', async (c) => {
+app.delete('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     console.log(`🗑️ Intentando eliminar pedido con ID: ${id}`);
@@ -367,7 +375,7 @@ app.get('/make-server-25b11ac0/informes/camarero', requireAuth, async (c) => {
 });
 
 // ============== CONFIRMACIONES ==============
-app.post('/make-server-25b11ac0/guardar-token', async (c) => {
+app.post('/make-server-25b11ac0/guardar-token', requireAuth, async (c) => {
   try {
     const { token, pedidoId, camareroId, coordinadorId } = await c.req.json();
     

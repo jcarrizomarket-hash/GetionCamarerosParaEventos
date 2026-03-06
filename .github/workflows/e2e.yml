@@ -62,6 +62,10 @@ jobs:
             curl -sf http://localhost:4173 > /dev/null && echo "Server ready (${i}s)" && break
             sleep 1
           done
+          echo "=== HTML served by vite preview ==="
+          curl -s http://localhost:4173 | head -30
+          echo "=== JS bundle response ==="
+          curl -s http://localhost:4173/assets/ | head -5 || true
           npx playwright test --config playwright.config.ts --project=chromium
 
       - name: Upload Playwright report

@@ -49,10 +49,12 @@ export const supabaseFunctionEndpoint: string =
  *   VITE_SUPABASE_FUNCTIONS_URL (or derived from VITE_SUPABASE_URL)
  */
 export function validateRequiredEnvVars(): void {
-  // En modo demo o CI (E2E tests) no bloqueamos el arranque de la app.
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
-  if (isDemoMode) {
-    console.warn('⚠️ VITE_DEMO_MODE activo — variables de Supabase no requeridas.');
+  // Placeholders usados en CI/demo — no bloquear el arranque
+  const isPlaceholder = (v: string) =>
+    !v || v.includes('placeholder') || v === 'undefined';
+
+  if (isPlaceholder(supabaseUrl) && isPlaceholder(supabaseAnonKey)) {
+    console.warn('⚠️ Supabase no configurado — modo demo/CI activo. Las llamadas al backend fallarán.');
     return;
   }
 

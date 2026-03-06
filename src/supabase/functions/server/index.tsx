@@ -3,6 +3,7 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './middleware';
 
 const app = new Hono();
 
@@ -19,16 +20,6 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use('*', logger(console.log));
-
-// JWT-only auth middleware for sensitive endpoints
-const requireAuth = async (c, next) => {
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.warn(`❌ Auth requerida: ${c.req.method} ${c.req.url}`);
-    return c.json({ success: false, error: 'No autorizado. Se requiere JWT Bearer.' }, 401);
-  }
-  await next();
-};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',

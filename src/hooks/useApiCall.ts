@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import type { ApiResponse } from '../src/types';
-import logger from '../src/utils/logger';
+import type { ApiResponse } from '../types';
+import { logger } from '../utils/logger';
 
 export interface UseApiCallState<T> {
   data: T | null;

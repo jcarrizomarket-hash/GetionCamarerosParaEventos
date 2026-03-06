@@ -10,8 +10,8 @@ import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
 import { ErrorBoundary } from './components/error-boundary';
 import { supabaseFunctionEndpoint as baseUrl, supabaseAnonKey as publicAnonKey } from './config/env';
-import { getCamareros, getPedidos, getCoordinadores, getClientes } from './src/api/client';
-import type { Camarero, Pedido, Coordinador, Cliente } from './src/types';
+import { getCamareros, getPedidos, getCoordinadores, getClientes } from './api/client';
+import type { Camarero, Pedido, Coordinador, Cliente } from './types';
 import { logger } from './utils/logger';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2

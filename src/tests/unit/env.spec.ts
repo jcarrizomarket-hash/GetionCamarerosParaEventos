@@ -58,3 +58,13 @@ describe('validateRequiredEnvVars', () => {
     expect(() => validateRequiredEnvVars()).toThrow('Vercel');
   });
 });
+
+  it('no lanza en modo demo (VITE_DEMO_MODE=true) aunque falten variables', async () => {
+    vi.stubEnv('VITE_DEMO_MODE', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_SUPABASE_FUNCTIONS_URL', '');
+
+    const { validateRequiredEnvVars } = await import('../../config/env');
+    expect(() => validateRequiredEnvVars()).not.toThrow();
+  });

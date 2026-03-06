@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
-export const CreateCoordinadorSchema = z.object({
-  id: z.string(),
-  numero: z.number().optional(),
-  nombre: z.string(),
-  telefono: z.string().regex(/^\+34\d{9}$/, 'Invalid Spanish phone number').optional(),
-  email: z.string().email().optional(),
+export const CoordinadorSchema = z.object({
+  id: z.string().min(1, 'El ID es requerido'),
+  nombre: z.string().min(1, 'El nombre es requerido').max(100, 'El nombre no puede tener más de 100 caracteres'),
+  telefono: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   activo: z.boolean().optional(),
-  departamento: z.string().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+  createdAt: z.string().optional(),
 });
 
-export const UpdateCoordinadorSchema = CreateCoordinadorSchema.partial();
+export const CreateCoordinadorSchema = CoordinadorSchema.omit({ id: true, createdAt: true });
 
-export type CreateCoordinador = z.infer<typeof CreateCoordinadorSchema>;
-export type UpdateCoordinador = z.infer<typeof UpdateCoordinadorSchema>;
+export const UpdateCoordinadorSchema = CoordinadorSchema.partial().omit({ id: true, createdAt: true });
+
+export type CoordinadorInput = z.infer<typeof CoordinadorSchema>;
+export type CreateCoordinadorInput = z.infer<typeof CreateCoordinadorSchema>;
+export type UpdateCoordinadorInput = z.infer<typeof UpdateCoordinadorSchema>;

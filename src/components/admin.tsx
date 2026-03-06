@@ -1,6 +1,7 @@
 import { Shield, UserPlus, Download, Filter, X, Trash2, Edit2 } from 'lucide-react';
 import ExcelJS from 'exceljs'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { useState, useMemo } from 'react';
 
 interface AdminProps {
   coordinadores: any[];

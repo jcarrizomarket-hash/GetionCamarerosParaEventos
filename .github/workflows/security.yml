@@ -1,0 +1,53 @@
+name: Security
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'   # Every Monday at 08:00 UTC
+  workflow_dispatch:        # Manual trigger
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for hardcoded secrets
+        run: |
+          # Check for common secret patterns
+          PATTERNS=(
+            "SUPABASE_SERVICE_ROLE_KEY\s*=\s*['\"]ey"
+            "RESEND_API_KEY\s*=\s*['\"]re_"
+            "WHATSAPP_API_KEY\s*=\s*['\"]EAA"
+            "sk-[a-zA-Z0-9]{32}"
+            "password\s*=\s*['\"][^'\"]{8,}"
+          )
+          FOUND=0
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -rn -E "$pattern" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.env*" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null | grep -v ".env.example" | grep -v "/test/" | grep -v "\.spec\."; then
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq "1" ]; then
+            echo "::error::Potential hardcoded secrets detected! Review the output above."
+            exit 1
+          fi
+          echo "No hardcoded secrets found."
+
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Full audit report
+        run: npm audit --audit-level=moderate

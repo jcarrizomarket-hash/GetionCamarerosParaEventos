@@ -246,14 +246,31 @@ For detailed testing instructions, see [src/TESTING_SETUP.md](./src/TESTING_SETU
 
 ## 🔄 CI/CD
 
-This project uses GitHub Actions for continuous integration. On every push/PR to `main`:
+This project uses GitHub Actions for continuous integration and security monitoring.
 
-1. **Type Check** — Validates TypeScript types (`npm run type-check`)
+### `ci.yml` — Runs on every push/PR to `main`
+
+1. **Merge Conflict Guard** — Checks for unresolved merge conflict markers
 2. **Lint** — Enforces code style (`npm run lint`)
-3. **Tests** — Runs unit tests with Vitest
-4. **Build** — Ensures the project compiles (`npm run build`)
+3. **Type Check** — Validates TypeScript types (`npm run type-check`)
+4. **Unit Tests** — Runs unit tests with Vitest
+5. **Build** — Ensures the project compiles (`npm run build`)
+6. **Security Audit** — Checks for high/critical npm dependency vulnerabilities (warning only)
 
-All checks are intended to pass before merging. To enforce these as required checks that block merges, configure GitHub branch protection rules to require this workflow's status checks.
+### `e2e.yml` — Runs on every push/PR to `main`
+
+- **Playwright E2E** — Builds the app, starts a preview server, and runs Playwright tests against Chromium. The Playwright report is uploaded as an artifact (retained 7 days).
+
+### `type-coverage.yml` — Runs on every push/PR to `main`
+
+- **TypeScript any Coverage** — Counts `: any` usages in source files and warns if the count exceeds the baseline. Also runs `npm run type-check`.
+
+### `security.yml` — Runs every Monday at 08:00 UTC (and on demand)
+
+- **Secret Scanning** — Scans the full repository history for common hardcoded secret patterns (API keys, passwords).
+- **Dependency Vulnerability Audit** — Runs `npm audit --audit-level=moderate` to report all moderate-or-higher vulnerabilities.
+
+All CI checks are intended to pass before merging. To enforce these as required checks that block merges, configure GitHub branch protection rules to require this workflow's status checks.
 
 ---
 

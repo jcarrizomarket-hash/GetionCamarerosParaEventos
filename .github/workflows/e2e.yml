@@ -1,0 +1,43 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Install Playwright browsers
+        working-directory: src
+        run: npx playwright install --with-deps chromium
+      - name: Build app
+        run: npm run build
+      - name: Run E2E tests
+        working-directory: src
+        env:
+          VITE_DEMO_MODE: 'true'
+          TEST_BASE_URL: 'http://localhost:4173'
+        run: |
+          npx vite preview --port 4173 &
+          sleep 3
+          npx playwright test --config playwright.config.ts --project=chromium
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: src/playwright-report/
+          retention-days: 7

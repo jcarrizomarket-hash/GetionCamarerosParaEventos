@@ -1,31 +1,61 @@
 import { logger } from '../../utils/logger';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
-export function exportarAExcel(camareros: any[], showToast: (msg: string, type: 'success' | 'error') => void): void {
+// xlsx (v0.18.5) fue removido por CVEs conocidos (Prototype Pollution, ReDoS).
+// Reemplazado por exceljs que ya era dependencia del proyecto.
+
+export async function exportarAExcel(camareros: any[], showToast: (msg: string, type: 'success' | 'error') => void): Promise<void> {
   try {
-    const datosExportacion = camareros.map(cam => ({
-      'Código': cam.codigo || '',
-      'Tipo Perfil': cam.tipoPerfil || 'CAM',
-      'Nombre': cam.nombre,
-      'Apellido': cam.apellido,
-      'Teléfono': cam.telefono || '',
-      'Email': cam.email || '',
-      'Especialidades': Array.isArray(cam.especialidades) ? cam.especialidades.join(', ') : '',
-      'Experiencia (años)': cam.experiencia || '',
-      'Idiomas': Array.isArray(cam.idiomas) ? cam.idiomas.join(', ') : '',
-      'Otros Idiomas': cam.otrosIdiomas || '',
-      'Certificaciones': Array.isArray(cam.certificaciones) ? cam.certificaciones.join(', ') : '',
-      'Otras Certificaciones': cam.otrasCertificaciones || '',
-      'Coordinador ID': cam.coordinadorId || '',
-      'Comentarios': cam.comentarios || '',
-      'Estado': cam.estado || 'activo'
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Personal');
 
-    const ws = XLSX.utils.json_to_sheet(datosExportacion);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+    worksheet.columns = [
+      { header: 'Código', key: 'codigo', width: 12 },
+      { header: 'Tipo Perfil', key: 'tipoPerfil', width: 14 },
+      { header: 'Nombre', key: 'nombre', width: 20 },
+      { header: 'Apellido', key: 'apellido', width: 20 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Email', key: 'email', width: 28 },
+      { header: 'Especialidades', key: 'especialidades', width: 28 },
+      { header: 'Experiencia (años)', key: 'experiencia', width: 18 },
+      { header: 'Idiomas', key: 'idiomas', width: 20 },
+      { header: 'Otros Idiomas', key: 'otrosIdiomas', width: 18 },
+      { header: 'Certificaciones', key: 'certificaciones', width: 24 },
+      { header: 'Otras Certificaciones', key: 'otrasCertificaciones', width: 24 },
+      { header: 'Coordinador ID', key: 'coordinadorId', width: 16 },
+      { header: 'Comentarios', key: 'comentarios', width: 30 },
+      { header: 'Estado', key: 'estado', width: 12 },
+    ];
+
+    camareros.forEach(cam => {
+      worksheet.addRow({
+        codigo: cam.codigo || '',
+        tipoPerfil: cam.tipoPerfil || 'CAM',
+        nombre: cam.nombre,
+        apellido: cam.apellido,
+        telefono: cam.telefono || '',
+        email: cam.email || '',
+        especialidades: Array.isArray(cam.especialidades) ? cam.especialidades.join(', ') : '',
+        experiencia: cam.experiencia || '',
+        idiomas: Array.isArray(cam.idiomas) ? cam.idiomas.join(', ') : '',
+        otrosIdiomas: cam.otrosIdiomas || '',
+        certificaciones: Array.isArray(cam.certificaciones) ? cam.certificaciones.join(', ') : '',
+        otrasCertificaciones: cam.otrasCertificaciones || '',
+        coordinadorId: cam.coordinadorId || '',
+        comentarios: cam.comentarios || '',
+        estado: cam.estado || 'activo',
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     const fecha = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
+    a.href = url;
+    a.download = `Personal_${fecha}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
     showToast('Datos exportados correctamente', 'success');
   } catch (error) {
     logger.error('Error al exportar:', error);
@@ -47,9 +77,23 @@ export async function importarDesdeExcel(
 
   try {
     const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(data);
+    const worksheet = workbook.worksheets[0];
+
+    const headers: string[] = [];
+    worksheet.getRow(1).eachCell((cell) => { headers.push(String(cell.value ?? '')); });
+
+    const jsonData: Record<string, any>[] = [];
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const rowObj: Record<string, any> = {};
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber - 1];
+        if (header) rowObj[header] = cell.value;
+      });
+      if (Object.keys(rowObj).length > 0) jsonData.push(rowObj);
+    });
 
     if (jsonData.length === 0) { showToast('El archivo está vacío', 'error'); return; }
     const confirmed = await showConfirm(`¿Deseas importar ${jsonData.length} registros?\n\nEsto creará nuevos camareros. Los códigos duplicados serán ignorados.`);
@@ -58,7 +102,7 @@ export async function importarDesdeExcel(
     let importados = 0;
     let errores = 0;
 
-    for (const row of jsonData as any[]) {
+    for (const row of jsonData) {
       try {
         if (!row['Nombre'] || !row['Apellido']) {
           logger.warn('Fila sin nombre/apellido, omitida:', row);

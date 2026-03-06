@@ -20,8 +20,8 @@ export async function verifyWhatsAppWebhookSignature(
   const appSecret = Deno.env.get('WHATSAPP_APP_SECRET');
 
   if (!appSecret) {
-    console.warn('⚠️ WHATSAPP_APP_SECRET no configurado. Validación de firma omitida.');
-    return true;
+    console.error('❌ WHATSAPP_APP_SECRET no configurado. Rechazando webhook por seguridad (fail-closed).');
+    return false;
   }
 
   const signature = c.req.header('x-hub-signature-256');

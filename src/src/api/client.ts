@@ -288,7 +288,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
   try {
-    const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
+    const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });

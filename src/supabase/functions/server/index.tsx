@@ -3,7 +3,7 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
-import { requireAuth } from './middleware';
+import { requireAuth, kvRateLimit } from './middleware';
 
 const app = new Hono();
 
@@ -20,6 +20,9 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use('*', logger(console.log));
+
+// Rate limiting global: 120 req/min por IP (KV-backed, persiste entre cold starts)
+app.use('*', kvRateLimit(120, 60000));
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',

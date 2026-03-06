@@ -12,7 +12,7 @@ import type {
   WhatsAppConfig,
   EmailConfig 
 } from '../types';
-import { supabaseFunctionEndpoint, supabaseAnonKey } from '../../config/env';
+import { supabaseFunctionEndpoint, supabaseAnonKey } from '../config/env';
 import { fetchWithRetry } from '../utils/retry';
 
 const REQUEST_TIMEOUT_MS = 5000;

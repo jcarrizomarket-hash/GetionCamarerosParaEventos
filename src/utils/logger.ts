@@ -1,128 +1,120 @@
 /**
- * Logger centralizado para el sistema de gestión de camareros
- *
- * Niveles: DEBUG < INFO < WARN < ERROR
- * - En desarrollo: muestra todos los niveles en consola con timestamps
- * - En producción: muestra solo WARN y ERROR; envía logs al servidor
+ * Sistema de logging estructurado con niveles
+ * Funciona tanto en cliente (browser) como en servidor (Node/Deno)
  */
 
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export interface LogContext {
-  userId?: string;
-  sessionId?: string;
-  [key: string]: unknown;
-}
-
-interface LogEntry {
-  timestamp: string;
+export interface LogEntry {
   level: LogLevel;
   message: string;
-  context?: LogContext;
-  data?: unknown;
+  context?: Record<string, unknown>;
+  timestamp: string;
+  requestId?: string;
 }
 
-const LEVEL_ORDER: Record<LogLevel, number> = {
-  DEBUG: 0,
-  INFO: 1,
-  WARN: 2,
-  ERROR: 3,
+const LOG_LEVELS: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
 };
 
-const isDevelopment =
-  typeof import.meta !== 'undefined' &&
-  (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+const LOG_COLORS: Record<LogLevel, string> = {
+  debug: '#888',
+  info: '#2563eb',
+  warn: '#d97706',
+  error: '#dc2626',
+};
 
-// Minimum level shown in console
-const MIN_CONSOLE_LEVEL: LogLevel = isDevelopment ? 'DEBUG' : 'WARN';
+const LOG_PREFIXES: Record<LogLevel, string> = {
+  debug: '🔍 DEBUG',
+  info: 'ℹ️  INFO',
+  warn: '⚠️  WARN',
+  error: '❌ ERROR',
+};
 
-class Logger {
-  private context: LogContext = {};
+let currentMinLevel: LogLevel = 'info';
 
-  /** Enrich all subsequent log calls with persistent context (e.g. userId) */
-  setContext(ctx: LogContext) {
-    this.context = { ...this.context, ...ctx };
-  }
+/**
+ * Establece el nivel mínimo de log
+ */
+export function setLogLevel(level: LogLevel): void {
+  currentMinLevel = level;
+}
 
-  /** Clear runtime context */
-  clearContext() {
-    this.context = {};
-  }
+/**
+ * Verifica si un nivel de log debe procesarse
+ */
+function shouldLog(level: LogLevel): boolean {
+  return LOG_LEVELS[level] >= LOG_LEVELS[currentMinLevel];
+}
 
-  private shouldLog(level: LogLevel): boolean {
-    return LEVEL_ORDER[level] >= LEVEL_ORDER[MIN_CONSOLE_LEVEL];
-  }
+/**
+ * Formatea y emite una entrada de log
+ */
+function emitLog(level: LogLevel, message: string, context?: Record<string, unknown>): void {
+  if (!shouldLog(level)) return;
 
-  private formatEntry(level: LogLevel, message: string, data?: unknown): LogEntry {
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      context: Object.keys(this.context).length ? { ...this.context } : undefined,
-      data,
-    };
-  }
+  const entry: LogEntry = {
+    level,
+    message,
+    context,
+    timestamp: new Date().toISOString(),
+  };
 
-  private write(level: LogLevel, entry: LogEntry) {
-    if (!this.shouldLog(level)) return;
+  const prefix = LOG_PREFIXES[level];
+  const timestamp = entry.timestamp;
 
-    const prefix = `[${entry.timestamp}] [${level}]`;
-    const msg = entry.context
-      ? `${prefix} ${entry.message} ${JSON.stringify(entry.context)}`
-      : `${prefix} ${entry.message}`;
+  if (typeof window !== 'undefined') {
+    // Browser: usar estilos CSS
+    const color = LOG_COLORS[level];
+    const args: unknown[] = [
+      `%c${prefix}%c [${timestamp}] ${message}`,
+      `color: ${color}; font-weight: bold`,
+      'color: inherit',
+    ];
+    if (context) args.push(context);
 
-    if (entry.data !== undefined) {
-      switch (level) {
-        case 'ERROR':
-          console.error(msg, entry.data);
-          break;
-        case 'WARN':
-          console.warn(msg, entry.data);
-          break;
-        case 'DEBUG':
-          console.debug(msg, entry.data);
-          break;
-        default:
-          console.log(msg, entry.data);
-      }
-    } else {
-      switch (level) {
-        case 'ERROR':
-          console.error(msg);
-          break;
-        case 'WARN':
-          console.warn(msg);
-          break;
-        case 'DEBUG':
-          console.debug(msg);
-          break;
-        default:
-          console.log(msg);
-      }
+    switch (level) {
+      case 'debug': console.debug(...args); break;
+      case 'info':  console.info(...args);  break;
+      case 'warn':  console.warn(...args);  break;
+      case 'error': console.error(...args); break;
     }
-  }
+  } else {
+    // Servidor: output estructurado
+    const logMessage = `${prefix} [${timestamp}] ${message}`;
+    const logData = context ? { ...context } : undefined;
 
-  debug(message: string, data?: unknown) {
-    const entry = this.formatEntry('DEBUG', message, data);
-    this.write('DEBUG', entry);
-  }
-
-  info(message: string, data?: unknown) {
-    const entry = this.formatEntry('INFO', message, data);
-    this.write('INFO', entry);
-  }
-
-  warn(message: string, data?: unknown) {
-    const entry = this.formatEntry('WARN', message, data);
-    this.write('WARN', entry);
-  }
-
-  error(message: string, data?: unknown) {
-    const entry = this.formatEntry('ERROR', message, data);
-    this.write('ERROR', entry);
+    switch (level) {
+      case 'debug': console.debug(logMessage, logData ?? ''); break;
+      case 'info':  console.info(logMessage, logData ?? '');  break;
+      case 'warn':  console.warn(logMessage, logData ?? '');  break;
+      case 'error': console.error(logMessage, logData ?? ''); break;
+    }
   }
 }
 
-/** Singleton logger instance shared across the application */
-export const logger = new Logger();
+export const logger = {
+  debug: (message: string, context?: Record<string, unknown>) => emitLog('debug', message, context),
+  info:  (message: string, context?: Record<string, unknown>) => emitLog('info', message, context),
+  warn:  (message: string, context?: Record<string, unknown>) => emitLog('warn', message, context),
+  error: (message: string, context?: Record<string, unknown>) => emitLog('error', message, context),
+
+  /**
+   * Crea un logger con contexto fijo (útil para módulos específicos)
+   */
+  withContext: (fixedContext: Record<string, unknown>) => ({
+    debug: (message: string, context?: Record<string, unknown>) =>
+      emitLog('debug', message, { ...fixedContext, ...context }),
+    info:  (message: string, context?: Record<string, unknown>) =>
+      emitLog('info', message, { ...fixedContext, ...context }),
+    warn:  (message: string, context?: Record<string, unknown>) =>
+      emitLog('warn', message, { ...fixedContext, ...context }),
+    error: (message: string, context?: Record<string, unknown>) =>
+      emitLog('error', message, { ...fixedContext, ...context }),
+  }),
+};
+
 export default logger;

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import logger from '../src/utils/logger';
+import { logger } from '../utils/logger';
 
 export interface UseAsyncState<T> {
   data: T | null;

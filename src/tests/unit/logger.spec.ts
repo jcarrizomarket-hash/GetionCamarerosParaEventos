@@ -1,6 +1,7 @@
 /**
  * Tests unitarios para el logger centralizado
- * Actualizado para la API del logger v2 (withContext, sin setContext/clearContext)
+ * Logger v2: browser path usa %c CSS args -> console.info(formatStr, css, reset, context)
+ * args[0] = formato string, args[1] = CSS color, args[2] = CSS reset, args[3] = context obj
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -14,8 +15,8 @@ describe('Logger', () => {
 
   beforeEach(() => {
     debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    infoSpy  = vi.spyOn(console, 'info').mockImplementation(() => {});
+    warnSpy  = vi.spyOn(console, 'warn').mockImplementation(() => {});
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     setLogLevel('debug');
   });
@@ -63,7 +64,7 @@ describe('Logger', () => {
     const extra = { id: 42 };
     logger.error('con datos', extra);
     expect(errorSpy).toHaveBeenCalled();
-    // En jsdom (browser path): args = [formatStr, cssStyle, cssReset, context]
+    // args[3] = context en browser path (jsdom)
     const contextArg = errorSpy.mock.calls[0][3] as Record<string, unknown>;
     expect(contextArg).toMatchObject({ id: 42 });
   });
@@ -72,7 +73,7 @@ describe('Logger', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.info('con contexto');
     expect(infoSpy).toHaveBeenCalledOnce();
-    // En jsdom (browser path): args = [formatStr, cssStyle, cssReset, context]
+    // Browser path: console.info(formatStr, cssColor, cssReset, contextObj)
     const contextArg = infoSpy.mock.calls[0][3] as Record<string, unknown>;
     expect(contextArg).toMatchObject({ userId: 'user-123' });
   });
@@ -81,7 +82,7 @@ describe('Logger', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.warn('contexto combinado', { sessionId: 'sess-456' });
     expect(warnSpy).toHaveBeenCalledOnce();
-    // En jsdom (browser path): args = [formatStr, cssStyle, cssReset, context]
+    // Browser path: console.warn(formatStr, cssColor, cssReset, contextObj)
     const contextArg = warnSpy.mock.calls[0][3] as Record<string, unknown>;
     expect(contextArg).toMatchObject({ userId: 'user-123', sessionId: 'sess-456' });
   });
@@ -94,5 +95,14 @@ describe('Logger', () => {
     expect(infoSpy).not.toHaveBeenCalled();
     logger.warn('esto si');
     expect(warnSpy).toHaveBeenCalledOnce();
+  });
+
+  it('no lanza en modo demo (VITE_DEMO_MODE=true) aunque falten variables', async () => {
+    vi.stubEnv('VITE_DEMO_MODE', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_SUPABASE_FUNCTIONS_URL', '');
+    const { validateRequiredEnvVars } = await import('../../config/env');
+    expect(() => validateRequiredEnvVars()).not.toThrow();
   });
 });

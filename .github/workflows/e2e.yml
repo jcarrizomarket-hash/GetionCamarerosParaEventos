@@ -52,21 +52,41 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Verify dist exists
+        run: |
+          echo "=== dist/ contents ==="
+          ls -la dist/
+          echo "=== index.html ==="
+          cat dist/index.html
+
       - name: Run E2E tests
         working-directory: src
         env:
           TEST_BASE_URL: 'http://localhost:4173'
         run: |
-          npx vite preview --port 4173 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:4173 > /dev/null && echo "Server ready (${i}s)" && break
+          # Arrancar vite preview con --host para escuchar en 0.0.0.0
+          npx vite preview --port 4173 --host &
+          SERVER_PID=$!
+          # Esperar hasta 60s que el servidor responda
+          echo "Waiting for server..."
+          for i in $(seq 1 60); do
+            if curl -sf --max-time 2 http://localhost:4173 > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "ERROR: Server never started"
+              kill $SERVER_PID 2>/dev/null
+              exit 1
+            fi
             sleep 1
           done
-          echo "=== HTML served by vite preview ==="
-          curl -s http://localhost:4173 | head -30
-          echo "=== JS bundle response ==="
-          curl -s http://localhost:4173/assets/ | head -5 || true
+          echo "=== Response from server ==="
+          curl -s http://localhost:4173 | grep -o '<[^>]*>' | head -20
           npx playwright test --config playwright.config.ts --project=chromium
+          EXIT_CODE=$?
+          kill $SERVER_PID 2>/dev/null || true
+          exit $EXIT_CODE
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

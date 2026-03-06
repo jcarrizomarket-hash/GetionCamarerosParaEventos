@@ -14,6 +14,12 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      VITE_DEMO_MODE: 'true'
+      VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
+      VITE_SUPABASE_ANON_KEY: 'placeholder-key-for-ci'
+      VITE_SUPABASE_FUNCTIONS_URL: 'https://placeholder.supabase.co/functions/v1'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,32 +50,38 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Build app
-        env:
-          VITE_DEMO_MODE: 'true'
-          VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
-          VITE_SUPABASE_ANON_KEY: 'placeholder-key-for-ci'
-          VITE_SUPABASE_FUNCTIONS_URL: 'https://placeholder.supabase.co/functions/v1'
         run: npm run build
+
+      - name: Verify build output exists
+        run: |
+          echo "Build output directory contents:"
+          ls -la build/
+          ls -la build/assets/ | head -5
 
       - name: Run E2E tests
         working-directory: src
         env:
-          VITE_DEMO_MODE: 'true'
-          VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
-          VITE_SUPABASE_ANON_KEY: 'placeholder-key-for-ci'
-          VITE_SUPABASE_FUNCTIONS_URL: 'https://placeholder.supabase.co/functions/v1'
           TEST_BASE_URL: 'http://localhost:4173'
         run: |
-          # vite.config.ts usa outDir: 'build' — apuntar preview a esa carpeta
-          npx vite preview --port 4173 --outDir ../build &
+          # vite.config.ts usa outDir: 'build' (relativo a la raiz del proyecto)
+          # Desde src/ hay que apuntar a ../build
+          npx vite preview --port 4173 --outDir ../build --host localhost &
           SERVER_PID=$!
-          # Esperar que el servidor esté listo (max 30s)
+          echo "Waiting for server on port 4173..."
           for i in $(seq 1 30); do
-            curl -s http://localhost:4173 > /dev/null && echo "Server ready after ${i}s" && break
+            if curl -sf http://localhost:4173 > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
             sleep 1
           done
+          # Verificar que el HTML tiene el div#root
+          echo "Checking index.html has #root:"
+          curl -s http://localhost:4173 | grep -o 'id="root"' || echo "WARNING: #root not found in response"
           npx playwright test --config playwright.config.ts --project=chromium
+          EXIT_CODE=$?
           kill $SERVER_PID 2>/dev/null || true
+          exit $EXIT_CODE
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

@@ -63,13 +63,17 @@ describe('Logger', () => {
     const extra = { id: 42 };
     logger.error('con datos', extra);
     expect(errorSpy).toHaveBeenCalled();
+    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
+    const contextArg = errorSpy.mock.calls[0][3] as Record<string, unknown>;
+    expect(contextArg).toMatchObject({ id: 42 });
   });
 
   it('withContext debe inyectar contexto fijo en todos los logs derivados', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.info('con contexto');
     expect(infoSpy).toHaveBeenCalledOnce();
-    const contextArg = infoSpy.mock.calls[0][1] as Record<string, unknown>;
+    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
+    const contextArg = infoSpy.mock.calls[0][3] as Record<string, unknown>;
     expect(contextArg).toMatchObject({ userId: 'user-123' });
   });
 
@@ -77,7 +81,8 @@ describe('Logger', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.warn('contexto combinado', { sessionId: 'sess-456' });
     expect(warnSpy).toHaveBeenCalledOnce();
-    const contextArg = warnSpy.mock.calls[0][1] as Record<string, unknown>;
+    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
+    const contextArg = warnSpy.mock.calls[0][3] as Record<string, unknown>;
     expect(contextArg).toMatchObject({ userId: 'user-123', sessionId: 'sess-456' });
   });
 

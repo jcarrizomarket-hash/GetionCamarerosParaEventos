@@ -221,7 +221,6 @@ export async function errorLogger(c: Context, next: () => Promise<void>) {
       {
         success: false,
         error: 'Error interno del servidor',
-        details: error instanceof Error ? error.message : 'Error desconocido',
       },
       500
     );

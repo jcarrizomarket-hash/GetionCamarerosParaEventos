@@ -48,13 +48,13 @@ app.get('/make-server-25b11ac0/idiomas', requireAuth, async (c) => {
 
     if (error) {
       console.error('Error al obtener idiomas:', error);
-      return c.json({ success: false, error: error.message }, 500);
+      return c.json({ success: false, error: 'Error interno del servidor' }, 500);
     }
 
     return c.json({ success: true, data });
   } catch (error) {
     console.error('Error al obtener idiomas:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -65,7 +65,7 @@ app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
     return c.json({ success: true, data: clientes });
   } catch (error) {
     console.error('Error al obtener clientes:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -81,7 +81,7 @@ app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
     return c.json({ success: true, data: cliente });
   } catch (error) {
     console.error('Error al crear cliente:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -93,7 +93,7 @@ app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('Error al actualizar cliente:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -104,7 +104,7 @@ app.delete('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al eliminar cliente:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -115,7 +115,7 @@ app.get('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
     return c.json({ success: true, data: camareros });
   } catch (error) {
     console.error('Error al obtener camareros:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -146,7 +146,7 @@ app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
     return c.json({ success: true, data: camarero });
   } catch (error) {
     console.error('Error al crear camarero:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -158,7 +158,7 @@ app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('Error al actualizar camarero:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -169,7 +169,7 @@ app.delete('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al eliminar camarero:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -180,7 +180,7 @@ app.get('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
     return c.json({ success: true, data: coordinadores });
   } catch (error) {
     console.error('Error al obtener coordinadores:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -208,7 +208,7 @@ app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
     return c.json({ success: true, data: coordinador });
   } catch (error) {
     console.error('Error al crear coordinador:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -220,7 +220,7 @@ app.put('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('Error al actualizar coordinador:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -231,7 +231,7 @@ app.delete('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => 
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al eliminar coordinador:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -242,7 +242,7 @@ app.get('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
     return c.json({ success: true, data: pedidos });
   } catch (error) {
     console.error('Error al obtener pedidos:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -283,7 +283,7 @@ app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
     return c.json({ success: true, data: pedido });
   } catch (error) {
     console.error('Error al crear pedido:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -299,7 +299,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('❌ Error al actualizar pedido:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -312,7 +312,7 @@ app.delete('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('❌ Error al eliminar pedido:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -331,7 +331,7 @@ app.get('/make-server-25b11ac0/informes/cliente', requireAuth, async (c) => {
     return c.json({ success: true, data: filtrados });
   } catch (error) {
     console.error('Error al obtener informe de cliente:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -364,7 +364,7 @@ app.get('/make-server-25b11ac0/informes/camarero', requireAuth, async (c) => {
     return c.json({ success: true, data: eventos });
   } catch (error) {
     console.error('Error al obtener informe de camarero:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 
@@ -383,7 +383,7 @@ app.post('/make-server-25b11ac0/guardar-token', requireAuth, async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al guardar token:', error);
-    return c.json({ success: false, error: String(error) }, 500);
+    return c.json({ success: false, error: 'Error interno del servidor' }, 500);
   }
 });
 

@@ -219,9 +219,11 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    // Log internamente sin exponer el stack trace al cliente (CWE-209)
+    console.error('[migrate-kv-to-sql] Error inesperado:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: String(error)
+      error: 'Error interno del servidor. Revisa los logs para más detalles.'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

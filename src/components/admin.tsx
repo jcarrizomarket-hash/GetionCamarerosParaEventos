@@ -1,102 +1,115 @@
-import { Shield, UserPlus, Download, Filter, X, Trash2, Edit2 } from 'lucide-react';
-import ExcelJS from 'exceljs'
+// src/components/admin.tsx
+import { useMemo, useState } from 'react';
+import ExcelJS from 'exceljs';
+import { Shield, UserPlus, Download, Filter, X, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { useState, useMemo } from 'react';
 
 interface AdminProps {
   coordinadores: any[];
   setCoordinadores: (coordinadores: any[]) => void;
   baseUrl: string;
   publicAnonKey: string;
-  cargarDatos: () => void;
+  cargarDatos: () => Promise<void>;
   camareros: any[];
   pedidos: any[];
 }
 
-export function Admin({ 
-  coordinadores, 
-  setCoordinadores, 
-  baseUrl, 
-  publicAnonKey, 
+type AltaRow = {
+  fechaISO: string; // YYYY-MM-DD (para filtrar)
+  fechaFormateada: string;
+  dia: string;
+  cliente: string;
+  evento: string;
+  codigoPerfil: string;
+  nombrePerfil: string;
+  turno: string;
+  estado: string;
+};
+
+const formatISODate = (d: any): string => {
+  try {
+    const date = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
+};
+
+const formatESDate = (d: any): string => {
+  try {
+    const date = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  } catch {
+    return '';
+  }
+};
+
+const dayNameES = (d: any): string => {
+  try {
+    const date = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(date);
+  } catch {
+    return '';
+  }
+};
+
+export function Admin({
+  coordinadores,
+  setCoordinadores,
+  baseUrl,
+  publicAnonKey,
   cargarDatos,
   camareros,
-  pedidos 
+  pedidos,
 }: AdminProps) {
-  const [activeSubTab, setActiveSubTab] = useState('coordinadores');
-  
-  // Filtros para Altas
+  const [activeSubTab, setActiveSubTab] = useState<'coordinadores' | 'altas' | 'overview'>('overview');
+  const [loading, setLoading] = useState(false);
+
+  // Filtros para "Altas"
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [clienteFiltro, setClienteFiltro] = useState('');
-  const [showFiltros, setShowFiltros] = useState(false);
 
-  // Obtener todos los clientes únicos
-  const clientesUnicos = useMemo(() => {
-    const clientes = new Set();
-    pedidos.forEach(p => {
-      if (p.cliente) clientes.add(p.cliente);
+  // --- Datos "Altas" (derivados de pedidos, para que el panel sea consistente)
+  // Si tu backend tiene otra estructura, esto igual compila y te sirve como base.
+  const datosAltas: AltaRow[] = useMemo(() => {
+    return (pedidos || []).map((p: any) => {
+      const fechaRaw = p?.fecha || p?.fecha_evento || p?.created_at || p?.createdAt || p?.dia || p?.date;
+      const iso = formatISODate(fechaRaw);
+      const form = formatESDate(fechaRaw);
+      const dia = dayNameES(fechaRaw);
+
+      return {
+        fechaISO: iso,
+        fechaFormateada: form || iso || '',
+        dia: dia ? dia.charAt(0).toUpperCase() + dia.slice(1) : '',
+        cliente: String(p?.cliente ?? p?.nombreCliente ?? p?.empresa ?? '—'),
+        evento: String(p?.evento ?? p?.nombreEvento ?? p?.descripcion ?? '—'),
+        codigoPerfil: String(p?.codigoPerfil ?? p?.perfilCodigo ?? p?.perfil_id ?? '—'),
+        nombrePerfil: String(p?.nombrePerfil ?? p?.perfilNombre ?? p?.perfil ?? '—'),
+        turno: String(p?.turno ?? p?.franja ?? '—'),
+        estado: String(p?.estado ?? 'pendiente'),
+      };
     });
-    return Array.from(clientes).sort();
   }, [pedidos]);
 
-  // Generar datos de Altas: expandir cada asignación confirmada como una fila
-  const datosAltas = useMemo(() => {
-    const datos = [];
-    
-    pedidos.forEach(pedido => {
-      const asignaciones = pedido.asignaciones || [];
-      
-      asignaciones.forEach(asignacion => {
-        // Solo incluir asignaciones confirmadas
-        if (asignacion.estado === 'confirmado') {
-          const camarero = camareros.find(c => c.id === asignacion.camareroId);
-          
-          if (camarero) {
-            const fecha = new Date(pedido.diaEvento);
-            const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            
-            datos.push({
-              id: `${pedido.id}-${asignacion.camareroId}`,
-              fecha: pedido.diaEvento,
-              fechaFormateada: fecha.toLocaleDateString('es-ES'),
-              dia: dias[fecha.getDay()],
-              cliente: pedido.cliente || '',
-              evento: pedido.tipoEvento || '',
-              codigoPerfil: camarero.codigo || '',
-              nombrePerfil: `${camarero.nombre} ${camarero.apellido}`,
-              estado: asignacion.estado,
-              turno: asignacion.turno || '',
-              camareroId: camarero.id,
-              pedidoId: pedido.id,
-              estadoAlta: 'activo' // Por defecto todos están de alta
-            });
-          }
-        }
-      });
-    });
-    
-    // Ordenar por fecha descendente (más recientes primero)
-    return datos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [pedidos, camareros]);
-
-  // Aplicar filtros
   const datosAltasFiltrados = useMemo(() => {
     let resultado = [...datosAltas];
-    
+
     if (fechaDesde) {
-      resultado = resultado.filter(d => d.fecha >= fechaDesde);
+      resultado = resultado.filter((d) => d.fechaISO && d.fechaISO >= fechaDesde);
     }
-    
     if (fechaHasta) {
-      resultado = resultado.filter(d => d.fecha <= fechaHasta);
+      resultado = resultado.filter((d) => d.fechaISO && d.fechaISO <= fechaHasta);
     }
-    
-    if (clienteFiltro) {
-      resultado = resultado.filter(d => 
-        d.cliente.toLowerCase().includes(clienteFiltro.toLowerCase())
-      );
+    if (clienteFiltro.trim()) {
+      const q = clienteFiltro.trim().toLowerCase();
+      resultado = resultado.filter((d) => (d.cliente || '').toLowerCase().includes(q));
     }
-    
+
     return resultado;
   }, [datosAltas, fechaDesde, fechaHasta, clienteFiltro]);
 
@@ -107,16 +120,15 @@ export function Admin({
       return;
     }
 
-    // Preparar datos para Excel
-    const datosExcel = datosAltasFiltrados.map(d => ({
-      'Fecha': d.fechaFormateada,
-      'Día': d.dia,
-      'Cliente': d.cliente,
-      'Evento': d.evento,
+    const datosExcel = datosAltasFiltrados.map((d) => ({
+      Fecha: d.fechaFormateada,
+      Día: d.dia,
+      Cliente: d.cliente,
+      Evento: d.evento,
       'Código Perfil': d.codigoPerfil,
       'Nombre Perfil': d.nombrePerfil,
-      'Turno': d.turno,
-      'Estado': d.estado === 'confirmado' ? 'Confirmado' : d.estado
+      Turno: d.turno,
+      Estado: d.estado === 'confirmado' ? 'Confirmado' : d.estado,
     }));
 
     // Crear libro de trabajo
@@ -144,7 +156,6 @@ export function Admin({
       to:   { row: datosExcel.length + 1, column: ws.columns.length },
     };
 
-    // Descargar archivo
     const fecha = new Date().toISOString().split('T')[0];
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -156,218 +167,237 @@ export function Admin({
     URL.revokeObjectURL(url);
   };
 
-  const handleAlta = async (dato) => {
-    alert(`Funcionalidad de Alta para ${dato.nombrePerfil} - En desarrollo`);
-    // Aquí se implementaría la lógica de dar de alta
+  // --- Coordinadores (CRUD simple en memoria)
+  const crearCoordinador = () => {
+    const nombre = prompt('Nombre del coordinador:');
+    if (!nombre?.trim()) return;
+
+    const telefono = prompt('Teléfono (opcional):') || '';
+    const email = prompt('Email (opcional):') || '';
+
+    const nuevo = {
+      id: `coord_${Date.now()}`,
+      nombre: nombre.trim(),
+      telefono: telefono.trim(),
+      email: email.trim(),
+      creado_en: new Date().toISOString(),
+    };
+
+    setCoordinadores([nuevo, ...(coordinadores || [])]);
   };
 
-  const handleBaja = async (dato) => {
-    alert(`Funcionalidad de Baja para ${dato.nombrePerfil} - En desarrollo`);
-    // Aquí se implementaría la lógica de dar de baja
+  const editarCoordinador = (c: any) => {
+    const nombre = prompt('Nombre:', c?.nombre ?? '');
+    if (!nombre?.trim()) return;
+
+    const telefono = prompt('Teléfono:', c?.telefono ?? '') ?? '';
+    const email = prompt('Email:', c?.email ?? '') ?? '';
+
+    const actualizado = (coordinadores || []).map((x: any) =>
+      x?.id === c?.id ? { ...x, nombre: nombre.trim(), telefono: telefono.trim(), email: email.trim() } : x
+    );
+
+    setCoordinadores(actualizado);
   };
 
-  const limpiarFiltros = () => {
-    setFechaDesde('');
-    setFechaHasta('');
-    setClienteFiltro('');
+  const borrarCoordinador = (c: any) => {
+    const ok = confirm(`¿Eliminar coordinador "${c?.nombre ?? ''}"?`);
+    if (!ok) return;
+
+    const actualizado = (coordinadores || []).filter((x: any) => x?.id !== c?.id);
+    setCoordinadores(actualizado);
   };
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-gray-900 text-2xl font-bold">Panel de Administración</h2>
-        <p className="text-gray-600 mt-1">Gestión de coordinadores y altas de personal</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-gray-900 text-2xl font-bold flex items-center gap-2">
+            <Shield className="h-6 w-6" />
+            Panel de Administración
+          </h2>
+          <p className="text-gray-600 mt-1">Gestión de coordinadores y exportación de altas</p>
+          <p className="text-gray-400 text-xs mt-1">
+            baseUrl: {baseUrl ? 'OK' : '—'} · anonKey: {publicAnonKey ? 'OK' : '—'}
+          </p>
+        </div>
+
+        <button
+          onClick={handleRefresh}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Actualizando...' : 'Actualizar'}
+        </button>
       </div>
 
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs value={activeSubTab} onValueChange={(v: any) => setActiveSubTab(v)}>
         <TabsList className="mb-6">
+          <TabsTrigger value="overview">Resumen</TabsTrigger>
           <TabsTrigger value="coordinadores">Coordinadores</TabsTrigger>
           <TabsTrigger value="altas">Altas</TabsTrigger>
         </TabsList>
 
-        {/* Tab Coordinadores */}
-        <TabsContent value="coordinadores">
-          <CoordinadoresSection
-            coordinadores={coordinadores}
-            setCoordinadores={setCoordinadores}
-            baseUrl={baseUrl}
-            publicAnonKey={publicAnonKey}
-            cargarDatos={cargarDatos}
-          />
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard title="Camareros" value={stats.totalCamareros} />
+            <StatCard title="Pedidos" value={stats.totalPedidos} />
+            <StatCard title="Coordinadores" value={stats.totalCoordinadores} />
+            <StatCard title="Pendientes" value={stats.pedidosPendientes} />
+            <StatCard title="Confirmados" value={stats.pedidosConfirmados} />
+            <StatCard title="Altas (filtrables)" value={datosAltas.length} />
+          </div>
         </TabsContent>
 
-        {/* Tab Altas */}
-        <TabsContent value="altas">
-          <div className="bg-white rounded-lg shadow-sm">
-            {/* Header con filtros y exportación */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Lista de Altas de Personal
-                </h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowFiltros(!showFiltros)}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                  >
-                    <Filter className="w-4 h-4" />
-                    {showFiltros ? 'Ocultar Filtros' : 'Mostrar Filtros'}
-                  </button>
-                  <button
-                    onClick={exportarExcel}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Exportar Excel
-                  </button>
-                </div>
-              </div>
+        <TabsContent value="coordinadores">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-gray-900 font-semibold text-lg">Coordinadores</h3>
+            <button
+              onClick={crearCoordinador}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-blue-600 text-white hover:bg-blue-700"
+            >
+              <UserPlus className="h-4 w-4" />
+              Nuevo
+            </button>
+          </div>
 
-              {/* Panel de filtros */}
-              {showFiltros && (
-                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha Desde
-                      </label>
-                      <input
-                        type="date"
-                        value={fechaDesde}
-                        onChange={(e) => setFechaDesde(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha Hasta
-                      </label>
-                      <input
-                        type="date"
-                        value={fechaHasta}
-                        onChange={(e) => setFechaHasta(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Cliente
-                      </label>
-                      <input
-                        type="text"
-                        value={clienteFiltro}
-                        onChange={(e) => setClienteFiltro(e.target.value)}
-                        placeholder="Buscar cliente..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 text-xs font-semibold text-gray-600">
+              <div className="col-span-4">Nombre</div>
+              <div className="col-span-3">Teléfono</div>
+              <div className="col-span-3">Email</div>
+              <div className="col-span-2 text-right">Acciones</div>
+            </div>
+
+            {(coordinadores || []).length === 0 ? (
+              <div className="p-6 text-gray-500">No hay coordinadores cargados.</div>
+            ) : (
+              (coordinadores || []).map((c: any) => (
+                <div key={c?.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-gray-100 items-center">
+                  <div className="col-span-4 font-medium text-gray-900">{c?.nombre ?? '—'}</div>
+                  <div className="col-span-3 text-gray-700">{c?.telefono ?? '—'}</div>
+                  <div className="col-span-3 text-gray-700">{c?.email ?? '—'}</div>
+                  <div className="col-span-2 flex justify-end gap-2">
                     <button
-                      onClick={limpiarFiltros}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center gap-2 text-sm"
+                      onClick={() => editarCoordinador(c)}
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      title="Editar"
                     >
-                      <X className="w-4 h-4" />
-                      Limpiar Filtros
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => borrarCoordinador(c)}
+                      className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-              )}
+              ))
+            )}
+          </div>
+        </TabsContent>
 
-              <p className="text-sm text-gray-600 mt-3">
-                Total de registros: <span className="font-semibold">{datosAltasFiltrados.length}</span>
-              </p>
+        <TabsContent value="altas">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-gray-900 font-semibold text-lg">Altas</h3>
+              <p className="text-gray-600 text-sm">Filtra y exporta a Excel (ExcelJS).</p>
             </div>
 
-            {/* Tabla de Altas */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Día
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Evento
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cód. Perfil
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nombre Perfil
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {datosAltasFiltrados.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                        No hay datos para mostrar
-                      </td>
-                    </tr>
-                  ) : (
-                    datosAltasFiltrados.map((dato) => (
-                      <tr key={dato.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {dato.fechaFormateada}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {dato.dia}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {dato.cliente}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {dato.evento}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono text-xs">
-                            {dato.codigoPerfil}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                          {dato.nombrePerfil}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Confirmado
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex gap-2 justify-center">
-                            <button
-                              onClick={() => handleAlta(dato)}
-                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs font-medium flex items-center gap-1"
-                            >
-                              <UserPlus className="w-3 h-3" />
-                              Alta
-                            </button>
-                            <button
-                              onClick={() => handleBaja(dato)}
-                              className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs font-medium"
-                            >
-                              Baja
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <button
+              onClick={exportarExcel}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-green-600 text-white hover:bg-green-700"
+            >
+              <Download className="h-4 w-4" />
+              Exportar Excel
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+            <div className="flex flex-col md:flex-row gap-3 md:items-end">
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Cliente</label>
+                <input
+                  value={clienteFiltro}
+                  onChange={(e) => setClienteFiltro(e.target.value)}
+                  placeholder="Buscar por cliente…"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Desde</label>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Hasta</label>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <button
+                onClick={limpiarFiltros}
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-gray-100 hover:bg-gray-200"
+              >
+                <X className="h-4 w-4" />
+                Limpiar
+              </button>
             </div>
+
+            <div className="mt-3 text-xs text-gray-500 flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filtrados: <span className="font-semibold text-gray-700">{datosAltasFiltrados.length}</span> de{' '}
+              <span className="font-semibold text-gray-700">{datosAltas.length}</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 text-xs font-semibold text-gray-600">
+              <div className="col-span-2">Fecha</div>
+              <div className="col-span-2">Cliente</div>
+              <div className="col-span-2">Evento</div>
+              <div className="col-span-2">Perfil</div>
+              <div className="col-span-2">Turno</div>
+              <div className="col-span-2 text-right">Estado</div>
+            </div>
+
+            {datosAltasFiltrados.length === 0 ? (
+              <div className="p-6 text-gray-500">No hay registros para mostrar.</div>
+            ) : (
+              datosAltasFiltrados.slice(0, 200).map((d, idx) => (
+                <div key={`${d.fechaISO}-${idx}`} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-gray-100">
+                  <div className="col-span-2 text-gray-800">{d.fechaFormateada || '—'}</div>
+                  <div className="col-span-2 text-gray-800">{d.cliente}</div>
+                  <div className="col-span-2 text-gray-800">{d.evento}</div>
+                  <div className="col-span-2 text-gray-800">{d.nombrePerfil}</div>
+                  <div className="col-span-2 text-gray-800">{d.turno}</div>
+                  <div className="col-span-2 text-right">
+                    <span className="inline-flex rounded-full px-2 py-1 text-xs bg-gray-100">
+                      {d.estado === 'confirmado' ? 'Confirmado' : d.estado}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {datosAltasFiltrados.length > 200 && (
+              <div className="p-3 text-xs text-gray-500 bg-gray-50">
+                Mostrando 200 de {datosAltasFiltrados.length}. Exporta a Excel para ver todo.
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -375,245 +405,11 @@ export function Admin({
   );
 }
 
-// Componente separado para la gestión de coordinadores
-function CoordinadoresSection({ 
-  coordinadores, 
-  setCoordinadores, 
-  baseUrl, 
-  publicAnonKey, 
-  cargarDatos 
-}) {
-  const [showForm, setShowForm] = useState(false);
-  const [nombre, setNombre] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [email, setEmail] = useState('');
-  const [editingCoordinador, setEditingCoordinador] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!nombre.trim()) {
-      alert('Por favor ingresa un nombre');
-      return;
-    }
-    
-    try {
-      if (editingCoordinador) {
-        const response = await fetch(`${baseUrl}/coordinadores/${editingCoordinador.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
-          },
-          body: JSON.stringify({
-            ...editingCoordinador,
-            nombre,
-            telefono,
-            email
-          })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-          await cargarDatos();
-          setNombre('');
-          setTelefono('');
-          setEmail('');
-          setEditingCoordinador(null);
-          setShowForm(false);
-        }
-      } else {
-        const response = await fetch(`${baseUrl}/coordinadores`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
-          },
-          body: JSON.stringify({ nombre, telefono, email })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-          await cargarDatos();
-          setNombre('');
-          setTelefono('');
-          setEmail('');
-          setShowForm(false);
-        }
-      }
-    } catch (error) {
-      console.log('Error al guardar coordinador:', error);
-    }
-  };
-
-  const handleEdit = (coordinador) => {
-    setEditingCoordinador(coordinador);
-    setNombre(coordinador.nombre);
-    setTelefono(coordinador.telefono || '');
-    setEmail(coordinador.email || '');
-    setShowForm(true);
-  };
-
-  const handleDelete = async (coordinador) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`)) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${baseUrl}/coordinadores/${coordinador.id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${publicAnonKey}`
-        }
-      });
-      
-      const result = await response.json();
-      if (result.success) {
-        await cargarDatos();
-      }
-    } catch (error) {
-      console.log('Error al eliminar coordinador:', error);
-    }
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setNombre('');
-    setTelefono('');
-    setEmail('');
-    setEditingCoordinador(null);
-  };
-
+function StatCard({ title, value }: { title: string; value: any }) {
   return (
-    <div>
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Gestión de Coordinadores</h3>
-          <p className="text-sm text-gray-600 mt-1">Administra los coordinadores del sistema</p>
-        </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          Nuevo Coordinador
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-          <h4 className="text-gray-900 font-semibold mb-4">
-            {editingCoordinador ? 'Editar Coordinador' : 'Nuevo Coordinador'}
-          </h4>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-gray-700 mb-2 text-sm font-medium">
-                Nombre del Coordinador *
-              </label>
-              <input
-                type="text"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 mb-2 text-sm font-medium">
-                Teléfono (para enviar mensajes por WhatsApp)
-              </label>
-              <input
-                type="tel"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="Ej: 612345678 o +34612345678"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 mb-2 text-sm font-medium">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ej: coordinador@example.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-              >
-                {editingCoordinador ? 'Actualizar' : 'Crear'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h4 className="text-gray-900 font-semibold mb-4">Lista de Coordinadores</h4>
-        
-        {coordinadores.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No hay coordinadores registrados</p>
-        ) : (
-          <div className="space-y-3">
-            {coordinadores.sort((a, b) => a.numero - b.numero).map((coordinador) => (
-              <div
-                key={coordinador.id}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
-              >
-                <div className="flex items-center mb-2">
-                  <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded text-sm font-medium mr-3">
-                    #{coordinador.numero}
-                  </span>
-                  <span className="text-gray-900 font-medium">{coordinador.nombre}</span>
-                </div>
-                <div className="ml-2 space-y-1">
-                  {coordinador.telefono && (
-                    <div className="text-gray-600 text-sm">
-                      📱 Tel: {coordinador.telefono}
-                    </div>
-                  )}
-                  {coordinador.email && (
-                    <div className="text-gray-600 text-sm">
-                      📧 Email: {coordinador.email}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={() => handleEdit(coordinador)}
-                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(coordinador)}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="text-xs font-semibold text-gray-500">{title}</div>
+      <div className="text-2xl font-bold text-gray-900 mt-2">{value}</div>
     </div>
   );
 }

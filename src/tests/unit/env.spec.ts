@@ -57,14 +57,13 @@ describe('validateRequiredEnvVars', () => {
     const { validateRequiredEnvVars } = await import('../../config/env');
     expect(() => validateRequiredEnvVars()).toThrow('Vercel');
   });
-});
 
-  it('no lanza en modo demo (VITE_DEMO_MODE=true) aunque falten variables', async () => {
-    vi.stubEnv('VITE_DEMO_MODE', 'true');
-    vi.stubEnv('VITE_SUPABASE_URL', '');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
-    vi.stubEnv('VITE_SUPABASE_FUNCTIONS_URL', '');
+  it('no lanza cuando las variables son placeholders de CI', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://placeholder.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'placeholder-key-for-ci');
+    vi.stubEnv('VITE_SUPABASE_FUNCTIONS_URL', 'https://placeholder.supabase.co/functions/v1');
 
     const { validateRequiredEnvVars } = await import('../../config/env');
     expect(() => validateRequiredEnvVars()).not.toThrow();
   });
+});

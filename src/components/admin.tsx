@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
 import { Shield, UserPlus, Download, Filter, X, Trash2, Edit2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 interface AdminProps {
@@ -120,12 +119,8 @@ export function Admin({
     }));
 
     // Crear libro de trabajo
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(datosExcel);
 
     // Aplicar auto-filtros a todas las columnas
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    ws['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
 
     // Ajustar ancho de columnas
     ws['!cols'] = [
@@ -140,11 +135,9 @@ export function Admin({
     ];
 
     // Agregar hoja al libro
-    XLSX.utils.book_append_sheet(wb, ws, 'Altas Personal');
 
     // Descargar archivo
     const fecha = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `altas_personal_${fecha}.xlsx`);
   };
 
   const handleAlta = async (dato) => {

@@ -1,9 +1,17 @@
 import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
+import { z } from 'npm:zod@3';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 import * as kv from './kv_store.tsx';
 import { requireAuth, kvRateLimit } from './middleware';
+import { validate, validationError } from './validate.ts';
+import {
+  CreateClienteSchema, UpdateClienteSchema,
+  CreateCamareroSchema, UpdateCamareroSchema,
+  CreateCoordinadorSchema, UpdateCoordinadorSchema,
+  CreatePedidoSchema, UpdatePedidoSchema,
+} from '../../schemas/index.ts';
 
 const app = new Hono();
 
@@ -71,12 +79,12 @@ app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
 
 app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   try {
-    const data = await c.req.json();
+    const body = await c.req.json();
+    const parsed = validate(CreateClienteSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
     const id = `cliente:${Date.now()}`;
-    const cliente = {
-      id,
-      ...data
-    };
+    const cliente = { id, ...parsed.data };
     await kv.set(id, cliente);
     return c.json({ success: true, data: cliente });
   } catch (error) {
@@ -88,9 +96,12 @@ app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
 app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    await kv.set(id, data);
-    return c.json({ success: true, data });
+    const body = await c.req.json();
+    const parsed = validate(UpdateClienteSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
+    await kv.set(id, parsed.data);
+    return c.json({ success: true, data: parsed.data });
   } catch (error) {
     console.error('Error al actualizar cliente:', error);
     return c.json({ success: false, error: 'Error interno del servidor' }, 500);
@@ -121,27 +132,16 @@ app.get('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
 
 app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
   try {
-    const data = await c.req.json();
-    
-    // Obtener el contador actual
+    const body = await c.req.json();
+    const parsed = validate(CreateCamareroSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
     const contadorData = await kv.get('contador:camareros');
     const contador = contadorData ? contadorData.valor + 1 : 1;
-    
-    // Actualizar contador
     await kv.set('contador:camareros', { valor: contador });
-    
+
     const id = `camarero:${Date.now()}`;
-    const camarero = {
-      id,
-      numero: contador,
-      nombre: data.nombre,
-      apellido: data.apellido,
-      telefono: data.telefono,
-      email: data.email,
-      disponibilidad: data.disponibilidad || [],
-      comentarios: data.comentarios || ''
-    }; 
-    
+    const camarero = { id, numero: contador, ...parsed.data };
     await kv.set(id, camarero);
     return c.json({ success: true, data: camarero });
   } catch (error) {
@@ -153,9 +153,12 @@ app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
 app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    await kv.set(id, data);
-    return c.json({ success: true, data });
+    const body = await c.req.json();
+    const parsed = validate(UpdateCamareroSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
+    await kv.set(id, parsed.data);
+    return c.json({ success: true, data: parsed.data });
   } catch (error) {
     console.error('Error al actualizar camarero:', error);
     return c.json({ success: false, error: 'Error interno del servidor' }, 500);
@@ -186,24 +189,16 @@ app.get('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
 
 app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
   try {
-    const { nombre, telefono, email } = await c.req.json();
-    
-    // Obtener el contador actual
+    const body = await c.req.json();
+    const parsed = validate(CreateCoordinadorSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
     const contadorData = await kv.get('contador:coordinadores');
     const contador = contadorData ? contadorData.valor + 1 : 1;
-    
-    // Actualizar contador
     await kv.set('contador:coordinadores', { valor: contador });
-    
+
     const id = `coordinador:${Date.now()}`;
-    const coordinador = {
-      id,
-      numero: contador,
-      nombre,
-      telefono: telefono || '',
-      email: email || ''
-    };
-    
+    const coordinador = { id, numero: contador, ...parsed.data };
     await kv.set(id, coordinador);
     return c.json({ success: true, data: coordinador });
   } catch (error) {
@@ -215,9 +210,12 @@ app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
 app.put('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    await kv.set(id, data);
-    return c.json({ success: true, data });
+    const body = await c.req.json();
+    const parsed = validate(UpdateCoordinadorSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
+    await kv.set(id, parsed.data);
+    return c.json({ success: true, data: parsed.data });
   } catch (error) {
     console.error('Error al actualizar coordinador:', error);
     return c.json({ success: false, error: 'Error interno del servidor' }, 500);
@@ -248,37 +246,12 @@ app.get('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
 
 app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
   try {
-    const data = await c.req.json();
+    const body = await c.req.json();
+    const parsed = validate(CreatePedidoSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
     const id = `pedido:${Date.now()}`;
-    const pedido = {
-      id,
-      numero: data.numero,
-      cliente: data.cliente,
-      lugar: data.lugar,
-      ubicacion: data.ubicacion,
-      diaEvento: data.diaEvento,
-      // Entrada 1
-      cantidadCamareros: data.cantidadCamareros,
-      horaEntrada: data.horaEntrada,
-      horaSalida: data.horaSalida,
-      totalHoras: data.totalHoras,
-      // Entrada 2
-      cantidadCamareros2: data.cantidadCamareros2 || 0,
-      horaEntrada2: data.horaEntrada2 || '',
-      horaSalida2: data.horaSalida2 || '',
-      totalHoras2: data.totalHoras2 || '',
-      
-      catering: data.catering,
-      tiempoViaje: data.tiempoViaje || '',
-      camisa: data.camisa,
-      notas: data.notas || '',
-      asignaciones: data.asignaciones || [],
-      // IMPORTANTE: Guardar coordinadorId y coordinadorNombre para chats grupales
-      coordinadorId: data.coordinadorId || '',
-      coordinadorNombre: data.coordinadorNombre || '',
-      createdAt: new Date().toISOString()
-    };
-    
+    const pedido = { id, ...parsed.data, createdAt: new Date().toISOString() };
     await kv.set(id, pedido);
     return c.json({ success: true, data: pedido });
   } catch (error) {
@@ -290,13 +263,15 @@ app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
 app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    
+    const body = await c.req.json();
+    const parsed = validate(UpdatePedidoSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
     console.log('📝 Actualizando pedido:', id);
-    console.log('   Estado asignaciones:', data.asignaciones?.map(a => ({ num: a.camareroNumero, estado: a.estado })));
-    
-    await kv.set(id, data);
-    return c.json({ success: true, data });
+    console.log('   Estado asignaciones:', parsed.data.asignaciones?.map(a => ({ num: a.camareroNumero, estado: a.estado })));
+
+    await kv.set(id, parsed.data);
+    return c.json({ success: true, data: parsed.data });
   } catch (error) {
     console.error('❌ Error al actualizar pedido:', error);
     return c.json({ success: false, error: 'Error interno del servidor' }, 500);
@@ -371,15 +346,23 @@ app.get('/make-server-25b11ac0/informes/camarero', requireAuth, async (c) => {
 // ============== CONFIRMACIONES ==============
 app.post('/make-server-25b11ac0/guardar-token', requireAuth, async (c) => {
   try {
-    const { token, pedidoId, camareroId, coordinadorId } = await c.req.json();
-    
-    await kv.set(`confirmacion:${token}`, {
-      pedidoId,
-      camareroId,
-      coordinadorId,
+    const body = await c.req.json();
+    const TokenSchema = z.object({
+      token: z.string().min(1).max(256),
+      pedidoId: z.string().min(1),
+      camareroId: z.string().min(1),
+      coordinadorId: z.string().min(1),
+    });
+    const parsed = validate(TokenSchema, body);
+    if (!parsed.success) return validationError(c, parsed.error);
+
+    await kv.set(`confirmacion:${parsed.data.token}`, {
+      pedidoId: parsed.data.pedidoId,
+      camareroId: parsed.data.camareroId,
+      coordinadorId: parsed.data.coordinadorId,
       createdAt: new Date().toISOString()
     });
-    
+
     return c.json({ success: true });
   } catch (error) {
     console.error('Error al guardar token:', error);

@@ -109,3 +109,28 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: NPM audit (high severity)
+        run: npm audit --audit-level=high
+        continue-on-error: true   # warn but don't fail CI initially
+      - name: Check for high/critical vulnerabilities
+        run: |
+          AUDIT_OUTPUT=$(npm audit --json 2>/dev/null || true)
+          HIGH=$(echo "$AUDIT_OUTPUT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); try{ const j=JSON.parse(d); console.log((j.metadata?.vulnerabilities?.high||0)+(j.metadata?.vulnerabilities?.critical||0)); }catch(e){ console.log(0); }")
+          echo "High/Critical vulnerabilities: $HIGH"
+          if [ "$HIGH" -gt "0" ]; then
+            echo "::warning::Found $HIGH high/critical vulnerabilities. Run 'npm audit fix' locally."
+          fi

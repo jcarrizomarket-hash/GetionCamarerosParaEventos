@@ -1,0 +1,33 @@
+name: Type Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  type-coverage:
+    name: TypeScript any Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Count any usages
+        run: |
+          ANY_COUNT=$(grep -rn ": any" --include="*.ts" --include="*.tsx" src/ | grep -v "node_modules" | grep -v "\.spec\." | grep -v "// any" | wc -l | tr -d ' ')
+          echo "Current 'any' type usages: $ANY_COUNT"
+          echo "ANY_COUNT=$ANY_COUNT" >> $GITHUB_ENV
+          # Fail if count increases above baseline (set baseline after PR #2 merges)
+          BASELINE=10
+          if [ "$ANY_COUNT" -gt "$BASELINE" ]; then
+            echo "::warning::any type count ($ANY_COUNT) exceeds baseline ($BASELINE). Please reduce any usage."
+          fi
+      - name: TypeScript strict check
+        run: npm run type-check

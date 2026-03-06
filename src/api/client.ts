@@ -1,6 +1,9 @@
 /**
  * Cliente API centralizado para las Supabase Functions
  * Unifica todas las llamadas al backend con manejo de errores consistente
+ *
+ * En modo demo (VITE_DEMO_MODE=true) todas las llamadas se redirigen
+ * al demoStore en memoria — sin necesidad de backend.
  */
 
 import type { 
@@ -14,6 +17,9 @@ import type {
 } from '../types';
 import { supabaseFunctionEndpoint, supabaseAnonKey } from '../config/env';
 import { fetchWithRetry } from '../utils/retry';
+import { demoStore } from './demo-store';
+
+const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_RETRY_ATTEMPTS = 3;
@@ -67,6 +73,7 @@ function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
 // ==================== PEDIDOS ====================
 
 export async function getPedidos(): Promise<ApiResponse<Pedido[]>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.getPedidos() };
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'GET',
@@ -82,6 +89,7 @@ export async function getPedidos(): Promise<ApiResponse<Pedido[]>> {
 }
 
 export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
+  if (IS_DEMO) { const d = await demoStore.getPedido(id); return d ? { success: true, data: d } : { success: false, error: 'Pedido no encontrado' }; }
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'GET',
@@ -97,6 +105,7 @@ export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
 }
 
 export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiResponse<Pedido>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.createPedido(pedido) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
@@ -113,6 +122,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
 }
 
 export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise<ApiResponse<Pedido>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.updatePedido(id, pedido) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
@@ -129,6 +139,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
 }
 
 export async function deletePedido(id: string): Promise<ApiResponse<void>> {
+  if (IS_DEMO) { await demoStore.deletePedido(id); return { success: true }; }
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
@@ -146,6 +157,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
 // ==================== CAMAREROS ====================
 
 export async function getCamareros(): Promise<ApiResponse<Camarero[]>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.getCamareros() };
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'GET',
@@ -176,6 +188,7 @@ export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
 }
 
 export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<ApiResponse<Camarero>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.createCamarero(camarero) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
@@ -192,6 +205,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
 }
 
 export async function updateCamarero(id: string, camarero: Partial<Camarero>): Promise<ApiResponse<Camarero>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.updateCamarero(id, camarero) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
@@ -208,6 +222,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
 }
 
 export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
+  if (IS_DEMO) { await demoStore.deleteCamarero(id); return { success: true }; }
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
@@ -225,6 +240,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
 // ==================== COORDINADORES ====================
 
 export async function getCoordinadores(): Promise<ApiResponse<Coordinador[]>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.getCoordinadores() };
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'GET',
@@ -255,6 +271,7 @@ export async function getCoordinador(id: string): Promise<ApiResponse<Coordinado
 }
 
 export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): Promise<ApiResponse<Coordinador>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.createCoordinador(coordinador) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
@@ -271,6 +288,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
 }
 
 export async function updateCoordinador(id: string, coordinador: Partial<Coordinador>): Promise<ApiResponse<Coordinador>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.updateCoordinador(id, coordinador) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
@@ -287,6 +305,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
 }
 
 export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> {
+  if (IS_DEMO) { await demoStore.deleteCoordinador(id); return { success: true }; }
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'DELETE',
@@ -304,6 +323,7 @@ export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> 
 // ==================== CLIENTES ====================
 
 export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.getClientes() };
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'GET',
@@ -319,6 +339,7 @@ export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
 }
 
 export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiResponse<Cliente>> {
+  if (IS_DEMO) return { success: true, data: await demoStore.createCliente(cliente) };
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
@@ -352,6 +373,7 @@ export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppCon
 }
 
 export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<ApiResponse<any>> {
+  if (IS_DEMO) { console.log(`[DEMO] WhatsApp → ${telefono}:`, mensaje); return { success: true, data: { messageId: `demo-${Date.now()}` } }; }
   try {
     const response = await apiFetch(`${getBaseUrl()}/enviar-whatsapp`, {
       method: 'POST',

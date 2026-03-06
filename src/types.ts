@@ -77,7 +77,11 @@ export interface Pedido {
   
   // Notas
   notas?: string;
-  
+
+  // Coordinador responsable del evento
+  coordinadorId?: string;
+  coordinadorNombre?: string;
+
   createdAt?: string;
   updatedAt?: string;
 }

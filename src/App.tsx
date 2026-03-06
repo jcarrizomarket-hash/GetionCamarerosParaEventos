@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical } from 'lucide-react';
+
+const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
 import { Camareros } from './components/camareros';
@@ -101,6 +103,12 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {IS_DEMO && (
+              <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 border border-amber-300 rounded-full text-xs font-semibold">
+                <FlaskConical className="w-3.5 h-3.5" />
+                MODO DEMO — los datos no se guardan
+              </span>
+            )}
             <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
               <div className={`w-2 h-2 rounded-full ${errorCarga ? 'bg-red-500' : camareros.length > 0 || pedidos.length > 0 ? 'bg-green-500' : 'bg-yellow-400'}`} />
               <span>{errorCarga ? 'Error de conexión' : `${camareros.length} camareros · ${pedidos.length} pedidos`}</span>

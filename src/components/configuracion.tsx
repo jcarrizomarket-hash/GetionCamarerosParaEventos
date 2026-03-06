@@ -6,6 +6,8 @@ import { TestPanel } from './test-panel';
 import { TestEmail } from './test-email';
 import { WhatsAppTest } from './whatsapp-test';
 import { WhatsAppChatbotConfig } from './whatsapp-chatbot-config';
+import { useToast } from '../hooks/useToast';
+import { ConfirmDialog } from './ui/confirm-dialog';
 
 interface ConfiguracionProps {
     baseUrl: string;
@@ -14,11 +16,37 @@ interface ConfiguracionProps {
     coordinadores?: any[];
     pedidos?: any[];
     clientes?: any[];
+    cargarDatos?: () => Promise<void>;
 }
 
-export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordinadores = [], pedidos = [], clientes = [] }: ConfiguracionProps) {
+export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordinadores = [], pedidos = [], clientes = [], cargarDatos }: ConfiguracionProps) {
     const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
     const [activeSubTab, setActiveSubTab] = useState<string>('whatsapp');
+    const toast = useToast();
+
+    // Confirm dialog state
+    const [confirmState, setConfirmState] = useState<{
+        open: boolean;
+        message: string;
+        onConfirm: () => void;
+    }>({ open: false, message: '', onConfirm: () => {} });
+
+    const showConfirm = (message: string): Promise<boolean> =>
+        new Promise((resolve) => {
+            setConfirmState({
+                open: true,
+                message,
+                onConfirm: () => {
+                    setConfirmState(s => ({ ...s, open: false }));
+                    resolve(true);
+                },
+            });
+        });
+
+    const handleConfirmCancel = () => {
+        setConfirmState(s => ({ ...s, open: false }));
+    };
+
     const subTabs = [
         { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
         { id: 'chatbot', label: '🤖 Chatbot', icon: Bot },
@@ -34,16 +62,11 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
         try {
             const pedido = pedidos.find(p => p.numero === numeroPedido);
             if (!pedido) {
-                alert(`❌ No se encontró el pedido ${numeroPedido}`);
+                toast.error(`No se encontró el pedido ${numeroPedido}`);
                 return;
             }
-            if (!window.confirm(`¿Estás seguro de eliminar el pedido ${numeroPedido}?
-
-Cliente: ${pedido.cliente}
-Lugar: ${pedido.lugar}
-Fecha: ${pedido.diaEvento}`)) {
-                return;
-            }
+            const confirmed = await showConfirm(`¿Estás seguro de eliminar el pedido ${numeroPedido}?\n\nCliente: ${pedido.cliente}\nLugar: ${pedido.lugar}\nFecha: ${pedido.diaEvento}`);
+            if (!confirmed) return;
             logger.info(`🗑️ Eliminando pedido ${numeroPedido} con ID: ${pedido.id}`);
             const response = await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
                 method: 'DELETE',
@@ -55,15 +78,15 @@ Fecha: ${pedido.diaEvento}`)) {
             const result = await response.json();
             logger.info('📝 Respuesta del servidor:', result);
             if (response.ok && result.success) {
-                alert(`✅ Pedido ${numeroPedido} eliminado correctamente`);
-                window.location.reload();
+                toast.success(`Pedido ${numeroPedido} eliminado correctamente`);
+                if (cargarDatos) await cargarDatos();
             } else {
                 logger.error('❌ Error al eliminar:', result);
-                alert(`❌ Error al eliminar el pedido: ${result.error || 'Error desconocido'}`);
+                toast.error(`Error al eliminar el pedido: ${result.error || 'Error desconocido'}`);
             }
         } catch (error) {
             logger.error('Error al eliminar pedido:', error);
-            alert(`❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+            toast.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
@@ -76,7 +99,7 @@ Fecha: ${pedido.diaEvento}`)) {
 
     const limpiarDatos = async () => {
         if (categoriasSeleccionadas.length === 0) {
-            alert('⚠️ Selecciona al menos una categoría para limpiar');
+            toast.warning('Selecciona al menos una categoría para limpiar');
             return;
         }
         const categoriasTexto = categoriasSeleccionadas.map(c => {
@@ -88,12 +111,10 @@ Fecha: ${pedido.diaEvento}`)) {
                 default: return c;
             }
         }).join('\n• ');
-        if (!window.confirm(`⚠️ ADVERTENCIA: Esta acción es IRREVERSIBLE\n\nSe eliminarán los siguientes datos:\n\n• ${categoriasTexto}\n\n¿Estás ABSOLUTAMENTE SEGURO de que deseas continuar?`)) {
-            return;
-        }
-        if (!window.confirm('⚠️ ÚLTIMA CONFIRMACIÓN\n\nEsta es tu última oportunidad para cancelar.\n\n¿Proceder con la eliminación?')) {
-            return;
-        }
+        const confirmed1 = await showConfirm(`⚠️ ADVERTENCIA: Esta acción es IRREVERSIBLE\n\nSe eliminarán los siguientes datos:\n\n• ${categoriasTexto}\n\n¿Estás ABSOLUTAMENTE SEGURO de que deseas continuar?`);
+        if (!confirmed1) return;
+        const confirmed2 = await showConfirm('⚠️ ÚLTIMA CONFIRMACIÓN\n\nEsta es tu última oportunidad para cancelar.\n\n¿Proceder con la eliminación?');
+        if (!confirmed2) return;
         setLimpiandoDatos(true);
         try {
             console.log('🧹 Iniciando limpieza de datos:', categoriasSeleccionadas);
@@ -108,24 +129,25 @@ Fecha: ${pedido.diaEvento}`)) {
             const result = await response.json();
             if (response.ok && result.success) {
                 const mensaje = Object.entries(result.eliminados)
-                    .map(([key, value]) => `• ${key}: ${value} registros`)
-                    .join('\n');
-                alert(`✅ Limpieza completada exitosamente\n\nDatos eliminados:\n${mensaje}`);
+                    .map(([key, value]) => `${key}: ${value} registros`)
+                    .join(', ');
+                toast.success(`Limpieza completada. Datos eliminados: ${mensaje}`);
                 setCategoriasSeleccionadas([]);
-                window.location.reload();
+                if (cargarDatos) await cargarDatos();
             } else {
                 console.error('❌ Error en la limpieza:', result);
-                alert(`❌ Error al limpiar datos: ${result.error || 'Error desconocido'}`);
+                toast.error(`Error al limpiar datos: ${result.error || 'Error desconocido'}`);
             }
         } catch (error: any) {
             console.error('Error en limpieza de datos:', error);
-            alert(`❌ Error: ${error.message}`);
+            toast.error(`Error: ${error.message}`);
         } finally {
             setLimpiandoDatos(false);
         }
     };
 
     return (
+        <>
         <div className="space-y-6">
             <div className="flex items-center gap-3">
                 <Settings className="w-8 h-8 text-blue-600" />
@@ -251,5 +273,12 @@ Fecha: ${pedido.diaEvento}`)) {
                 </div>
             </div>
         </div>
+        <ConfirmDialog
+            open={confirmState.open}
+            message={confirmState.message}
+            onConfirm={confirmState.onConfirm}
+            onCancel={handleConfirmCancel}
+        />
+        </>
     );
 }

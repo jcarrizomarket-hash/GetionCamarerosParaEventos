@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Send, Mail, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { EmailConfigStatus } from './email-config-status';
+import { useToast } from '../hooks/useToast';
 
 interface TestEmailProps {
   baseUrl: string;
@@ -16,12 +17,13 @@ export function TestEmail({ baseUrl, publicAnonKey }: TestEmailProps) {
   });
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ success: boolean; message: string } | null>(null);
+  const toast = useToast();
 
   const enviarEmailTest = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!emailData.destinatario) {
-      alert('Por favor, ingresa un destinatario');
+      toast.warning('Por favor, ingresa un destinatario');
       return;
     }
     

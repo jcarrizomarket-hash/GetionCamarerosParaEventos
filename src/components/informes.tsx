@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { FileText, Download, TrendingUp, Users, Clock, Calendar, AlertCircle, Award, Frown, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
+import { useToast } from '../hooks/useToast';
 
 export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey }) {
   const [tipoInforme, setTipoInforme] = useState('cliente');
@@ -9,6 +10,7 @@ export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey 
   const [camareroSeleccionado, setCamareroSeleccionado] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  const toast = useToast();
 
   // Helpers para parsear horas "5h 30m" -> Minutos
   const parseDuration = (str) => {
@@ -215,7 +217,7 @@ export function Informes({ camareros, pedidos, clientes, baseUrl, publicAnonKey 
         csvContent += `\nTotal Eventos:,${waiterAnalytics.totalEventos}\n`;
         csvContent += `Total Horas:,${waiterAnalytics.totalHoras}\n`;
     } else {
-        alert("Genere un informe primero para exportar.");
+        toast.warning("Genere un informe primero para exportar.");
         return;
     }
 

@@ -119,7 +119,7 @@ export function getResumenData(
   return { totalEventos, totalCamarerosNecesarios, totalEnviados, totalConfirmados, totalFaltantes, totalDisponibles };
 }
 
-export function exportarDatos(filtroTipo: string, uniquePedidos: any[], selectedPedido: any): void {
+export function exportarDatos(filtroTipo: string, uniquePedidos: any[], selectedPedido: any, showToast?: (msg: string, type: 'warning' | 'error') => void): void {
   let pedidosBase: any[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -146,7 +146,7 @@ export function exportarDatos(filtroTipo: string, uniquePedidos: any[], selected
     if (selectedPedido) {
       pedidosBase = [selectedPedido];
     } else {
-      alert("Por favor seleccione un pedido primero para usar esta opción, o use 'Por Día/Semana'.");
+      if (showToast) showToast("Por favor seleccione un pedido primero para usar esta opción, o use 'Por Día/Semana'.", 'warning');
       return;
     }
   } else if (filtroTipo === 'cliente') {
@@ -158,7 +158,7 @@ export function exportarDatos(filtroTipo: string, uniquePedidos: any[], selected
   }
 
   if (pedidosBase.length === 0) {
-    alert("No hay datos para exportar con el filtro seleccionado.");
+    if (showToast) showToast("No hay datos para exportar con el filtro seleccionado.", 'warning');
     return;
   }
 

@@ -4,6 +4,7 @@ import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCir
 import { projectId } from '../utils/supabase/info';
 import { EmailConfigStatus } from './email-config-status';
 import { deduplicarPorId } from '../utils/deduplicar';
+import { useToast } from '../hooks/useToast';
 
 export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: { pedidos: any[]; camareros: any[]; coordinadores: any[]; clientes: any[]; baseUrl: string; publicAnonKey: string }) {
   const [selectedPedido, setSelectedPedido] = useState(null);
@@ -17,6 +18,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
     emailCoordinador: ''
   });
   const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const toast = useToast();
 
   // Deduplicar pedidos y ordenar descendentemente
   const uniquePedidos: any[] = deduplicarPorId(pedidos)
@@ -143,10 +145,10 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                   });
                   const data = await response.json();
                   logger.info('🔍 DIAGNÓSTICO COMPLETO:', data);
-                  alert(`Diagnóstico:\n\nConfigurado: ${data.configured ? 'SÍ' : 'NO'}\nServicio: ${data.servicioActivo || 'Ninguno'}\nEmail From: ${data.emailFrom}\n\nDebug Info:\n${JSON.stringify(data.debug, null, 2)}\n\nMira la consola para más detalles.`);
+                  toast.info(`Diagnóstico: Configurado: ${data.configured ? 'SÍ' : 'NO'} | Servicio: ${data.servicioActivo || 'Ninguno'} | Email From: ${data.emailFrom}`);
                 } catch (error) {
                   logger.error('Error en diagnóstico:', error);
-                  alert('Error al verificar configuración. Revisa la consola.');
+                  toast.error('Error al verificar configuración. Revisa la consola.');
                 }
               }}
               className="text-sm px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md font-medium"
@@ -424,13 +426,13 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                 e.preventDefault();
                 
                 if (!emailData.destinatario) {
-                  alert('Por favor, ingresa un destinatario');
+                  toast.warning('Por favor, ingresa un destinatario');
                   return;
                 }
                 
                 // Validar que si copiaCoordinador está marcado, el email no esté vacío
                 if (emailData.copiaCoordinador && !emailData.emailCoordinador.trim()) {
-                  alert('Por favor, ingresa el email del coordinador o desmarca la opción de copia');
+                  toast.warning('Por favor, ingresa el email del coordinador o desmarca la opción de copia');
                   return;
                 }
                 
@@ -468,13 +470,13 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                   
                   if (result.success) {
                     setShowEmailModal(false);
-                    alert('✅ Email enviado correctamente con parte de servicio adjunto en PDF');
+                    toast.success('Email enviado correctamente con parte de servicio adjunto en PDF');
                   } else {
-                    alert(`❌ Error al enviar email: ${result.error || 'Error desconocido'}`);
+                    toast.error(`Error al enviar email: ${result.error || 'Error desconocido'}`);
                   }
                 } catch (error) {
                   logger.error('Error al enviar email:', error);
-                  alert('❌ Error al enviar el email. Por favor, intenta nuevamente.');
+                  toast.error('Error al enviar el email. Por favor, intenta nuevamente.');
                 } finally {
                   setEnviandoEmail(false);
                 }

@@ -8,12 +8,38 @@ import { CamareroForm } from './CamareroForm';
 import { CamarerosList } from './CamarerosList';
 import { useRoles } from '../../hooks/useRoles';
 import { useIdiomas } from '../../hooks/useIdiomas';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
+  const toast = useToast();
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setConfirmState({
+        open: true,
+        message,
+        onConfirm: () => {
+          setConfirmState(s => ({ ...s, open: false }));
+          resolve(true);
+        },
+      });
+    });
+
+  const handleConfirmCancel = () => {
+    setConfirmState(s => ({ ...s, open: false }));
+  };
 
   const { roles } = useRoles();
   const { idiomas } = useIdiomas();
@@ -168,7 +194,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     if (!selectedCamarero) return;
     const nuevasFechas = generarFechas();
     if (nuevasFechas.length === 0) {
-      alert("Por favor completa las fechas requeridas");
+      toast.warning('Por favor completa las fechas requeridas');
       return;
     }
 
@@ -222,7 +248,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!formData.nombre || !formData.apellido) {
-      alert('Por favor completa nombre y apellido');
+      toast.warning('Por favor completa nombre y apellido');
       return;
     }
 
@@ -268,7 +294,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   };
 
   const eliminarCamarero = async (id: any) => {
-    if (!window.confirm('¿Eliminar camarero permanentemente?')) return;
+    const confirmed = await showConfirm('¿Eliminar camarero permanentemente?');
+    if (!confirmed) return;
     try {
       const response = await fetch(`${baseUrl}/camareros/${id}`, {
         method: 'DELETE',
@@ -301,12 +328,25 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     });
 
   // --- Funciones de Exportación e Importación Excel ---
-  const exportarAExcel = () => exportarAExcelUtil(camareros);
+  const exportarAExcel = () => exportarAExcelUtil(camareros, (msg, type) => type === 'success' ? toast.success(msg) : toast.error(msg));
 
   const importarDesdeExcel = async (event: any) =>
-    importarDesdeExcelUtil(event, camareros, baseUrl, publicAnonKey, cargarDatos as () => Promise<void>);
+    importarDesdeExcelUtil(
+      event,
+      camareros,
+      baseUrl,
+      publicAnonKey,
+      cargarDatos as () => Promise<void>,
+      (msg, type) => {
+        if (type === 'success') toast.success(msg);
+        else if (type === 'warning') toast.warning(msg);
+        else toast.error(msg);
+      },
+      showConfirm
+    );
 
   return (
+    <>
     <div className="max-w-6xl mx-auto space-y-6">
 
       {/* Header y Botones Superiores */}
@@ -406,5 +446,12 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         eliminarDisponibilidad={eliminarDisponibilidad}
       />
     </div>
+    <ConfirmDialog
+      open={confirmState.open}
+      message={confirmState.message}
+      onConfirm={confirmState.onConfirm}
+      onCancel={handleConfirmCancel}
+    />
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { QrCode, Copy, RefreshCw, X, Check, Download } from 'lucide-react';
 import QRCodeLib from 'qrcode';
+import { ConfirmDialog } from './ui/confirm-dialog';
 
 interface QRControlProps {
   pedido: any;
@@ -14,6 +15,29 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [qrImageUrl, setQrImageUrl] = useState('');
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setConfirmState({
+        open: true,
+        message,
+        onConfirm: () => {
+          setConfirmState(s => ({ ...s, open: false }));
+          resolve(true);
+        },
+      });
+    });
+
+  const handleConfirmCancel = () => {
+    setConfirmState(s => ({ ...s, open: false }));
+  };
 
   useEffect(() => {
     cargarQRToken();
@@ -44,9 +68,8 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   };
 
   const regenerarToken = async () => {
-    if (!confirm('¿Estás seguro de regenerar el código QR? El código anterior dejará de funcionar.')) {
-      return;
-    }
+    const confirmed = await showConfirm('¿Estás seguro de regenerar el código QR? El código anterior dejará de funcionar.');
+    if (!confirmed) return;
 
     setLoading(true);
     try {
@@ -100,6 +123,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   };
 
   return (
+    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -262,5 +286,12 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmState.open}
+      message={confirmState.message}
+      onConfirm={confirmState.onConfirm}
+      onCancel={handleConfirmCancel}
+    />
+    </>
   );
 }

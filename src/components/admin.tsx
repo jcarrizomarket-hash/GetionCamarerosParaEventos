@@ -101,7 +101,7 @@ export function Admin({
   }, [datosAltas, fechaDesde, fechaHasta, clienteFiltro]);
 
   // Exportar a Excel con filtros
-  const exportarExcel = () => {
+  const exportarExcel = async () => {
     if (datosAltasFiltrados.length === 0) {
       alert('No hay datos para exportar');
       return;
@@ -120,25 +120,40 @@ export function Admin({
     }));
 
     // Crear libro de trabajo
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Altas');
 
-    // Aplicar auto-filtros a todas las columnas
-
-    // Ajustar ancho de columnas
-    ws['!cols'] = [
-      { wch: 12 }, // Fecha
-      { wch: 10 }, // Día
-      { wch: 25 }, // Cliente
-      { wch: 20 }, // Evento
-      { wch: 13 }, // Código Perfil
-      { wch: 30 }, // Nombre Perfil
-      { wch: 15 }, // Turno
-      { wch: 12 }  // Estado
+    // Definir columnas con encabezados y ancho
+    ws.columns = [
+      { header: 'Fecha',         key: 'Fecha',          width: 12 },
+      { header: 'Día',           key: 'Día',            width: 10 },
+      { header: 'Cliente',       key: 'Cliente',        width: 25 },
+      { header: 'Evento',        key: 'Evento',         width: 20 },
+      { header: 'Código Perfil', key: 'Código Perfil',  width: 13 },
+      { header: 'Nombre Perfil', key: 'Nombre Perfil',  width: 30 },
+      { header: 'Turno',         key: 'Turno',          width: 15 },
+      { header: 'Estado',        key: 'Estado',         width: 12 },
     ];
 
-    // Agregar hoja al libro
+    // Agregar filas de datos
+    ws.addRows(datosExcel);
+
+    // Aplicar auto-filtros a todas las columnas
+    ws.autoFilter = {
+      from: { row: 1, column: 1 },
+      to:   { row: datosExcel.length + 1, column: ws.columns.length },
+    };
 
     // Descargar archivo
     const fecha = new Date().toISOString().split('T')[0];
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Altas_${fecha}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleAlta = async (dato) => {

@@ -1,4 +1,5 @@
 import { Send, Calendar, Clock, MapPin, Users, FileCheck, X } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
 
 interface EnviosPartesProps {
   eventosOrdenados: any[];
@@ -21,6 +22,7 @@ export function EnviosPartes({
   estadosPartes,
   enviarParteServicio,
 }: EnviosPartesProps) {
+  const toast = useToast();
   return (
     <>
       <div className="space-y-4">
@@ -256,8 +258,7 @@ export function EnviosPartes({
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    // Aquí implementaremos la descarga del PDF
-                    alert('Funcionalidad de descarga PDF en desarrollo. Por ahora puedes imprimir usando Ctrl+P o Cmd+P');
+                    toast.info('Por ahora puedes imprimir usando Ctrl+P o Cmd+P');
                     window.print();
                   }}
                   className="flex-1 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"

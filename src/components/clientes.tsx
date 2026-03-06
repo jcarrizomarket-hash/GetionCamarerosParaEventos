@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import { ConfirmDialog } from './ui/confirm-dialog';
 
 export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
@@ -15,6 +16,29 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
     mail2: '',
     notas: ''
   });
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setConfirmState({
+        open: true,
+        message,
+        onConfirm: () => {
+          setConfirmState(s => ({ ...s, open: false }));
+          resolve(true);
+        },
+      });
+    });
+
+  const handleConfirmCancel = () => {
+    setConfirmState(s => ({ ...s, open: false }));
+  };
 
   const generarNumeroCliente = () => {
     if (clientes.length === 0) {
@@ -98,9 +122,8 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
   };
 
   const handleDelete = async (clienteId) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este cliente?')) {
-      return;
-    }
+    const confirmed = await showConfirm('¿Estás seguro de que deseas eliminar este cliente?');
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`${baseUrl}/clientes/${clienteId}`, {
@@ -135,6 +158,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
   };
 
   return (
+    <>
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="flex justify-between items-center mb-6">
@@ -355,5 +379,12 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmState.open}
+      message={confirmState.message}
+      onConfirm={confirmState.onConfirm}
+      onCancel={handleConfirmCancel}
+    />
+    </>
   );
 }

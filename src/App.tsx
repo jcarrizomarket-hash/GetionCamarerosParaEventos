@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Toaster } from 'sonner';
 import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw } from 'lucide-react';
 import { Dashboard } from './components/dashboard';
 import { Pedidos } from './components/pedidos';
@@ -87,7 +88,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      <Toaster richColors position="top-right" />
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -235,6 +236,7 @@ export default function App() {
               coordinadores={coordinadores}
               pedidos={pedidos}
               clientes={clientes}
+              cargarDatos={cargarDatos}
             />
           )}
 

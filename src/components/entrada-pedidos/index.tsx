@@ -6,6 +6,8 @@ import { PedidoEntryDetail } from './PedidoEntryDetail';
 import { PedidoEntryForm } from './PedidoEntryForm';
 import { PedidoEntryList } from './PedidoEntryList';
 import { deduplicarPorId } from '../../utils/deduplicar';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 
 export function EntradaPedidos({
   clientes,
@@ -22,6 +24,30 @@ export function EntradaPedidos({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [reportPeriod, setReportPeriod] = useState('mensual');
+  const toast = useToast();
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setConfirmState({
+        open: true,
+        message,
+        onConfirm: () => {
+          setConfirmState(s => ({ ...s, open: false }));
+          resolve(true);
+        },
+      });
+    });
+
+  const handleConfirmCancel = () => {
+    setConfirmState(s => ({ ...s, open: false }));
+  };
 
   const initialFormState: FormData = {
     numero: '',
@@ -217,7 +243,8 @@ export function EntradaPedidos({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este pedido?')) return;
+    const confirmed = await showConfirm('¿Estás seguro de eliminar este pedido?');
+    if (!confirmed) return;
     try {
       logger.info(`🗑️ Eliminando pedido con ID: ${id}`);
       const response = await fetch(`${baseUrl}/pedidos/${id}`, {
@@ -229,14 +256,14 @@ export function EntradaPedidos({
       if (response.ok && result.success) {
         logger.info('✅ Pedido eliminado, recargando datos...');
         await cargarDatos();
-        alert('✅ Pedido eliminado correctamente');
+        toast.success('Pedido eliminado correctamente');
       } else {
         logger.error('❌ Error del servidor:', result);
-        alert(`❌ Error: ${result.error || 'No se pudo eliminar el pedido'}`);
+        toast.error(`Error: ${result.error || 'No se pudo eliminar el pedido'}`);
       }
     } catch (error) {
       logger.error('❌ Error al eliminar:', error);
-      alert(`❌ Error: ${(error as Error).message}`);
+      toast.error(`Error: ${(error as Error).message}`);
     }
   };
 
@@ -265,7 +292,7 @@ export function EntradaPedidos({
 _Por favor confirme recepción de este mensaje._`;
 
     if (!contacto) {
-      alert('El cliente no tiene teléfono ni email registrado.');
+      toast.warning('El cliente no tiene teléfono ni email registrado.');
       return;
     }
 
@@ -369,6 +396,12 @@ _Por favor confirme recepción de este mensaje._`;
         enviarConfirmacionCliente={enviarConfirmacionCliente}
         handleEdit={handleEdit}
         handleDelete={handleDelete}
+      />
+      <ConfirmDialog
+        open={confirmState.open}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={handleConfirmCancel}
       />
     </div>
   );

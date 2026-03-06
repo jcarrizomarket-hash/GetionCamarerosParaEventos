@@ -7,12 +7,14 @@ import { EnviosPartes } from './EnviosPartes';
 import { EnviosGrupal } from './EnviosGrupal';
 import { EnviosCoordinadores } from './EnviosCoordinadores';
 import { EnviosChatbot } from './EnviosChatbot';
+import { useToast } from '../../hooks/useToast';
 
 export function Envios({ pedidos, camareros, coordinadores, clientes, baseUrl, publicAnonKey }: EnviosProps) {
   const [activeTab, setActiveTab] = useState<'servicios' | 'grupal' | 'coordinadores' | 'chatbot' | 'partes'>('servicios');
   const [selectedEvento, setSelectedEvento] = useState<any>(null);
   const [mensajeTipo, setMensajeTipo] = useState<'catering' | 'restauracion'>('restauracion');
   const [showAsistentes, setShowAsistentes] = useState(false);
+  const toast = useToast();
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -55,7 +57,7 @@ export function Envios({ pedidos, camareros, coordinadores, clientes, baseUrl, p
 
     const asignados = selectedEvento.asignaciones || [];
     if (asignados.length === 0) {
-      alert('⚠️ No hay camareros asignados a este evento');
+      toast.warning('No hay camareros asignados a este evento');
       return;
     }
 
@@ -91,21 +93,21 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
 
       if (!response.ok) {
         logger.error(`Error HTTP ${response.status}`, { url, method: 'POST' });
-        alert(`❌ Error al enviar: HTTP ${response.status}`);
+        toast.error(`Error al enviar: HTTP ${response.status}`);
         return;
       }
 
       const result = await response.json();
 
       if (result.success) {
-        alert(`✅ Mensaje enviado a ${asignados.length} camarero(s)`);
+        toast.success(`Mensaje enviado a ${asignados.length} camarero(s)`);
         setSelectedEvento(null);
       } else {
-        alert(`❌ Error al enviar: ${result.error}`);
+        toast.error(`Error al enviar: ${result.error}`);
       }
     } catch (error) {
       logger.error('Error al enviar:', error);
-      alert('❌ Error al enviar el mensaje');
+      toast.error('Error al enviar el mensaje');
     }
   };
 
@@ -216,7 +218,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
   const enviarParteServicio = async (evento: any) => {
     const cliente = clientes.find(c => c.nombre === evento.cliente);
     if (!cliente) {
-      alert('⚠️ Cliente no encontrado');
+      toast.warning('Cliente no encontrado');
       return;
     }
 
@@ -285,22 +287,22 @@ Generado: ${new Date().toLocaleString('es-ES')}`;
 
       if (!response.ok) {
         logger.error(`Error HTTP ${response.status}`, { url, method: 'POST' });
-        alert(`❌ Error al enviar: HTTP ${response.status}`);
+        toast.error(`Error al enviar: HTTP ${response.status}`);
         return;
       }
 
       const result = await response.json();
 
       if (result.success) {
-        alert('✅ Parte de servicio enviado correctamente');
+        toast.success('Parte de servicio enviado correctamente');
         setEstadosPartes(prev => ({ ...prev, [evento.id]: 'enviado' }));
         setSelectedEvento(null);
       } else {
-        alert(`❌ Error al enviar: ${result.error}`);
+        toast.error(`Error al enviar: ${result.error}`);
       }
     } catch (error) {
       console.error('Error al enviar parte:', error);
-      alert('❌ Error al enviar el parte de servicio');
+      toast.error('Error al enviar el parte de servicio');
     }
   };
 

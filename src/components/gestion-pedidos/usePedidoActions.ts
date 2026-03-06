@@ -1,5 +1,6 @@
 import { logger } from '../../utils/logger';
 import { useState } from 'react';
+import { useToast } from '../../hooks/useToast';
 
 interface PedidoActionsConfig {
   baseUrl: string;
@@ -9,12 +10,13 @@ interface PedidoActionsConfig {
 
 export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: PedidoActionsConfig) {
   const [procesando, setProcesando] = useState(false);
+  const toast = useToast();
 
   const agregarCamarero = async (camarero: any, selectedPedido: any, setSelectedPedido: (p: any) => void) => {
     if (!selectedPedido || procesando) return;
     const asignaciones = selectedPedido.asignaciones || [];
     const yaAsignado = asignaciones.find((a: any) => a.camareroId === camarero.id);
-    if (yaAsignado) { alert('Este camarero ya está asignado a este evento'); return; }
+    if (yaAsignado) { toast.warning('Este camarero ya está asignado a este evento'); return; }
     setProcesando(true);
     const cant1 = parseInt(selectedPedido.cantidadCamareros || 0);
     const asignadosTurno1 = asignaciones.filter((_: any, idx: number) => idx < cant1).length;
@@ -36,10 +38,10 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
         body: JSON.stringify(updatedPedido)
       });
       if (response.ok) { await cargarDatos(); setSelectedPedido(updatedPedido); }
-      else { alert('Error al asignar camarero. Por favor intente de nuevo.'); }
+      else { toast.error('Error al asignar camarero. Por favor intente de nuevo.'); }
     } catch (error) {
       logger.error('Error al asignar camarero:', error);
-      alert('Error de conexión al asignar camarero.');
+      toast.error('Error de conexión al asignar camarero.');
     } finally {
       setProcesando(false);
     }

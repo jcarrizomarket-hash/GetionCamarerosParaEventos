@@ -1,7 +1,7 @@
 import { logger } from '../../utils/logger';
 import * as XLSX from 'xlsx';
 
-export function exportarAExcel(camareros: any[]): void {
+export function exportarAExcel(camareros: any[], showToast: (msg: string, type: 'success' | 'error') => void): void {
   try {
     const datosExportacion = camareros.map(cam => ({
       'Código': cam.codigo || '',
@@ -26,10 +26,10 @@ export function exportarAExcel(camareros: any[]): void {
     XLSX.utils.book_append_sheet(wb, ws, 'Personal');
     const fecha = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `Personal_${fecha}.xlsx`);
-    alert('✅ Datos exportados correctamente');
+    showToast('Datos exportados correctamente', 'success');
   } catch (error) {
     logger.error('Error al exportar:', error);
-    alert('❌ Error al exportar datos');
+    showToast('Error al exportar datos', 'error');
   }
 }
 
@@ -38,7 +38,9 @@ export async function importarDesdeExcel(
   camareros: any[],
   baseUrl: string,
   publicAnonKey: string,
-  cargarDatos: () => Promise<void>
+  cargarDatos: () => Promise<void>,
+  showToast: (msg: string, type: 'success' | 'error' | 'warning') => void,
+  showConfirm: (msg: string) => Promise<boolean>
 ): Promise<void> {
   const file = event.target.files[0];
   if (!file) return;
@@ -49,8 +51,9 @@ export async function importarDesdeExcel(
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-    if (jsonData.length === 0) { alert('❌ El archivo está vacío'); return; }
-    if (!window.confirm(`¿Deseas importar ${jsonData.length} registros?\n\nEsto creará nuevos camareros. Los códigos duplicados serán ignorados.`)) return;
+    if (jsonData.length === 0) { showToast('El archivo está vacío', 'error'); return; }
+    const confirmed = await showConfirm(`¿Deseas importar ${jsonData.length} registros?\n\nEsto creará nuevos camareros. Los códigos duplicados serán ignorados.`);
+    if (!confirmed) return;
 
     let importados = 0;
     let errores = 0;
@@ -99,10 +102,10 @@ export async function importarDesdeExcel(
     }
 
     await cargarDatos();
-    alert(`✅ Importación completada\n\n• Importados: ${importados}\n• Errores/Omitidos: ${errores}`);
+    showToast(`Importación completada — Importados: ${importados}, Errores/Omitidos: ${errores}`, 'success');
     event.target.value = '';
   } catch (error) {
     logger.error('Error al procesar archivo:', error);
-    alert('❌ Error al procesar el archivo Excel');
+    showToast('Error al procesar el archivo Excel', 'error');
   }
 }

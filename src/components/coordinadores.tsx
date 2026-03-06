@@ -1,6 +1,8 @@
 import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
+import { ConfirmDialog } from './ui/confirm-dialog';
 
 interface CoordinadoresProps {
   coordinadores: any[];
@@ -16,12 +18,36 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [editingCoordinador, setEditingCoordinador] = useState<any>(null);
+  const toast = useToast();
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setConfirmState({
+        open: true,
+        message,
+        onConfirm: () => {
+          setConfirmState(s => ({ ...s, open: false }));
+          resolve(true);
+        },
+      });
+    });
+
+  const handleConfirmCancel = () => {
+    setConfirmState(s => ({ ...s, open: false }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!nombre.trim()) {
-      alert('Por favor ingresa un nombre');
+      toast.warning('Por favor ingresa un nombre');
       return;
     }
     
@@ -85,9 +111,8 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   };
 
   const handleDelete = async (coordinador) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`)) {
-      return;
-    }
+    const confirmed = await showConfirm(`¿Estás seguro de que deseas eliminar al coordinador ${coordinador.nombre}?`);
+    if (!confirmed) return;
     
     try {
       const response = await fetch(`${baseUrl}/coordinadores/${coordinador.id}`, {
@@ -115,6 +140,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   };
 
   return (
+    <>
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-gray-900">Gestión de Coordinadores</h2>
@@ -240,5 +266,12 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
         )}
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmState.open}
+      message={confirmState.message}
+      onConfirm={confirmState.onConfirm}
+      onCancel={handleConfirmCancel}
+    />
+    </>
   );
 }

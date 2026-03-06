@@ -11,6 +11,7 @@ import { PedidoSummaryTable } from './PedidoSummaryTable';
 import { usePedidoActions } from './usePedidoActions';
 import { useHoraSalida } from './useHoraSalida';
 import { deduplicarPorId } from '../../utils/deduplicar';
+import { useToast } from '../../hooks/useToast';
 
 // v1.0.3 - Verificación completa de React keys
 
@@ -20,6 +21,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const [filtroCamarero, setFiltroCamarero] = useState('');
   const [showQRControl, setShowQRControl] = useState(false);
   const [periodoFiltro, setPeriodoFiltro] = useState('mensual');
+  const toast = useToast();
 
   const uniquePedidos = useMemo(() => deduplicarPorId(pedidos), [pedidos]);
   const uniqueCamareros = useMemo(() => deduplicarPorId(camareros), [camareros]);
@@ -91,7 +93,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
 
   const filasTabla = useMemo(() => buildFilasTabla(uniquePedidos, selectedPedido), [uniquePedidos, selectedPedido]);
 
-  const handleExportarDatos = (filtroTipo: string) => exportarDatos(filtroTipo, uniquePedidos, selectedPedido);
+  const handleExportarDatos = (filtroTipo: string) => exportarDatos(filtroTipo, uniquePedidos, selectedPedido, (msg, type) => type === 'warning' ? toast.warning(msg) : toast.error(msg));
 
   // --- VISTA PRINCIPAL (SIN SELECCIÓN) ---
   if (!selectedPedido) {

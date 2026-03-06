@@ -2,7 +2,7 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { z } from 'npm:zod@3';
-import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+import { createClient } from 'npm:@supabase/supabase-js@2.98.0';
 import * as kv from './kv_store.tsx';
 import { requireAuth, kvRateLimit } from './middleware';
 import { validate, validationError } from './validate.ts';

@@ -63,27 +63,39 @@ describe('Logger', () => {
     const extra = { id: 42 };
     logger.error('con datos', extra);
     expect(errorSpy).toHaveBeenCalled();
-    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
-    const contextArg = errorSpy.mock.calls[0][3] as Record<string, unknown>;
-    expect(contextArg).toMatchObject({ id: 42 });
+    // En entorno jsdom (browser), el contexto está en args[3] (tras format string y dos strings CSS)
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ id: 42 }),
+    );
   });
 
   it('withContext debe inyectar contexto fijo en todos los logs derivados', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.info('con contexto');
     expect(infoSpy).toHaveBeenCalledOnce();
-    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
-    const contextArg = infoSpy.mock.calls[0][3] as Record<string, unknown>;
-    expect(contextArg).toMatchObject({ userId: 'user-123' });
+    // En entorno jsdom (browser), el contexto está en args[3] (tras format string y dos strings CSS)
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ userId: 'user-123' }),
+    );
   });
 
   it('withContext debe poder combinar contexto fijo con contexto adicional', () => {
     const scopedLogger = logger.withContext({ userId: 'user-123' });
     scopedLogger.warn('contexto combinado', { sessionId: 'sess-456' });
     expect(warnSpy).toHaveBeenCalledOnce();
-    // En entorno jsdom (browser): args[0]=format, args[1]=CSS, args[2]=CSS, args[3]=context
-    const contextArg = warnSpy.mock.calls[0][3] as Record<string, unknown>;
-    expect(contextArg).toMatchObject({ userId: 'user-123', sessionId: 'sess-456' });
+    // En entorno jsdom (browser), el contexto está en args[3] (tras format string y dos strings CSS)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ userId: 'user-123', sessionId: 'sess-456' }),
+    );
   });
 
   it('setLogLevel debe suprimir logs por debajo del nivel configurado', () => {

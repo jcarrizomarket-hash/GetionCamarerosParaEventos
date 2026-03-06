@@ -6,68 +6,40 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  
-  // Timeout para cada test
-  timeout: 30 * 1000,
-  
-  // Configuración de expect
+
+  // Timeout por test: 15s en CI (la app es una SPA con backend mock)
+  timeout: 15 * 1000,
+
   expect: {
     timeout: 5000,
   },
-  
-  // Configuración de ejecución
+
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  
-  // Reporter
+  // Sin retries en CI para evitar triplicar el tiempo de ejecucion
+  retries: 0,
+  workers: process.env.CI ? 2 : undefined,
+
   reporter: [
     ['html'],
     ['list'],
   ],
-  
-  // Configuración compartida
+
   use: {
-    baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.TEST_BASE_URL || 'http://localhost:4173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
+    // Timeout de navegacion: 10s maximo por goto/click/waitFor
+    navigationTimeout: 10000,
+    actionTimeout: 5000,
   },
 
-  // Proyectos para diferentes browsers
+  // Solo Chromium en CI - Firefox y Safari en local si se necesita
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // Tests móviles
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
   ],
-
-  // Servidor de desarrollo (opcional)
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 });

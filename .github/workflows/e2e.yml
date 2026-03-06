@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +25,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Cache Playwright browsers entre runs para no descargar ~300MB cada vez
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
@@ -44,6 +44,11 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Build app
+        env:
+          VITE_DEMO_MODE: 'true'
+          VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
+          VITE_SUPABASE_ANON_KEY: 'placeholder-key-for-ci'
+          VITE_SUPABASE_FUNCTIONS_URL: 'https://placeholder.supabase.co/functions/v1'
         run: npm run build
 
       - name: Run E2E tests
@@ -55,11 +60,12 @@ jobs:
           VITE_SUPABASE_FUNCTIONS_URL: 'https://placeholder.supabase.co/functions/v1'
           TEST_BASE_URL: 'http://localhost:4173'
         run: |
-          npx vite preview --port 4173 &
+          # vite.config.ts usa outDir: 'build' — apuntar preview a esa carpeta
+          npx vite preview --port 4173 --outDir ../build &
           SERVER_PID=$!
-          # Wait until server is ready (max 30s)
+          # Esperar que el servidor esté listo (max 30s)
           for i in $(seq 1 30); do
-            curl -s http://localhost:4173 > /dev/null && break
+            curl -s http://localhost:4173 > /dev/null && echo "Server ready after ${i}s" && break
             sleep 1
           done
           npx playwright test --config playwright.config.ts --project=chromium

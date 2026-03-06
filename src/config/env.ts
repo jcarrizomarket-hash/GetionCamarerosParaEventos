@@ -49,17 +49,17 @@ export const supabaseFunctionEndpoint: string =
  *   VITE_SUPABASE_FUNCTIONS_URL (or derived from VITE_SUPABASE_URL)
  */
 export function validateRequiredEnvVars(): void {
-  const missing: string[] = [];
+  // En modo demo o CI (E2E tests) no bloqueamos el arranque de la app.
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  if (isDemoMode) {
+    console.warn('⚠️ VITE_DEMO_MODE activo — variables de Supabase no requeridas.');
+    return;
+  }
 
-  if (!supabaseUrl) {
-    missing.push('VITE_SUPABASE_URL');
-  }
-  if (!supabaseAnonKey) {
-    missing.push('VITE_SUPABASE_ANON_KEY');
-  }
-  if (!supabaseFunctionsUrl) {
-    missing.push('VITE_SUPABASE_FUNCTIONS_URL (or VITE_SUPABASE_URL to derive it)');
-  }
+  const missing: string[] = [];
+  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
+  if (!supabaseFunctionsUrl) missing.push('VITE_SUPABASE_FUNCTIONS_URL (or VITE_SUPABASE_URL to derive it)');
 
   if (missing.length > 0) {
     throw new Error(

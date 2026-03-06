@@ -49,6 +49,12 @@ export const supabaseFunctionEndpoint: string =
  *   VITE_SUPABASE_FUNCTIONS_URL (or derived from VITE_SUPABASE_URL)
  */
 export function validateRequiredEnvVars(): void {
+  // Modo demo: no se necesita backend
+  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+    console.info('ℹ️ VITE_DEMO_MODE=true — validación de Supabase omitida.');
+    return;
+  }
+
   // Solo skipper si los valores son literalmente placeholders de CI (no strings vacios)
   const isCIPlaceholder = (v: string) =>
     v.includes('placeholder') || v === 'undefined';

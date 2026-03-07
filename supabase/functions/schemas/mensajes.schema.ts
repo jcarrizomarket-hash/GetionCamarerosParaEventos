@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 
 export const MensajeSchema = z.object({
   id: z.string().min(1, 'El ID es requerido'),

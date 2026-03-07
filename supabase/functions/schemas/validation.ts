@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 
 // Validation schema for Camarero
 export const CamareroSchema = z.object({

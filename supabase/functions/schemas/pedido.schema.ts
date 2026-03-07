@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 
 const AsignacionSchema = z.object({
   camareroId: z.string().min(1, 'El ID del camarero es requerido'),

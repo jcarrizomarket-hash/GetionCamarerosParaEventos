@@ -157,26 +157,39 @@ export default function App() {
 
       {/* Mobile dropdown menu */}
       {menuOpen && (
-        <div className="sm:hidden absolute left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-xl">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-colors border-l-4 ${
-                  active
-                    ? 'border-blue-500 bg-blue-50 text-blue-600'
-                    : 'border-transparent text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                {tab.label}
+        <>
+          {/* Overlay */}
+          <div className="sm:hidden fixed inset-0 z-40 bg-black/20" onClick={() => setMenuOpen(false)} />
+          {/* Panel */}
+          <div className="sm:hidden fixed top-0 left-0 bottom-0 z-50 w-72 bg-white shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <span className="text-base font-bold text-gray-900">Menú</span>
+              <button onClick={() => setMenuOpen(false)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100">
+                <X className="w-5 h-5" />
               </button>
-            );
-          })}
-        </div>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                    className={`w-full flex items-center gap-4 px-5 py-4 text-base font-medium transition-colors border-l-4 ${
+                      active
+                        ? 'border-blue-500 bg-blue-50 text-blue-600'
+                        : 'border-transparent text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon className="w-6 h-6 shrink-0" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Content */}

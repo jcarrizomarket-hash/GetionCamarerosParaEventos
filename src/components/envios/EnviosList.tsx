@@ -7,11 +7,10 @@ interface EnviosListProps {
   camareros: any[];
   selectedEvento: any;
   setSelectedEvento: (e: any) => void;
-  mensajeTipo: 'catering' | 'restauracion';
-  setMensajeTipo: (t: 'catering' | 'restauracion') => void;
   showVistaPreviaServicio: boolean;
   setShowVistaPreviaServicio: (v: boolean) => void;
   enviarConfirmacion: () => void;
+  onEstadoActualizado: (pedidoActualizado: any) => void;
 }
 
 export function EnviosList({
@@ -19,11 +18,10 @@ export function EnviosList({
   camareros,
   selectedEvento,
   setSelectedEvento,
-  mensajeTipo,
-  setMensajeTipo,
   showVistaPreviaServicio,
   setShowVistaPreviaServicio,
   enviarConfirmacion,
+  onEstadoActualizado,
 }: EnviosListProps) {
   return (
     <>
@@ -36,15 +34,17 @@ export function EnviosList({
         <div className="space-y-3">
           {eventosOrdenados.map(evento => {
             const asignados = evento.asignaciones || [];
-            const confirmados = asignados.filter(a => a.estado === 'confirmado').length;
+            const confirmados = asignados.filter((a: any) => a.estado === 'confirmado').length;
+            const modalidad = evento.catering === 'si' ? '🍽️ Catering' : '🍴 Restauración';
 
             return (
               <div key={evento.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <span className="font-mono font-bold text-blue-600">{evento.numero}</span>
                       <span className="font-semibold text-gray-900">{evento.cliente}</span>
+                      <span className="text-xs text-gray-500 bg-white border border-gray-200 rounded px-2 py-0.5">{modalidad}</span>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600">
@@ -54,11 +54,11 @@ export function EnviosList({
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        {evento.horaEntrada} - {evento.horaSalida}
+                        {evento.horaEntrada}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {evento.lugar}
+                      <div className="flex items-center gap-1 truncate">
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{evento.lugar}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
@@ -69,7 +69,7 @@ export function EnviosList({
 
                   <button
                     onClick={() => setSelectedEvento(evento)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ml-4"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ml-4 flex-shrink-0"
                   >
                     <Send className="w-4 h-4" />
                     Enviar
@@ -87,27 +87,24 @@ export function EnviosList({
         </div>
       </div>
 
-      {/* Modal para Envío de Servicios */}
-      {selectedEvento && (
+      {/* Modal confirmación */}
+      {selectedEvento && !showVistaPreviaServicio && (
         <EnviosConfirmModal
           selectedEvento={selectedEvento}
           setSelectedEvento={setSelectedEvento}
           camareros={camareros}
-          mensajeTipo={mensajeTipo}
-          setMensajeTipo={setMensajeTipo}
           setShowVistaPreviaServicio={setShowVistaPreviaServicio}
           enviarConfirmacion={enviarConfirmacion}
         />
       )}
 
-      {/* Modal de Vista Previa del Mensaje de Servicio */}
+      {/* Modal vista previa con mensajes por perfil */}
       {showVistaPreviaServicio && selectedEvento && (
         <EnviosPreviewModal
           selectedEvento={selectedEvento}
           camareros={camareros}
-          mensajeTipo={mensajeTipo}
           setShowVistaPreviaServicio={setShowVistaPreviaServicio}
-          enviarConfirmacion={enviarConfirmacion}
+          onEstadoActualizado={onEstadoActualizado}
         />
       )}
     </>

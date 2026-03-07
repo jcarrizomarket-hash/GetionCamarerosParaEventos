@@ -349,11 +349,13 @@ Generado: ${new Date().toLocaleString('es-ES')}`;
               camareros={camareros}
               selectedEvento={selectedEvento}
               setSelectedEvento={setSelectedEvento}
-              mensajeTipo={mensajeTipo}
-              setMensajeTipo={setMensajeTipo}
               showVistaPreviaServicio={showVistaPreviaServicio}
               setShowVistaPreviaServicio={setShowVistaPreviaServicio}
               enviarConfirmacion={enviarConfirmacion}
+              onEstadoActualizado={(pedidoActualizado) => {
+                // Actualiza el evento seleccionado con el nuevo estado
+                setSelectedEvento(pedidoActualizado);
+              }}
             />
           )}
 

@@ -301,82 +301,94 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
           </form>
         )}
 
-        {/* Lista de clientes */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Código
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto 1
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto 2
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {clientes.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                    <p>No hay clientes registrados</p>
-                    <p className="text-sm">Agrega tu primer cliente usando el botón de arriba</p>
-                  </td>
-                </tr>
-              ) : (
-                clientes.map((cliente) => (
-                  <tr key={cliente.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                      {cliente.numero}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {cliente.nombre}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{cliente.contacto1}</span>
-                        {cliente.telefono1 && <span className="text-xs">{cliente.telefono1}</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{cliente.contacto2}</span>
-                        {cliente.telefono2 && <span className="text-xs">{cliente.telefono2}</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(cliente)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar cliente"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cliente.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar cliente"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+        {/* Lista de clientes — cards en móvil, tabla en desktop */}
+        {clientes.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-6 py-12 text-center text-gray-500">
+            <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p>No hay clientes registrados</p>
+            <p className="text-sm">Agrega tu primer cliente usando el botón de arriba</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-3">
+              {clientes.map((cliente) => (
+                <div key={cliente.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div>
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">#{cliente.numero}</span>
+                      <div className="mt-1 text-base font-semibold text-gray-900">{cliente.nombre}</div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => handleEdit(cliente)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(cliente.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 font-medium mb-1">Contacto 1</div>
+                      <div className="font-medium text-gray-900">{cliente.contacto1 || '—'}</div>
+                      {cliente.telefono1 && <div className="text-gray-500 text-xs mt-0.5">📱 {cliente.telefono1}</div>}
+                      {cliente.email1 && <div className="text-gray-500 text-xs mt-0.5 break-all">✉️ {cliente.email1}</div>}
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 font-medium mb-1">Contacto 2</div>
+                      <div className="font-medium text-gray-900">{cliente.contacto2 || '—'}</div>
+                      {cliente.telefono2 && <div className="text-gray-500 text-xs mt-0.5">📱 {cliente.telefono2}</div>}
+                      {cliente.email2 && <div className="text-gray-500 text-xs mt-0.5 break-all">✉️ {cliente.email2}</div>}
+                    </div>
+                  </div>
+                  {cliente.notas && (
+                    <div className="mt-2 text-xs text-gray-500 bg-yellow-50 rounded-lg p-2">📝 {cliente.notas}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto 1</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto 2</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {clientes.map((cliente) => (
+                    <tr key={cliente.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{cliente.numero}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{cliente.nombre}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{cliente.contacto1}</span>
+                          {cliente.telefono1 && <span className="text-xs">{cliente.telefono1}</span>}
+                          {cliente.email1 && <span className="text-xs text-blue-600">{cliente.email1}</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{cliente.contacto2}</span>
+                          {cliente.telefono2 && <span className="text-xs">{cliente.telefono2}</span>}
+                          {cliente.email2 && <span className="text-xs text-blue-600">{cliente.email2}</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleEdit(cliente)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(cliente.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>
     <ConfirmDialog

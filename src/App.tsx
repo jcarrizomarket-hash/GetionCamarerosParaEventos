@@ -22,6 +22,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedMenuTab, setExpandedMenuTab] = useState<string | null>(null);
+  const [pedidosSubTab, setPedidosSubTab] = useState('clientes');
 
   const tabSubItems: Record<string, Array<{ id: string; label: string; icon: any }>> = {
     pedidos: [
@@ -221,7 +222,7 @@ export default function App() {
                         {subItems.map((sub) => (
                           <button
                             key={sub.id}
-                            onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                            onClick={() => { setActiveTab(tab.id); if (tab.id === 'pedidos') setPedidosSubTab(sub.id); setMenuOpen(false); setExpandedMenuTab(null); }}
                             className="w-full flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                           >
                             <sub.icon className="w-5 h-5 shrink-0" />
@@ -279,6 +280,7 @@ export default function App() {
               baseUrl={baseUrl}
               publicAnonKey={publicAnonKey}
               cargarDatos={cargarDatos}
+              initialSubTab={pedidosSubTab}
             />
           )}
           

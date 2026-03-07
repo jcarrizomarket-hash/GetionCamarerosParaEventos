@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Briefcase, CalendarDays } from 'lucide-react';
 import { Clientes } from './clientes';
 import { EntradaPedidos } from './entrada-pedidos';
@@ -14,6 +14,7 @@ interface PedidosProps {
   baseUrl: string;
   publicAnonKey: string;
   cargarDatos: () => void;
+  initialSubTab?: string;
 }
 
 export function Pedidos({ 
@@ -25,9 +26,13 @@ export function Pedidos({
   setClientes,
   baseUrl, 
   publicAnonKey, 
-  cargarDatos 
+  cargarDatos,
+  initialSubTab
 }: PedidosProps) {
-  const [activeSubTab, setActiveSubTab] = useState('clientes');
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab ?? 'clientes');
+  useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
 
   const subTabs = [
     { id: 'clientes', label: 'Clientes', icon: Building2 },

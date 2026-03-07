@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X } from 'lucide-react';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 import { Dashboard } from './components/dashboard';
@@ -20,6 +20,7 @@ import { logger } from './utils/logger';
 // Última actualización: Panel de Admin con gestión de Altas
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [camareros, setCamareros] = useState<Camarero[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [coordinadores, setCoordinadores] = useState<Coordinador[]>([]);
@@ -94,6 +95,13 @@ export default function App() {
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              className="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Menú"
+            >
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
             <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow">
               <Users className="w-5 h-5 text-white" />
             </div>
@@ -124,7 +132,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* Tabs — desktop: barra superior / móvil: barra inferior fija */}
+      {/* Desktop tabs */}
       <div className="hidden sm:block bg-white border-b shadow-sm">
         <div className="flex overflow-x-auto scrollbar-hide px-2">
           {tabs.map((tab) => {
@@ -147,31 +155,32 @@ export default function App() {
         </div>
       </div>
 
-      {/* Mobile bottom nav */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex overflow-x-auto">
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div className="sm:hidden absolute left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{ minWidth: '4rem' }}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 px-1 transition-colors ${
-                  active ? 'text-blue-600' : 'text-gray-400'
+                onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-colors border-l-4 ${
+                  active
+                    ? 'border-blue-500 bg-blue-50 text-blue-600'
+                    : 'border-transparent text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[9px] font-medium leading-tight whitespace-nowrap">{tab.label}</span>
+                <Icon className="w-5 h-5 shrink-0" />
+                {tab.label}
               </button>
             );
           })}
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="p-6 pb-24 sm:pb-6">
+      <div className="p-6">
         {errorCarga && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 shadow-sm">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />

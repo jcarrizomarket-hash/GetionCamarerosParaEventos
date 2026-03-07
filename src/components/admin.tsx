@@ -242,19 +242,17 @@ function TabCoordinadores({ coordinadores, onRefresh }: { coordinadores: any[]; 
       <div className="space-y-3">
         {coordinadores.map((c, idx) => (
           <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-bold text-indigo-700">#{idx + 1}</span>
-                <div>
-                  <div className="font-medium text-gray-900">{c.nombre}</div>
-                  {c.telefono && <div className="mt-0.5 text-sm text-gray-500">📱 Tel: {c.telefono}</div>}
-                  {c.email && <div className="text-sm text-gray-500">📧 Email: {c.email}</div>}
-                </div>
+            <div className="flex items-start gap-3 mb-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-bold text-indigo-700">#{idx + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-gray-900 truncate">{c.nombre}</div>
+                {c.telefono && <div className="mt-0.5 text-sm text-gray-500">📱 {c.telefono}</div>}
+                {c.email && <div className="text-sm text-gray-500 break-all">📧 {c.email}</div>}
               </div>
-              <div className="flex shrink-0 gap-2">
-                <button onClick={() => openEdit(c)} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"><Pencil className="h-3.5 w-3.5" />Editar</button>
-                <button onClick={() => handleDelete(c.id)} disabled={deletingId === c.id} className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-60"><Trash2 className="h-3.5 w-3.5" />{deletingId === c.id ? '…' : 'Eliminar'}</button>
-              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => openEdit(c)} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"><Pencil className="h-4 w-4" />Editar</button>
+              <button onClick={() => handleDelete(c.id)} disabled={deletingId === c.id} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-60"><Trash2 className="h-4 w-4" />{deletingId === c.id ? '…' : 'Eliminar'}</button>
             </div>
           </div>
         ))}

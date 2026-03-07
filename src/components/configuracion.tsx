@@ -149,20 +149,20 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
     return (
         <>
         <div className="space-y-6">
-            <div className="flex items-center gap-3">
-                <Settings className="w-8 h-8 text-blue-600" />
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Configuración del Sistema</h2>
-                    <p className="text-gray-600">Configura y prueba las integraciones de WhatsApp y Email</p>
+            <div className="flex items-center gap-3 min-w-0">
+                <Settings className="w-8 h-8 text-blue-600 shrink-0" />
+                <div className="min-w-0">
+                    <h2 className="text-xl font-bold text-gray-900 truncate sm:text-2xl">Configuración del Sistema</h2>
+                    <p className="text-sm text-gray-600 sm:text-base">Configura y prueba las integraciones de WhatsApp y Email</p>
                 </div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border">
+            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                 <div className="border-b">
-                    <div className="flex">
+                    <div className="flex overflow-x-auto scrollbar-hide">
                         {subTabs.map((tab) => {
                             const Icon = tab.icon;
                             return (
-                                <button key={tab.id} onClick={() => setActiveSubTab(tab.id)} className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                                <button key={tab.id} onClick={() => setActiveSubTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 border-b-2 transition-colors whitespace-nowrap text-sm ${
                                     activeSubTab === tab.id ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}>
                                     <Icon className="w-5 h-5" /> {tab.label}

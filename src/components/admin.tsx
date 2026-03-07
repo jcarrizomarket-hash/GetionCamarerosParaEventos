@@ -88,6 +88,16 @@ async function downloadWorkbook(workbook: ExcelJS.Workbook, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadCSV(rows: string[][], fileName: string) {
+  const csv = rows.map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function deriveAltas(pedidos: any[], _camareros: any[]): Alta[] {
   const altas: Alta[] = [];
   for (const p of pedidos ?? []) {
@@ -260,12 +270,24 @@ function TabAltas({ altas }: { altas: Alta[] }) {
   const [estadosAlta, setEstadosAlta] = useState<Record<string, boolean>>({});
   const [estadosBaja, setEstadosBaja] = useState<Record<string, boolean>>({});
   const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
+  const [filtroCamarero, setFiltroCamarero] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
-  const filtradas = altas.filter(a => !filtroCliente || a.cliente.toLowerCase().includes(filtroCliente.toLowerCase()));
+  const filtradas = altas.filter(a =>
+    (!filtroCliente || a.cliente.toLowerCase().includes(filtroCliente.toLowerCase())) &&
+    (!filtroFecha || a.fecha === filtroFecha) &&
+    (!filtroCamarero || a.nombrePerfil.toLowerCase().includes(filtroCamarero.toLowerCase()))
+  );
 
   const toggleAlta = (id: string) => { setEstadosAlta(prev => ({ ...prev, [id]: !prev[id] })); };
   const toggleBaja = (id: string) => { setEstadosBaja(prev => ({ ...prev, [id]: !prev[id] })); };
+
+  const exportarCSV = () => {
+    const headers = ['Fecha', 'Día', 'Cliente', 'Evento', 'Cód. Perfil', 'Nombre Perfil', 'Estado', 'Alta', 'Baja'];
+    const rows = filtradas.map(a => [a.fecha, a.dia, a.cliente, a.evento, a.codigoPerfil ?? '', a.nombrePerfil, a.estado, estadosAlta[a.id] ? 'Sí' : 'No', estadosBaja[a.id] ? 'Sí' : 'No']);
+    downloadCSV([headers, ...rows], `altas-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
 
   const exportarExcel = async () => {
     const wb = new ExcelJS.Workbook();
@@ -292,15 +314,31 @@ function TabAltas({ altas }: { altas: Alta[] }) {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setMostrarFiltros(f => !f)} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"><SlidersHorizontal className="h-4 w-4" />Mostrar Filtros</button>
+          <button onClick={exportarCSV} className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"><Download className="h-4 w-4" />CSV</button>
           <button onClick={exportarExcel} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Download className="h-4 w-4" />Exportar Excel</button>
         </div>
       </div>
 
       {mostrarFiltros && (
         <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Cliente</label>
-            <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por cliente…" value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} />
+          <div className="flex flex-wrap gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Fecha</label>
+              <input type="date" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Cliente</label>
+              <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por cliente…" value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Camarero</label>
+              <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por camarero…" value={filtroCamarero} onChange={e => setFiltroCamarero(e.target.value)} />
+            </div>
+            {(filtroFecha || filtroCliente || filtroCamarero) && (
+              <div className="flex items-end">
+                <button onClick={() => { setFiltroFecha(''); setFiltroCliente(''); setFiltroCamarero(''); }} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100">Limpiar filtros</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -351,10 +389,22 @@ function TabRegistrosQR({ registros, onRefresh }: { registros: RegistroQR[]; onR
   const [refreshing, setRefreshing] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroCamarero, setFiltroCamarero] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
+  const [filtroCliente, setFiltroCliente] = useState('');
 
-  const filtrados = registros.filter(r => !filtroCamarero || r.camarero.toLowerCase().includes(filtroCamarero.toLowerCase()));
+  const filtrados = registros.filter(r =>
+    (!filtroCamarero || r.camarero.toLowerCase().includes(filtroCamarero.toLowerCase())) &&
+    (!filtroFecha || r.fecha === filtroFecha) &&
+    (!filtroCliente || r.cliente.toLowerCase().includes(filtroCliente.toLowerCase()))
+  );
 
   const handleRefresh = async () => { setRefreshing(true); try { await onRefresh(); } finally { setRefreshing(false); } };
+
+  const exportarCSV = () => {
+    const headers = ['Fecha', 'Cliente', 'Camarero', 'Entrada Prevista', 'Entrada Real', 'Salida Prevista', 'Salida Real', 'Horas', 'Estado'];
+    const rows = filtrados.map(r => [r.fecha, r.cliente, r.camarero, r.entradaPrevista, r.entradaReal ?? '', r.salidaPrevista ?? '', r.salidaReal ?? '', r.horas ?? '', r.estado]);
+    downloadCSV([headers, ...rows], `registros-qr-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
 
   const exportarExcel = async () => {
     const wb = new ExcelJS.Workbook();
@@ -383,15 +433,32 @@ function TabRegistrosQR({ registros, onRefresh }: { registros: RegistroQR[]; onR
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setMostrarFiltros(f => !f)} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"><SlidersHorizontal className="h-4 w-4" />Mostrar Filtros</button>
           <button onClick={handleRefresh} disabled={refreshing} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />Actualizar</button>
+          <button onClick={exportarCSV} className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"><Download className="h-4 w-4" />CSV</button>
+          <button onClick={exportarCSV} className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"><Download className="h-4 w-4" />CSV</button>
           <button onClick={exportarExcel} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Download className="h-4 w-4" />Exportar Excel</button>
         </div>
       </div>
 
       {mostrarFiltros && (
         <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Camarero</label>
-            <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por camarero…" value={filtroCamarero} onChange={e => setFiltroCamarero(e.target.value)} />
+          <div className="flex flex-wrap gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Fecha</label>
+              <input type="date" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Cliente</label>
+              <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por cliente…" value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Camarero</label>
+              <input className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Filtrar por camarero…" value={filtroCamarero} onChange={e => setFiltroCamarero(e.target.value)} />
+            </div>
+            {(filtroFecha || filtroCliente || filtroCamarero) && (
+              <div className="flex items-end">
+                <button onClick={() => { setFiltroFecha(''); setFiltroCliente(''); setFiltroCamarero(''); }} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100">Limpiar filtros</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -471,7 +538,7 @@ export function Admin({ coordinadores, setCoordinadores: _setCoordinadores, carg
         <div className="flex border-b border-gray-200">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors ${activeTab === key ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+              className={`flex items-center gap-2 px-7 py-4 text-base font-semibold transition-colors ${activeTab === key ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
               <Icon className="h-4 w-4" />{label}
             </button>
           ))}

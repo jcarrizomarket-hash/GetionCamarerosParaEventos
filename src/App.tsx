@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X, ChevronDown, Building2, Briefcase, UserCheck, QrCode, MessageSquare, Wrench, CalendarDays } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X, ChevronDown, Building2, Briefcase, UserCheck, QrCode, MessageSquare, Wrench, CalendarDays, LogOut, UserCog } from 'lucide-react';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 import { Dashboard } from './components/dashboard';
@@ -10,16 +10,23 @@ import { Admin } from './components/admin';
 import { Informes } from './components/informes';
 import { Envios } from './components/envios';
 import { Configuracion } from './components/configuracion';
+import { LoginPage } from './components/LoginPage';
+import { MisPedidosCamarero } from './components/MisPedidosCamarero';
+import { MisPedidosCliente } from './components/MisPedidosCliente';
+import { GestionUsuarios } from './components/GestionUsuarios';
 import { ErrorBoundary } from './components/error-boundary';
 import { supabaseFunctionEndpoint as baseUrl, supabaseAnonKey as publicAnonKey } from './config/env';
 import { getCamareros, getPedidos, getCoordinadores, getClientes } from './api/client';
 import type { Camarero, Pedido, Coordinador, Cliente } from './types';
 import { logger } from './utils/logger';
 import { playNotificationSound, loadNotifConfig } from './hooks/useNotificationSounds';
+import { useAuth } from './hooks/useAuth';
+import type { UserRole } from './hooks/useAuth';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2
 // Última actualización: Panel de Admin con gestión de Altas
 export default function App() {
+  const { user, loading: authLoading, login, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedMenuTab, setExpandedMenuTab] = useState<string | null>(null);
@@ -119,17 +126,23 @@ export default function App() {
     }
   };
 
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart },
-    { id: 'camareros', label: 'Personal', icon: Users },
-    { id: 'admin', label: 'Admin', icon: Shield },
-    { id: 'informes', label: 'Informes', icon: FileText },
-    { id: 'envios', label: 'Envíos', icon: Send },
-    { id: 'configuracion', label: 'Configuración', icon: Settings }
+  // Tabs según rol
+  const ALL_TABS = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'camareros', label: 'Personal', icon: Users, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'admin', label: 'Admin', icon: Shield, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'informes', label: 'Informes', icon: FileText, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'envios', label: 'Envíos', icon: Send, roles: ['admin', 'coordinador'] as UserRole[] },
+    { id: 'configuracion', label: 'Configuración', icon: Settings, roles: ['admin'] as UserRole[] },
+    { id: 'usuarios', label: 'Usuarios', icon: UserCog, roles: ['admin'] as UserRole[] },
+    { id: 'mis-servicios', label: 'Mis Servicios', icon: CalendarDays, roles: ['camarero'] as UserRole[] },
+    { id: 'mis-pedidos', label: 'Mis Pedidos', icon: CalendarDays, roles: ['cliente'] as UserRole[] },
   ];
 
-  if (cargando) {
+  const tabs = ALL_TABS.filter(t => !user || t.roles.includes(user.role));
+
+  if (authLoading || cargando) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center gap-6 max-w-sm w-full mx-4">
@@ -142,9 +155,62 @@ export default function App() {
           </div>
           <div className="flex flex-col items-center gap-3 w-full">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-600">Cargando datos del sistema...</p>
+            <p className="text-sm text-gray-600">Cargando...</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Sin sesión → Login
+  if (!IS_DEMO && !user) {
+    return <LoginPage onLogin={login} />;
+  }
+
+  // Camarero → solo sus servicios
+  if (!IS_DEMO && user?.role === 'camarero') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Toaster richColors position="top-right" />
+        <div className="bg-white shadow-sm border-b px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-gray-900 leading-tight">Eukos Gestión</h1>
+              <p className="text-xs text-gray-500">Personal · {user.nombre}</p>
+            </div>
+          </div>
+          <button onClick={logout} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg border border-gray-200 transition-colors">
+            <LogOut className="w-4 h-4" /> Salir
+          </button>
+        </div>
+        <MisPedidosCamarero pedidos={pedidos} user={user} />
+      </div>
+    );
+  }
+
+  // Cliente → solo sus pedidos
+  if (!IS_DEMO && user?.role === 'cliente') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Toaster richColors position="top-right" />
+        <div className="bg-white shadow-sm border-b px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-gray-900 leading-tight">Eukos Gestión</h1>
+              <p className="text-xs text-gray-500">Cliente · {user.nombre}</p>
+            </div>
+          </div>
+          <button onClick={logout} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg border border-gray-200 transition-colors">
+            <LogOut className="w-4 h-4" /> Salir
+          </button>
+        </div>
+        <MisPedidosCliente pedidos={pedidos} user={user} />
       </div>
     );
   }
@@ -188,6 +254,16 @@ export default function App() {
               <RefreshCw className="w-4 h-4" />
               <span className="hidden sm:inline">Actualizar</span>
             </button>
+            {!IS_DEMO && user && (
+              <button
+                onClick={logout}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200"
+                title={`Sesión: ${user.nombre} (${user.role})`}
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -379,6 +455,15 @@ export default function App() {
               pedidos={pedidos}
               clientes={clientes}
               cargarDatos={cargarDatos}
+            />
+          )}
+
+          {activeTab === 'usuarios' && (
+            <GestionUsuarios
+              camareros={camareros}
+              clientes={clientes}
+              baseUrl={baseUrl}
+              publicAnonKey={publicAnonKey}
             />
           )}
 

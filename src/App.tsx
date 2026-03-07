@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
 import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X, ChevronDown, Building2, Briefcase, UserCheck, QrCode, MessageSquare, Wrench, CalendarDays } from 'lucide-react';
 
@@ -15,6 +15,7 @@ import { supabaseFunctionEndpoint as baseUrl, supabaseAnonKey as publicAnonKey }
 import { getCamareros, getPedidos, getCoordinadores, getClientes } from './api/client';
 import type { Camarero, Pedido, Coordinador, Cliente } from './types';
 import { logger } from './utils/logger';
+import { playNotificationSound, loadNotifConfig } from './hooks/useNotificationSounds';
 
 // Aplicación de Gestión de Camareros para Eventos v2.2
 // Última actualización: Panel de Admin con gestión de Altas
@@ -50,6 +51,46 @@ export default function App() {
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  // ── Alerta sonora 24h antes del evento con perfiles sin confirmar ─────────
+  const alertas24hDisparadas = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    function checkAlertas() {
+      const cfg = loadNotifConfig();
+      const notif = cfg.find(n => n.id === 'alerta_24h');
+      if (!notif?.habilitada) return;
+
+      const ahora = Date.now();
+      const en24h = ahora + 24 * 60 * 60 * 1000;
+
+      for (const pedido of pedidos) {
+        const fechaEvento = new Date(pedido.diaEvento).getTime();
+        // Ventana: entre ahora y 24h desde ahora
+        if (fechaEvento <= ahora || fechaEvento > en24h) continue;
+
+        // ¿Tiene perfiles sin confirmar?
+        const asignaciones = pedido.asignaciones || [];
+        const totalRequeridos =
+          (parseInt(String(pedido.cantidadCamareros ?? 0))) +
+          (parseInt(String(pedido.cantidadCamareros2 ?? 0)));
+        const confirmados = asignaciones.filter((a: any) => a.estado === 'confirmado').length;
+        if (totalRequeridos > 0 && confirmados >= totalRequeridos) continue;
+
+        // Disparar solo una vez por pedido por sesión
+        if (alertas24hDisparadas.current.has(pedido.id)) continue;
+        alertas24hDisparadas.current.add(pedido.id);
+        playNotificationSound('alerta_24h', notif.volumen);
+        logger.info(`[Alerta 24h] Pedido ${pedido.numero} sin perfiles completos`);
+      }
+    }
+
+    // Chequeo inmediato y luego cada 30 minutos
+    checkAlertas();
+    const interval = setInterval(checkAlertas, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [pedidos]);
+  // ──────────────────────────────────────────────────────────────────────────
 
   const cargarDatos = async () => {
     setErrorCarga(null);

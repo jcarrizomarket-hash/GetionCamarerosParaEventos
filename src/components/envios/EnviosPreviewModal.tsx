@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, CheckCircle, XCircle, Send, Loader2 } from 'lucide-react';
 import { updatePedido, enviarWhatsApp } from '../../api/client';
+import { playNotificationSound, loadNotifConfig } from '../../hooks/useNotificationSounds';
 import {
   generarMensajeServicio,
   generarMensajeConfirmacion,
@@ -17,6 +18,12 @@ interface EnviosPreviewModalProps {
 }
 
 type EstadoEnvio = 'idle' | 'enviando' | 'ok' | 'error';
+
+function fireNotif(id: Parameters<typeof playNotificationSound>[0]) {
+  const cfg = loadNotifConfig();
+  const n = cfg.find(c => c.id === id);
+  if (n?.habilitada) playNotificationSound(id, n.volumen);
+}
 
 export function EnviosPreviewModal({
   selectedEvento,
@@ -94,6 +101,14 @@ export function EnviosPreviewModal({
         (a: any) => a.estado === 'confirmado'
       ).length;
 
+      // ── Sonidos ──────────────────────────────────────────────────────────
+      if (requeridos > 0 && confirmadosAhora >= requeridos) {
+        fireNotif('evento_completo');
+      } else {
+        fireNotif('perfil_acepta');
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       if (requeridos > 0 && confirmadosAhora >= requeridos) {
         // Enviar "SERVICIO COMPLETO" a todos los que aún tienen estado 'enviado' (no contestaron)
         const pendientesDeRespuesta = (pedidoActualizado.asignaciones || []).filter(
@@ -132,6 +147,7 @@ export function EnviosPreviewModal({
     try {
       const pedidoActualizado = await actualizarEstadoAsignacion(camareroId, 'rechazado');
       onEstadoActualizado(pedidoActualizado);
+      fireNotif('perfil_rechaza');
     } catch (err) {
       console.error(err);
     } finally {

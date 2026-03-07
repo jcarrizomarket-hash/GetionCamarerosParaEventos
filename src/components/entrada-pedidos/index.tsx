@@ -8,6 +8,7 @@ import { PedidoEntryList } from './PedidoEntryList';
 import { deduplicarPorId } from '../../utils/deduplicar';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ui/confirm-dialog';
+import { playNotificationSound as playSound, loadNotifConfig } from '../../hooks/useNotificationSounds';
 
 export function EntradaPedidos({
   clientes,
@@ -269,12 +270,9 @@ export function EntradaPedidos({
 
   // --- Lógica de Alertas y Sonido ---
   const playNotificationSound = () => {
-    try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.play().catch((e) => logger.warn('Audio autoplay blocked', e));
-    } catch (error) {
-      logger.error('Error playing sound', error);
-    }
+    const cfg = loadNotifConfig();
+    const notif = cfg.find(n => n.id === 'pedido_nuevo');
+    if (notif?.habilitada) playSound('pedido_nuevo', notif.volumen);
   };
 
   const enviarConfirmacionCliente = (pedido: Pedido) => {

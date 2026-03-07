@@ -1,6 +1,14 @@
 import { logger } from '../../utils/logger';
 import { useState } from 'react';
 import { useToast } from '../../hooks/useToast';
+import { playNotificationSound, loadNotifConfig } from '../../hooks/useNotificationSounds';
+import { isPedidoCompleto } from './utils';
+
+function fireNotif(id: Parameters<typeof playNotificationSound>[0]) {
+  const cfg = loadNotifConfig();
+  const n = cfg.find(c => c.id === id);
+  if (n?.habilitada) playNotificationSound(id, n.volumen);
+}
 
 interface PedidoActionsConfig {
   baseUrl: string;
@@ -65,7 +73,22 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
         body: JSON.stringify(updatedPedido)
       });
-      if (response.ok) { await cargarDatos(); setSelectedPedido(updatedPedido); }
+      if (response.ok) {
+        await cargarDatos();
+        setSelectedPedido(updatedPedido);
+        // ── Sonidos ──────────────────────────────────────────────────────
+        if (nuevoEstado === 'confirmado') {
+          // Primero chequeamos si con este confirmado el pedido queda completo
+          if (isPedidoCompleto(updatedPedido)) {
+            fireNotif('evento_completo');
+          } else {
+            fireNotif('perfil_acepta');
+          }
+        } else if (nuevoEstado === 'rechazado') {
+          fireNotif('perfil_rechaza');
+        }
+        // ─────────────────────────────────────────────────────────────────
+      }
     } catch (error) { logger.error('Error al cambiar estado:', error); }
   };
 

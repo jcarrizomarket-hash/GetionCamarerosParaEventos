@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
-import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X } from 'lucide-react';
+import { Users, FileText, LayoutDashboard, ShoppingCart, Settings, Send, Shield, AlertCircle, RefreshCw, FlaskConical, Menu, X, ChevronDown, Building2, Briefcase, UserCheck, QrCode, MessageSquare, Wrench } from 'lucide-react';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 import { Dashboard } from './components/dashboard';
@@ -21,6 +21,23 @@ import { logger } from './utils/logger';
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [expandedMenuTab, setExpandedMenuTab] = useState<string | null>(null);
+
+  const tabSubItems: Record<string, Array<{ id: string; label: string; icon: any }>> = {
+    pedidos: [
+      { id: 'clientes', label: 'Clientes', icon: Building2 },
+      { id: 'entrada-pedidos', label: 'Entrada de Pedidos', icon: Briefcase },
+    ],
+    admin: [
+      { id: 'coordinadores', label: 'Coordinadores', icon: Users },
+      { id: 'altas', label: 'Altas', icon: UserCheck },
+      { id: 'registros-qr', label: 'Registros QR', icon: QrCode },
+    ],
+    configuracion: [
+      { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+      { id: 'utilidades', label: 'Utilidades', icon: Wrench },
+    ],
+  };
   const [camareros, setCamareros] = useState<Camarero[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [coordinadores, setCoordinadores] = useState<Coordinador[]>([]);
@@ -172,19 +189,46 @@ export default function App() {
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = activeTab === tab.id;
+                const subItems = tabSubItems[tab.id];
+                const expanded = expandedMenuTab === tab.id;
                 return (
-                  <button
-                    key={tab.id}
-                    onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
-                    className={`w-full flex items-center gap-4 px-5 py-4 text-base font-medium transition-colors border-l-4 ${
-                      active
-                        ? 'border-blue-500 bg-blue-50 text-blue-600'
-                        : 'border-transparent text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-6 h-6 shrink-0" />
-                    {tab.label}
-                  </button>
+                  <div key={tab.id}>
+                    <button
+                      onClick={() => {
+                        if (subItems) {
+                          setExpandedMenuTab(expanded ? null : tab.id);
+                        } else {
+                          setActiveTab(tab.id);
+                          setMenuOpen(false);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-base font-medium transition-colors border-l-4 ${
+                        active
+                          ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : 'border-transparent text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Icon className="w-6 h-6 shrink-0" />
+                      <span className="flex-1 text-left">{tab.label}</span>
+                      {subItems && (
+                        <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                    {subItems && expanded && (
+                      <div className="bg-gray-50 border-l-4 border-blue-100">
+                        {subItems.map((sub) => (
+                          <button
+                            key={sub.id}
+                            onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                            className="w-full flex items-center gap-3 pl-14 pr-5 py-3.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
+                            <sub.icon className="w-4 h-4 shrink-0" />
+                            {sub.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

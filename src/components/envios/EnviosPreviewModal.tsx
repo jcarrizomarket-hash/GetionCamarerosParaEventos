@@ -171,8 +171,9 @@ export function EnviosPreviewModal({
   const titulo = modalidad === 'catering' ? '🍽️ Catering' : '🍴 Restauración';
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 z-[60] overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col" style={{maxHeight: 'calc(100vh - 2rem)'}}>
 
         {/* Header */}
         <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-green-600 to-green-700 text-white rounded-t-xl flex-shrink-0">
@@ -325,6 +326,7 @@ export function EnviosPreviewModal({
             Cerrar
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

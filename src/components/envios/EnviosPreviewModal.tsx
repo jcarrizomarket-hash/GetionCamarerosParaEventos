@@ -4,6 +4,7 @@ import { updatePedido, enviarWhatsApp } from '../../api/client';
 import {
   generarMensajeServicio,
   generarMensajeConfirmacion,
+  generarMensajeServicioCompleto,
   labelPerfil,
   type MensajeParams,
 } from './messageTemplates';
@@ -52,7 +53,7 @@ export function EnviosPreviewModal({
             ...a,
             estado: nuevoEstado,
             ...(nuevoEstado === 'rechazado'
-              ? { eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() }
+              ? { eliminacionProgramada: new Date(Date.now() + 10 * 60 * 1000).toISOString() }
               : { eliminacionProgramada: null }),
           }
         : a
@@ -70,6 +71,8 @@ export function EnviosPreviewModal({
     try {
       const pedidoActualizado = await actualizarEstadoAsignacion(camareroId, 'confirmado');
       onEstadoActualizado(pedidoActualizado);
+
+      // Enviar mensaje de confirmación con QR al que aceptó
       if (camarero?.telefono) {
         const msgConf = generarMensajeConfirmacion({
           fecha: selectedEvento.diaEvento,
@@ -80,6 +83,41 @@ export function EnviosPreviewModal({
         });
         await enviarWhatsApp(camarero.telefono, msgConf);
       }
+
+      // ── SERVICIO COMPLETO ──────────────────────────────────────────────
+      // Verificar si con esta confirmación se alcanza el cupo requerido
+      const requeridos =
+        (parseInt(selectedEvento.cantidadCamareros || 0)) +
+        (parseInt(selectedEvento.cantidadCamareros2 || 0));
+
+      const confirmadosAhora = (pedidoActualizado.asignaciones || []).filter(
+        (a: any) => a.estado === 'confirmado'
+      ).length;
+
+      if (requeridos > 0 && confirmadosAhora >= requeridos) {
+        // Enviar "SERVICIO COMPLETO" a todos los que aún tienen estado 'enviado' (no contestaron)
+        const pendientesDeRespuesta = (pedidoActualizado.asignaciones || []).filter(
+          (a: any) => a.estado === 'enviado'
+        );
+
+        if (pendientesDeRespuesta.length > 0) {
+          const msgCompleto = generarMensajeServicioCompleto({
+            fecha: selectedEvento.diaEvento,
+            cliente: selectedEvento.cliente,
+            evento: selectedEvento.nombre || selectedEvento.evento || selectedEvento.numero,
+            horaEntrada: selectedEvento.horaEntrada,
+          });
+
+          for (const pendiente of pendientesDeRespuesta) {
+            const camPendiente = camareros.find(c => c.id === pendiente.camareroId);
+            if (camPendiente?.telefono) {
+              await enviarWhatsApp(camPendiente.telefono, msgCompleto);
+            }
+          }
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────
+
       setEstadosEnvio(prev => ({ ...prev, [camareroId]: 'ok' }));
     } catch {
       setEstadosEnvio(prev => ({ ...prev, [camareroId]: 'error' }));

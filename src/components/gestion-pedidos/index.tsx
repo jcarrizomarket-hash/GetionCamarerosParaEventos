@@ -29,7 +29,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
   const { procesando, agregarCamarero, cambiarEstado, removerCamarero } = usePedidoActions({ baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });
   const { actualizarHoraSalidaIndividual, getHoraSalidaIndividual } = useHoraSalida({ uniquePedidos, baseUrl, publicAnonKey, cargarDatos: cargarDatos as () => Promise<void> });
 
-  // --- Efecto para eliminar asignaciones rechazadas después de 5 horas ---
+  // --- Efecto para eliminar asignaciones rechazadas después de 10 minutos ---
   useEffect(() => {
     const verificarEliminaciones = async () => {
       const ahora = new Date();

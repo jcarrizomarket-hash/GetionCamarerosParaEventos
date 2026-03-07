@@ -52,7 +52,7 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
     const asignaciones = selectedPedido.asignaciones.map((a: any) => {
       if (a.camareroId === camareroId) {
         if (nuevoEstado === 'rechazado') {
-          return { ...a, estado: nuevoEstado, eliminacionProgramada: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() };
+          return { ...a, estado: nuevoEstado, eliminacionProgramada: new Date(Date.now() + 10 * 60 * 1000).toISOString() };
         }
         return { ...a, estado: nuevoEstado, eliminacionProgramada: null };
       }

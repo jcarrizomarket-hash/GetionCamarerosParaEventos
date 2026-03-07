@@ -137,4 +137,27 @@ export function generarMensajeConfirmacion(params: {
   ].join('\n');
 }
 
+/** Mensaje enviado a perfiles que no contestaron cuando el servicio queda completo */
+export function generarMensajeServicioCompleto(params: {
+  fecha: string;
+  cliente: string;
+  evento: string;
+  horaEntrada: string;
+}): string {
+  const diaStr = new Date(params.fecha).toLocaleDateString('es-ES', { weekday: 'long' });
+  const fechaCorta = new Date(params.fecha).toLocaleDateString('es-ES');
+  return [
+    '🔔 *SERVICIO COMPLETO*',
+    '',
+    'El cupo de personal para este servicio ya está cubierto.',
+    'No es necesaria tu asistencia.',
+    '',
+    `📅 ${diaStr.charAt(0).toUpperCase() + diaStr.slice(1)}, ${fechaCorta}`,
+    `👤 *${params.cliente}* | ${params.evento}`,
+    `🕐 *Hora de entrada:* ${params.horaEntrada}`,
+    '',
+    'Gracias por tu disponibilidad. 🙌',
+  ].join('\n');
+}
+
 export { formatFecha, labelPerfil, calcularHoraEncuentro };

@@ -4,14 +4,14 @@ import { logger } from 'npm:hono/logger';
 import { z } from 'npm:zod@3';
 import { createClient } from 'npm:@supabase/supabase-js@2.98.0';
 import * as kv from './kv_store.tsx';
-import { requireAuth, kvRateLimit } from './middleware';
+import { requireAuth, kvRateLimit } from './middleware.ts';
 import { validate, validationError } from './validate.ts';
 import {
   CreateClienteSchema, UpdateClienteSchema,
   CreateCamareroSchema, UpdateCamareroSchema,
   CreateCoordinadorSchema, UpdateCoordinadorSchema,
   CreatePedidoSchema, UpdatePedidoSchema,
-} from '../../schemas/index.ts';
+} from '../schemas/index.ts';
 
 const app = new Hono();
 

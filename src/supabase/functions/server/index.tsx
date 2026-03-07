@@ -17,6 +17,8 @@ const app = new Hono();
 
 // Restrict CORS to the production frontend; allow localhost in development
 const allowedOrigins = [
+  'https://www.eukosgestion.com',
+  'https://eukosgestion.com',
   'https://appservice.jcarrizo.com',
   'http://localhost:5173',
   'http://localhost:3000',

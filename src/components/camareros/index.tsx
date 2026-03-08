@@ -25,26 +25,11 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     onConfirm: () => void;
   }>({ open: false, message: '', onConfirm: () => {} });
 
-  const confirmResolveRef = useRef<((v: boolean) => void) | null>(null);
-
   const showConfirm = (message: string): Promise<boolean> =>
-    new Promise((resolve) => {
-      confirmResolveRef.current = resolve;
-      setConfirmState({
-        open: true,
-        message,
-        onConfirm: () => {
-          setConfirmState(s => ({ ...s, open: false }));
-          confirmResolveRef.current?.(true);
-          confirmResolveRef.current = null;
-        },
-      });
-    });
+    Promise.resolve(window.confirm(message));
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));
-    confirmResolveRef.current?.(false);
-    confirmResolveRef.current = null;
   };
 
   const { roles } = useRoles();

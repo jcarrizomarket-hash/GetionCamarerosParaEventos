@@ -27,7 +27,7 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
     if (yaAsignado) { toast.warning('Este camarero ya está asignado a este evento'); return; }
     setProcesando(true);
     const cant1 = parseInt(selectedPedido.cantidadCamareros || 0);
-    const asignadosTurno1 = asignaciones.filter((_: any, idx: number) => idx < cant1).length;
+    const asignadosTurno1 = asignaciones.filter((a: any) => a.turno === 1).length;
     const turno = asignadosTurno1 < cant1 ? 1 : 2;
     const nuevaAsignacion = {
       camareroId: camarero.id,

@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, AlertTriangle } from 'lucide-react';
 import { CamarerosProps, FormData } from './types';
 import { exportarAExcel as exportarAExcelUtil, importarDesdeExcel as importarDesdeExcelUtil } from './camareroExcelUtils';
@@ -25,20 +25,26 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     onConfirm: () => void;
   }>({ open: false, message: '', onConfirm: () => {} });
 
+  const confirmResolveRef = useRef<((v: boolean) => void) | null>(null);
+
   const showConfirm = (message: string): Promise<boolean> =>
     new Promise((resolve) => {
+      confirmResolveRef.current = resolve;
       setConfirmState({
         open: true,
         message,
         onConfirm: () => {
           setConfirmState(s => ({ ...s, open: false }));
-          resolve(true);
+          confirmResolveRef.current?.(true);
+          confirmResolveRef.current = null;
         },
       });
     });
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));
+    confirmResolveRef.current?.(false);
+    confirmResolveRef.current = null;
   };
 
   const { roles } = useRoles();

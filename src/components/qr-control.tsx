@@ -24,16 +24,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    new Promise((resolve) => {
-      setConfirmState({
-        open: true,
-        message,
-        onConfirm: () => {
-          setConfirmState(s => ({ ...s, open: false }));
-          resolve(true);
-        },
-      });
-    });
+    Promise.resolve(window.confirm(message));
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

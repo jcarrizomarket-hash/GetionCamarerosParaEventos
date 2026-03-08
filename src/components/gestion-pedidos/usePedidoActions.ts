@@ -20,7 +20,7 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
   const [procesando, setProcesando] = useState(false);
   const toast = useToast();
 
-  const agregarCamarero = async (camarero: any, selectedPedido: any, setSelectedPedido: (p: any) => void) => {
+  const agregarCamarero = async (camarero: any, selectedPedido: any, setSelectedPedido: (p: any) => void, turnoForzado?: number) => {
     if (!selectedPedido || procesando) return;
     const asignaciones = selectedPedido.asignaciones || [];
     const yaAsignado = asignaciones.find((a: any) => a.camareroId === camarero.id);
@@ -28,7 +28,7 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
     setProcesando(true);
     const cant1 = parseInt(selectedPedido.cantidadCamareros || 0);
     const asignadosTurno1 = asignaciones.filter((a: any) => a.turno === 1).length;
-    const turno = asignadosTurno1 < cant1 ? 1 : 2;
+    const turno = turnoForzado ?? (asignadosTurno1 < cant1 ? 1 : 2);
     const nuevaAsignacion = {
       camareroId: camarero.id,
       camareroNombre: `${camarero.nombre} ${camarero.apellido}`,

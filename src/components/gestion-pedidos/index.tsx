@@ -151,7 +151,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
         camarerosDisponibles={camarerosDisponibles}
         filtroCamarero={filtroCamarero}
         setFiltroCamarero={setFiltroCamarero}
-        agregarCamarero={(camarero) => agregarCamarero(camarero, selectedPedido, setSelectedPedido)}
+        agregarCamarero={(camarero, turno) => agregarCamarero(camarero, selectedPedido, setSelectedPedido, turno)}
         cambiarEstado={(camareroId, nuevoEstado) => cambiarEstado(camareroId, nuevoEstado, selectedPedido, setSelectedPedido)}
         removerCamarero={(camareroId) => removerCamarero(camareroId, selectedPedido, setSelectedPedido)}
         procesando={procesando}

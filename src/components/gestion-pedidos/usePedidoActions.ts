@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useToast } from '../../hooks/useToast';
 import { playNotificationSound, loadNotifConfig } from '../../hooks/useNotificationSounds';
 import { isPedidoCompleto } from './utils';
+import { generarMensajeServicioCompleto } from '../envios/messageTemplates';
 
 function fireNotif(id: Parameters<typeof playNotificationSound>[0]) {
   const cfg = loadNotifConfig();
@@ -81,6 +82,22 @@ export function usePedidoActions({ baseUrl, publicAnonKey, cargarDatos }: Pedido
           // Primero chequeamos si con este confirmado el pedido queda completo
           if (isPedidoCompleto(updatedPedido)) {
             fireNotif('evento_completo');
+            // Notificar a los que están en estado 'enviado' que el cupo está cubierto
+            const pendientesDeConfirmar = updatedPedido.asignaciones.filter((a: any) => a.estado === 'enviado');
+            if (pendientesDeConfirmar.length > 0) {
+              const mensaje = generarMensajeServicioCompleto({
+                fecha: updatedPedido.diaEvento,
+                cliente: updatedPedido.cliente,
+                evento: updatedPedido.lugar,
+                horaEntrada: updatedPedido.horaEntrada,
+              });
+              pendientesDeConfirmar.forEach((a: any) => {
+                if (a.camareroTelefono) {
+                  const tel = a.camareroTelefono.replace(/\D/g, '');
+                  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`, '_blank');
+                }
+              });
+            }
           } else {
             fireNotif('perfil_acepta');
           }

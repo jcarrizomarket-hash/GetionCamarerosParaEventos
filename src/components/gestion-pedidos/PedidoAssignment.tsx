@@ -29,7 +29,7 @@ export function PedidoAssignment({
   const cant1 = parseInt(selectedPedido.cantidadCamareros || 0);
   const cant2 = parseInt(selectedPedido.cantidadCamareros2 || 0);
   const asignaciones = selectedPedido.asignaciones || [];
-  const turno1 = asignaciones.filter((a: any) => a.turno === 1 || !a.turno);
+  const turno1 = asignaciones.filter((a: any) => a.turno === 1 || (!a.turno && a.turno !== 2));
   const turno2 = asignaciones.filter((a: any) => a.turno === 2);
 
   function AsignadoCard({ asignacion, idxAsig }: { asignacion: any; idxAsig: number }) {
@@ -142,7 +142,7 @@ export function PedidoAssignment({
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => agregarCamarero(camarero, 1)}
-                        disabled={procesando || turno1.length >= cant1}
+                        disabled={procesando}
                         className="px-2.5 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         title={`Turno 1: ${selectedPedido.horaEntrada}`}
                       >
@@ -150,7 +150,7 @@ export function PedidoAssignment({
                       </button>
                       <button
                         onClick={() => agregarCamarero(camarero, 2)}
-                        disabled={procesando || turno2.length >= cant2}
+                        disabled={procesando}
                         className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         title={`Turno 2: ${selectedPedido.horaEntrada2}`}
                       >

@@ -1,7 +1,6 @@
 import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
-import { z } from 'npm:zod@3';
 import { createClient } from 'npm:@supabase/supabase-js@2.98.0';
 import { requireAuth } from './middleware.ts';
 import { validate, validationError } from './validate.ts';
@@ -38,7 +37,7 @@ const db = createClient(
 app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   const { data, error } = await db.from('clientes').select('*').order('nombre');
   if (error) return c.json({ success: false, error: error.message }, 500);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: (data ?? []).map(mapClienteToFrontend) });
 });
 
 app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
@@ -46,10 +45,13 @@ app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
     const body = await c.req.json();
     const parsed = validate(CreateClienteSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const id = `cliente:${Date.now()}`;
-    const { data, error } = await db.from('clientes').insert({ id, ...parsed.data }).select().single();
+    const { data, error } = await db.from('clientes').insert({
+      nombre: parsed.data.nombre,
+      telefono: parsed.data.telefono,
+      email: parsed.data.email,
+    }).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapClienteToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
@@ -57,20 +59,24 @@ app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
 
 app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
-    const id = decodeURIComponent(c.req.param('id'));
+    const id = parseInt(c.req.param('id').replace('cliente:', ''));
     const body = await c.req.json();
     const parsed = validate(UpdateClienteSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const { data, error } = await db.from('clientes').update(parsed.data).eq('id', id).select().single();
+    const { data, error } = await db.from('clientes').update({
+      nombre: parsed.data.nombre,
+      telefono: parsed.data.telefono,
+      email: parsed.data.email,
+    }).eq('id', id).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapClienteToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
 });
 
 app.delete('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
-  const id = decodeURIComponent(c.req.param('id'));
+  const id = parseInt(c.req.param('id').replace('cliente:', ''));
   const { error } = await db.from('clientes').delete().eq('id', id);
   if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({ success: true });
@@ -80,7 +86,7 @@ app.delete('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
 app.get('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
   const { data, error } = await db.from('camareros').select('*').order('numero');
   if (error) return c.json({ success: false, error: error.message }, 500);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: (data ?? []).map(mapCamareroToFrontend) });
 });
 
 app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
@@ -90,10 +96,16 @@ app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
     if (!parsed.success) return validationError(c, parsed.error);
     const { count } = await db.from('camareros').select('*', { count: 'exact', head: true });
     const numero = (count ?? 0) + 1;
-    const id = `camarero:${Date.now()}`;
-    const { data, error } = await db.from('camareros').insert({ id, numero, ...parsed.data }).select().single();
+    const { data, error } = await db.from('camareros').insert({
+      numero,
+      nombre: parsed.data.nombre,
+      telefono: parsed.data.telefono,
+      email: parsed.data.email,
+      estado: parsed.data.activo === false ? 'inactivo' : 'activo',
+      comentarios: (parsed.data as any).notas,
+    }).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapCamareroToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
@@ -101,20 +113,26 @@ app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
 
 app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
   try {
-    const id = decodeURIComponent(c.req.param('id'));
+    const id = parseInt(c.req.param('id').replace('camarero:', ''));
     const body = await c.req.json();
     const parsed = validate(UpdateCamareroSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const { data, error } = await db.from('camareros').update(parsed.data).eq('id', id).select().single();
+    const update: any = {};
+    if (parsed.data.nombre !== undefined) update.nombre = parsed.data.nombre;
+    if (parsed.data.telefono !== undefined) update.telefono = parsed.data.telefono;
+    if (parsed.data.email !== undefined) update.email = parsed.data.email;
+    if (parsed.data.activo !== undefined) update.estado = parsed.data.activo ? 'activo' : 'inactivo';
+    if ((parsed.data as any).notas !== undefined) update.comentarios = (parsed.data as any).notas;
+    const { data, error } = await db.from('camareros').update(update).eq('id', id).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapCamareroToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
 });
 
 app.delete('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
-  const id = decodeURIComponent(c.req.param('id'));
+  const id = parseInt(c.req.param('id').replace('camarero:', ''));
   const { error } = await db.from('camareros').delete().eq('id', id);
   if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({ success: true });
@@ -122,9 +140,9 @@ app.delete('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
 
 // ============== COORDINADORES ==============
 app.get('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
-  const { data, error } = await db.from('coordinadores').select('*').order('numero');
+  const { data, error } = await db.from('coordinadores').select('*').order('nombre');
   if (error) return c.json({ success: false, error: error.message }, 500);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: (data ?? []).map(mapCoordinadorToFrontend) });
 });
 
 app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
@@ -132,12 +150,14 @@ app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
     const body = await c.req.json();
     const parsed = validate(CreateCoordinadorSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const { count } = await db.from('coordinadores').select('*', { count: 'exact', head: true });
-    const numero = (count ?? 0) + 1;
-    const id = `coordinador:${Date.now()}`;
-    const { data, error } = await db.from('coordinadores').insert({ id, numero, ...parsed.data }).select().single();
+    const { data, error } = await db.from('coordinadores').insert({
+      nombre: parsed.data.nombre,
+      telefono: parsed.data.telefono,
+      email: parsed.data.email,
+      activo: parsed.data.activo !== false,
+    }).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapCoordinadorToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
@@ -145,20 +165,25 @@ app.post('/make-server-25b11ac0/coordinadores', requireAuth, async (c) => {
 
 app.put('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
   try {
-    const id = decodeURIComponent(c.req.param('id'));
+    const id = parseInt(c.req.param('id').replace('coordinador:', ''));
     const body = await c.req.json();
     const parsed = validate(UpdateCoordinadorSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const { data, error } = await db.from('coordinadores').update(parsed.data).eq('id', id).select().single();
+    const { data, error } = await db.from('coordinadores').update({
+      nombre: parsed.data.nombre,
+      telefono: parsed.data.telefono,
+      email: parsed.data.email,
+      activo: parsed.data.activo,
+    }).eq('id', id).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mapCoordinadorToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
 });
 
 app.delete('/make-server-25b11ac0/coordinadores/:id', requireAuth, async (c) => {
-  const id = decodeURIComponent(c.req.param('id'));
+  const id = parseInt(c.req.param('id').replace('coordinador:', ''));
   const { error } = await db.from('coordinadores').delete().eq('id', id);
   if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({ success: true });
@@ -176,9 +201,7 @@ app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
     const body = await c.req.json();
     const parsed = validate(CreatePedidoSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const id = `pedido:${Date.now()}`;
-    const row = mapPedidoToDb({ id, ...parsed.data });
-    const { data, error } = await db.from('pedidos').insert(row).select().single();
+    const { data, error } = await db.from('pedidos').insert(mapPedidoToDb(parsed.data)).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
     return c.json({ success: true, data: mapPedidoToFrontend(data) });
   } catch (e: any) {
@@ -188,12 +211,11 @@ app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
 
 app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
   try {
-    const id = decodeURIComponent(c.req.param('id'));
+    const id = parseInt(c.req.param('id').replace('pedido:', ''));
     const body = await c.req.json();
     const parsed = validate(UpdatePedidoSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
-    const row = mapPedidoToDb(parsed.data);
-    const { data, error } = await db.from('pedidos').update(row).eq('id', id).select().single();
+    const { data, error } = await db.from('pedidos').update(mapPedidoToDb(parsed.data)).eq('id', id).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
     return c.json({ success: true, data: mapPedidoToFrontend(data) });
   } catch (e: any) {
@@ -202,7 +224,7 @@ app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
 });
 
 app.delete('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
-  const id = decodeURIComponent(c.req.param('id'));
+  const id = parseInt(c.req.param('id').replace('pedido:', ''));
   const { error } = await db.from('pedidos').delete().eq('id', id);
   if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({ success: true });
@@ -302,48 +324,90 @@ app.put('/make-server-25b11ac0/usuarios/:id', requireAuth, async (c) => {
 });
 
 // ============== HELPERS ==============
+function mapClienteToFrontend(r: any) {
+  return {
+    id: `cliente:${r.id}`,
+    nombre: r.nombre,
+    telefono: r.telefono,
+    email: r.email,
+    createdAt: r.created_at,
+  };
+}
+
+function mapCamareroToFrontend(r: any) {
+  return {
+    id: `camarero:${r.id}`,
+    numero: r.numero,
+    nombre: r.nombre,
+    apellidos: r.apellido,
+    telefono: r.telefono,
+    email: r.email,
+    tipoPerfil: r.tipo_perfil,
+    activo: r.estado === 'activo',
+    notas: r.comentarios,
+    idiomas: r.idiomas ?? [],
+    createdAt: r.created_at,
+  };
+}
+
+function mapCoordinadorToFrontend(r: any) {
+  return {
+    id: `coordinador:${r.id}`,
+    nombre: r.nombre,
+    telefono: r.telefono,
+    email: r.email,
+    activo: r.activo,
+    createdAt: r.created_at,
+  };
+}
+
 function mapPedidoToDb(p: any) {
   return {
-    id: p.id,
+    numero: p.numero,
     cliente: p.cliente,
     lugar: p.lugar,
+    ubicacion: p.ubicacion,
     dia_evento: p.diaEvento,
+    cantidad_camareros: p.cantidadCamareros,
     hora_entrada: p.horaEntrada,
     hora_salida: p.horaSalida,
+    total_horas: p.totalHoras,
+    cantidad_camareros2: p.cantidadCamareros2,
     hora_entrada2: p.horaEntrada2,
     hora_salida2: p.horaSalida2,
-    cantidad_camareros: p.cantidadCamareros,
-    cantidad_camareros2: p.cantidadCamareros2,
-    total_horas: p.totalHoras,
+    total_horas2: p.totalHoras2,
     catering: p.catering,
+    tiempo_viaje: p.tiempoViaje,
     camisa: p.camisa,
     notas: p.notas,
-    coordinador_id: p.coordinadorId,
     coordinador_nombre: p.coordinadorNombre,
     asignaciones: p.asignaciones ?? [],
   };
 }
 
-function mapPedidoToFrontend(p: any) {
+function mapPedidoToFrontend(r: any) {
   return {
-    id: p.id,
-    cliente: p.cliente,
-    lugar: p.lugar,
-    diaEvento: p.dia_evento,
-    horaEntrada: p.hora_entrada,
-    horaSalida: p.hora_salida,
-    horaEntrada2: p.hora_entrada2,
-    horaSalida2: p.hora_salida2,
-    cantidadCamareros: p.cantidad_camareros,
-    cantidadCamareros2: p.cantidad_camareros2,
-    totalHoras: p.total_horas,
-    catering: p.catering,
-    camisa: p.camisa,
-    notas: p.notas,
-    coordinadorId: p.coordinador_id,
-    coordinadorNombre: p.coordinador_nombre,
-    asignaciones: p.asignaciones ?? [],
-    createdAt: p.created_at,
+    id: `pedido:${r.id}`,
+    numero: r.numero,
+    cliente: r.cliente,
+    lugar: r.lugar,
+    ubicacion: r.ubicacion,
+    diaEvento: r.dia_evento,
+    cantidadCamareros: r.cantidad_camareros,
+    horaEntrada: r.hora_entrada,
+    horaSalida: r.hora_salida,
+    totalHoras: r.total_horas,
+    cantidadCamareros2: r.cantidad_camareros2,
+    horaEntrada2: r.hora_entrada2,
+    horaSalida2: r.hora_salida2,
+    totalHoras2: r.total_horas2,
+    catering: r.catering,
+    tiempoViaje: r.tiempo_viaje,
+    camisa: r.camisa,
+    notas: r.notas,
+    coordinadorNombre: r.coordinador_nombre,
+    asignaciones: r.asignaciones ?? [],
+    createdAt: r.created_at,
   };
 }
 

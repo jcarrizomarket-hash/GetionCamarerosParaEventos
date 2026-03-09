@@ -36,7 +36,10 @@ const db = createClient(
 // ============== CLIENTES ==============
 app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   const { data, error } = await db.from('clientes').select('*').order('nombre');
-  if (error) return c.json({ success: false, error: error.message }, 500);
+  if (error) {
+    console.error('clientes GET error:', JSON.stringify(error));
+    return c.json({ success: false, error: error.message }, 500);
+  }
   return c.json({ success: true, data: (data ?? []).map(mapClienteToFrontend) });
 });
 

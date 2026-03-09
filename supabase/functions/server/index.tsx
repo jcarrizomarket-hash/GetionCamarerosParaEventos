@@ -232,10 +232,12 @@ app.get('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
 app.post('/make-server-25b11ac0/pedidos', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
-    const parsed = validate(CreatePedidoSchema, body);
-    if (!parsed.success) return validationError(c, parsed.error);
-    const { data, error } = await db.from('pedidos').insert(mapPedidoToDb(parsed.data)).select().single();
-    if (error) return c.json({ success: false, error: error.message }, 500);
+    if (!body.numero) return c.json({ success: false, error: 'numero requerido' }, 400);
+    const { data, error } = await db.from('pedidos').insert(mapPedidoToDb(body)).select().single();
+    if (error) {
+      console.error('pedidos POST error:', JSON.stringify(error));
+      return c.json({ success: false, error: error.message }, 500);
+    }
     return c.json({ success: true, data: mapPedidoToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
@@ -246,10 +248,11 @@ app.put('/make-server-25b11ac0/pedidos/:id', requireAuth, async (c) => {
   try {
     const id = parseInt(c.req.param('id').replace('pedido:', ''));
     const body = await c.req.json();
-    const parsed = validate(UpdatePedidoSchema, body);
-    if (!parsed.success) return validationError(c, parsed.error);
-    const { data, error } = await db.from('pedidos').update(mapPedidoToDb(parsed.data)).eq('id', id).select().single();
-    if (error) return c.json({ success: false, error: error.message }, 500);
+    const { data, error } = await db.from('pedidos').update(mapPedidoToDb(body)).eq('id', id).select().single();
+    if (error) {
+      console.error('pedidos PUT error:', JSON.stringify(error));
+      return c.json({ success: false, error: error.message }, 500);
+    }
     return c.json({ success: true, data: mapPedidoToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);

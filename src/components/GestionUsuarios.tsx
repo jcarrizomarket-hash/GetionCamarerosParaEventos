@@ -51,16 +51,23 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
   async function cargarUsuarios() {
     setCargando(true);
     try {
+      console.log('🔍 Cargando usuarios desde:', `${baseUrl}/usuarios`);
       const response = await fetch(`${baseUrl}/usuarios`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` },
       });
-      const result = await response.json();
+      console.log('📡 Status:', response.status);
+      const text = await response.text();
+      console.log('📦 Response:', text);
+      const result = JSON.parse(text);
       if (result.success && result.data) {
         setUsuarios(result.data);
       } else {
+        setError(result.error || 'Error al cargar usuarios');
         setUsuarios([]);
       }
-    } catch {
+    } catch (e: any) {
+      console.error('❌ Error:', e);
+      setError(e.message);
       setUsuarios([]);
     }
     setCargando(false);

@@ -210,31 +210,29 @@ function TabCoordinadores({ coordinadores, onRefresh }: { coordinadores: any[]; 
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-base font-semibold text-gray-900">{editando ? 'Editar Coordinador' : 'Nuevo Coordinador'}</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Nombre *</label>
-                <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Teléfono</label>
-                <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} placeholder="+34 600 000 000" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Email</label>
-                <input type="email" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="coordinador@empresa.com" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="activo" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="h-4 w-4 rounded border-gray-300 text-indigo-600" />
-                <label htmlFor="activo" className="text-sm text-gray-700">Activo</label>
-              </div>
+        <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
+          <h3 className="mb-4 text-base font-semibold text-gray-900">{editando ? 'Editar Coordinador' : 'Nuevo Coordinador'}</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Nombre *</label>
+              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
             </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
-              <button onClick={handleSave} disabled={saving || !form.nombre.trim()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar'}</button>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Teléfono</label>
+              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} placeholder="+34 600 000 000" />
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Email</label>
+              <input type="email" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="coordinador@empresa.com" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="activo" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="h-4 w-4 rounded border-gray-300 text-indigo-600" />
+              <label htmlFor="activo" className="text-sm text-gray-700">Activo</label>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={handleSave} disabled={saving || !form.nombre.trim()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar'}</button>
+            <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
           </div>
         </div>
       )}

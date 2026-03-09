@@ -52,8 +52,10 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
     setCargando(true);
     try {
       console.log('🔍 Cargando usuarios desde:', `${baseUrl}/usuarios`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || publicAnonKey;
       const response = await fetch(`${baseUrl}/usuarios`, {
-        headers: { Authorization: `Bearer ${publicAnonKey}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       console.log('📡 Status:', response.status);
       const text = await response.text();
@@ -76,9 +78,11 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
   async function eliminarUsuario(id: string) {
     if (!window.confirm('¿Eliminar este usuario?')) return;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || publicAnonKey;
       const response = await fetch(`${baseUrl}/usuarios/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${publicAnonKey}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const result = await response.json();
       if (result.success) cargarUsuarios();

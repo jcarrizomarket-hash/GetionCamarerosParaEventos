@@ -15,6 +15,7 @@ import { supabase } from '../../hooks/useAuth';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editingCamarero, setEditingCamarero] = useState<any>(null);
   const [activeFormTab, setActiveFormTab] = useState('general');
   const [verApercibidos, setVerApercibidos] = useState(false);
@@ -245,6 +246,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       toast.warning('Por favor completa el nombre');
       return;
     }
+    if (submitting) return;
+    setSubmitting(true);
 
     const endpoint = editingCamarero ? `${baseUrl}/camareros/${editingCamarero.id}` : `${baseUrl}/camareros`;
     const method = editingCamarero ? 'PUT' : 'POST';
@@ -266,7 +269,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       } else {
         toast.error(result.error || 'Error al guardar');
       }
-    } catch (error) { logger.error('Error:', error); }
+    } catch (error) { logger.error('Error:', error); } finally { setSubmitting(false); }
   };
 
   const editarCamarero = (camarero: any) => {
@@ -407,6 +410,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         formData={formData}
         setFormData={setFormData}
         handleSubmit={handleSubmit}
+        submitting={submitting}
         resetForm={resetForm}
         toggleListValue={toggleListValue}
         coordinadores={coordinadores}

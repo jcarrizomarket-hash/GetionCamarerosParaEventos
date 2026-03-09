@@ -24,18 +24,6 @@ const allowedOrigins = [
   'http://localhost:3000',
 ];
 
-// Hono recibe /server/make-server-XXX/ruta cuando Supabase incluye el nombre
-// de la función en el path. Reescribimos internamente sin redirect.
-app.use('*', async (c, next) => {
-  const url = new URL(c.req.url);
-  if (url.pathname.startsWith('/server/make-server-')) {
-    url.pathname = url.pathname.replace('/server/make-server-', '/make-server-');
-    const newReq = new Request(url.toString(), c.req.raw);
-    c.req = Object.assign(c.req, { raw: newReq });
-  }
-  return next();
-});
-
 app.use('*', cors({
   origin: (origin) => allowedOrigins.includes(origin) ? origin : null,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -501,4 +489,11 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
   }
 }
 
-Deno.serve(app.fetch);
+// Supabase incluye el nombre de la función en el path cuando se llama como
+// /functions/v1/server/make-server-XXX/ruta. Creamos un router raíz que
+// reenvía ambos patrones al mismo handler.
+const root = new Hono();
+root.route('/server', app);
+root.route('/', app);
+
+Deno.serve(root.fetch);

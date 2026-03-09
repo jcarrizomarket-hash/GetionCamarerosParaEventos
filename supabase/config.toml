@@ -1,2 +1,2 @@
 [functions.server]
-entrypoint = "supabase/functions/server/index.tsx"
+entrypoint = "functions/server/index.tsx"

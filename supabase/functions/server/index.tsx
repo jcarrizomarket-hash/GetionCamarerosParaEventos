@@ -36,22 +36,23 @@ const db = createClient(
 // ============== CLIENTES ==============
 app.get('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   const { data, error } = await db.from('clientes').select('*').order('nombre');
-  if (error) {
-    console.error('clientes GET error:', JSON.stringify(error));
-    return c.json({ success: false, error: error.message }, 500);
-  }
+  if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({ success: true, data: (data ?? []).map(mapClienteToFrontend) });
 });
 
 app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
   try {
-    const body = await c.req.json();
-    const parsed = validate(CreateClienteSchema, body);
-    if (!parsed.success) return validationError(c, parsed.error);
+    const d = await c.req.json();
+    if (!d.nombre) return c.json({ success: false, error: 'nombre requerido' }, 400);
     const { data, error } = await db.from('clientes').insert({
-      nombre: parsed.data.nombre,
-      telefono: parsed.data.telefono,
-      email: parsed.data.email,
+      nombre: d.nombre,
+      contacto1: d.contacto1 || null,
+      contacto2: d.contacto2 || null,
+      telefono1: d.telefono1 || null,
+      telefono2: d.telefono2 || null,
+      mail1: d.mail1 || null,
+      mail2: d.mail2 || null,
+      notas: d.notas || null,
     }).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
     return c.json({ success: true, data: mapClienteToFrontend(data) });
@@ -63,15 +64,21 @@ app.post('/make-server-25b11ac0/clientes', requireAuth, async (c) => {
 app.put('/make-server-25b11ac0/clientes/:id', requireAuth, async (c) => {
   try {
     const id = parseInt(c.req.param('id').replace('cliente:', ''));
-    const body = await c.req.json();
-    const parsed = validate(UpdateClienteSchema, body);
-    if (!parsed.success) return validationError(c, parsed.error);
+    const d = await c.req.json();
     const { data, error } = await db.from('clientes').update({
-      nombre: parsed.data.nombre,
-      telefono: parsed.data.telefono,
-      email: parsed.data.email,
+      nombre: d.nombre,
+      contacto1: d.contacto1 || null,
+      contacto2: d.contacto2 || null,
+      telefono1: d.telefono1 || null,
+      telefono2: d.telefono2 || null,
+      mail1: d.mail1 || null,
+      mail2: d.mail2 || null,
+      notas: d.notas || null,
     }).eq('id', id).select().single();
-    if (error) return c.json({ success: false, error: error.message }, 500);
+    if (error) {
+      console.error('clientes PUT error:', JSON.stringify(error));
+      return c.json({ success: false, error: error.message }, 500);
+    }
     return c.json({ success: true, data: mapClienteToFrontend(data) });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);

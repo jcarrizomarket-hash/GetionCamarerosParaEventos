@@ -31,7 +31,7 @@ interface GestionUsuariosProps {
   publicAnonKey: string;
 }
 
-export function GestionUsuarios({ camareros, clientes }: GestionUsuariosProps) {
+export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }: GestionUsuariosProps) {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   const [form, setForm] = useState({
@@ -50,17 +50,32 @@ export function GestionUsuarios({ camareros, clientes }: GestionUsuariosProps) {
 
   async function cargarUsuarios() {
     setCargando(true);
-    // Listar usuarios via Admin API requiere service_role — usamos una Edge Function
-    // Por ahora listamos desde el metadata de la sesión actual
-    // En producción esto se haría con una Edge Function admin
-    const { data, error } = await supabase.auth.admin?.listUsers?.() ?? { data: null, error: null };
-    if (data?.users) {
-      setUsuarios(data.users);
-    } else {
-      // Fallback: no podemos listar desde el cliente anon
+    try {
+      const response = await fetch(`${baseUrl}/usuarios`, {
+        headers: { Authorization: `Bearer ${publicAnonKey}` },
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        setUsuarios(result.data);
+      } else {
+        setUsuarios([]);
+      }
+    } catch {
       setUsuarios([]);
     }
     setCargando(false);
+  }
+
+  async function eliminarUsuario(id: string) {
+    if (!window.confirm('¿Eliminar este usuario?')) return;
+    try {
+      const response = await fetch(`${baseUrl}/usuarios/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${publicAnonKey}` },
+      });
+      const result = await response.json();
+      if (result.success) cargarUsuarios();
+    } catch {}
   }
 
   async function crearUsuario(e: React.FormEvent) {
@@ -233,8 +248,7 @@ export function GestionUsuarios({ camareros, clientes }: GestionUsuariosProps) {
           <div className="text-center py-8 text-gray-400">Cargando...</div>
         ) : usuarios.length === 0 ? (
           <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-            <p className="text-sm">La lista de usuarios requiere acceso admin a Supabase.</p>
-            <p className="text-xs mt-1">Podés verlos en: supabase.com → Authentication → Users</p>
+            <p className="text-sm">No hay usuarios registrados.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -243,13 +257,24 @@ export function GestionUsuarios({ camareros, clientes }: GestionUsuariosProps) {
               return (
                 <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div>
-                    <p className="font-medium text-gray-900 text-sm">{u.user_metadata?.nombre || u.email}</p>
+                    <p className="font-medium text-gray-900 text-sm">{u.nombre || u.email}</p>
                     <p className="text-xs text-gray-500">{u.email}</p>
+                    {u.camareroId && <p className="text-xs text-purple-600">Camarero vinculado</p>}
+                    {u.clienteNombre && <p className="text-xs text-green-600">Cliente: {u.clienteNombre}</p>}
                   </div>
-                  <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[role]}`}>
-                    <RoleIcon role={role} />
-                    {ROLE_LABELS[role]}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[role]}`}>
+                      <RoleIcon role={role} />
+                      {ROLE_LABELS[role]}
+                    </span>
+                    <button
+                      onClick={() => eliminarUsuario(u.id)}
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}

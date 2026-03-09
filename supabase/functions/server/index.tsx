@@ -346,6 +346,67 @@ app.get('/make-server-25b11ac0/informes/camarero', requireAuth, async (c) => {
 });
 
 // ============== CONFIRMACIONES ==============
+
+// ============== USUARIOS (Admin) ==============
+app.get('/make-server-25b11ac0/usuarios', requireAuth, async (c) => {
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+    if (error) throw error;
+    const usuarios = data.users.map(u => ({
+      id: u.id,
+      email: u.email,
+      nombre: u.user_metadata?.nombre || '',
+      role: u.user_metadata?.role || 'coordinador',
+      camareroId: u.user_metadata?.camareroId || '',
+      clienteNombre: u.user_metadata?.clienteNombre || '',
+      createdAt: u.created_at,
+    }));
+    return c.json({ success: true, data: usuarios });
+  } catch (error) {
+    console.error('Error al listar usuarios:', error);
+    return c.json({ success: false, error: 'Error al obtener usuarios' }, 500);
+  }
+});
+
+app.delete('/make-server-25b11ac0/usuarios/:id', requireAuth, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    return c.json({ success: false, error: 'Error al eliminar usuario' }, 500);
+  }
+});
+
+app.put('/make-server-25b11ac0/usuarios/:id', requireAuth, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      user_metadata: body.user_metadata,
+    });
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    return c.json({ success: false, error: 'Error al actualizar usuario' }, 500);
+  }
+});
+
 app.post('/make-server-25b11ac0/guardar-token', requireAuth, async (c) => {
   try {
     const body = await c.req.json();

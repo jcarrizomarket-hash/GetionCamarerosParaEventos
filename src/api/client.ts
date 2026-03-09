@@ -18,6 +18,7 @@ import type {
 import { supabaseFunctionEndpoint, supabaseAnonKey } from '../config/env';
 import { fetchWithRetry } from '../utils/retry';
 import { demoStore } from './demo-store';
+import { supabase } from '../hooks/useAuth';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -34,10 +35,12 @@ const getBaseUrl = (): string => {
 };
 
 // Headers comunes para todas las peticiones (JWT-only, sin shared secrets)
-const getHeaders = (): HeadersInit => {
+const getHeaders = async (): Promise<HeadersInit> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || supabaseAnonKey;
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${supabaseAnonKey}`,
+    'Authorization': `Bearer ${token}`,
   };
 };
 
@@ -77,7 +80,7 @@ export async function getPedidos(): Promise<ApiResponse<Pedido[]>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Pedido[]>(response);
   } catch (error) {
@@ -93,7 +96,7 @@ export async function getPedido(id: string): Promise<ApiResponse<Pedido>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Pedido>(response);
   } catch (error) {
@@ -109,7 +112,7 @@ export async function createPedido(pedido: Omit<Pedido, 'id'>): Promise<ApiRespo
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -126,7 +129,7 @@ export async function updatePedido(id: string, pedido: Partial<Pedido>): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(pedido),
     });
     return handleResponse<Pedido>(response);
@@ -143,7 +146,7 @@ export async function deletePedido(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/pedidos/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -161,7 +164,7 @@ export async function getCamareros(): Promise<ApiResponse<Camarero[]>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Camarero[]>(response);
   } catch (error) {
@@ -176,7 +179,7 @@ export async function getCamarero(id: string): Promise<ApiResponse<Camarero>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Camarero>(response);
   } catch (error) {
@@ -192,7 +195,7 @@ export async function createCamarero(camarero: Omit<Camarero, 'id'>): Promise<Ap
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -209,7 +212,7 @@ export async function updateCamarero(id: string, camarero: Partial<Camarero>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(camarero),
     });
     return handleResponse<Camarero>(response);
@@ -226,7 +229,7 @@ export async function deleteCamarero(id: string): Promise<ApiResponse<void>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/camareros/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -244,7 +247,7 @@ export async function getCoordinadores(): Promise<ApiResponse<Coordinador[]>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Coordinador[]>(response);
   } catch (error) {
@@ -259,7 +262,7 @@ export async function getCoordinador(id: string): Promise<ApiResponse<Coordinado
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Coordinador>(response);
   } catch (error) {
@@ -275,7 +278,7 @@ export async function createCoordinador(coordinador: Omit<Coordinador, 'id'>): P
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -292,7 +295,7 @@ export async function updateCoordinador(id: string, coordinador: Partial<Coordin
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(coordinador),
     });
     return handleResponse<Coordinador>(response);
@@ -309,7 +312,7 @@ export async function deleteCoordinador(id: string): Promise<ApiResponse<void>> 
   try {
     const response = await apiFetch(`${getBaseUrl()}/coordinadores/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<void>(response);
   } catch (error) {
@@ -327,7 +330,7 @@ export async function getClientes(): Promise<ApiResponse<Cliente[]>> {
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<Cliente[]>(response);
   } catch (error) {
@@ -343,7 +346,7 @@ export async function createCliente(cliente: Omit<Cliente, 'id'>): Promise<ApiRe
   try {
     const response = await apiFetch(`${getBaseUrl()}/clientes`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(cliente),
     });
     return handleResponse<Cliente>(response);
@@ -361,7 +364,7 @@ export async function verificarWhatsAppConfig(): Promise<ApiResponse<WhatsAppCon
   try {
     const response = await apiFetch(`${getBaseUrl()}/verificar-whatsapp-config`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<WhatsAppConfig>(response);
   } catch (error) {
@@ -377,7 +380,7 @@ export async function enviarWhatsApp(telefono: string, mensaje: string): Promise
   try {
     const response = await apiFetch(`${getBaseUrl()}/enviar-whatsapp`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ telefono, mensaje }),
     });
     return handleResponse<any>(response);
@@ -395,7 +398,7 @@ export async function verificarEmailConfig(): Promise<ApiResponse<EmailConfig>> 
   try {
     const response = await apiFetch(`${getBaseUrl()}/verificar-email-config`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     return handleResponse<EmailConfig>(response);
   } catch (error) {
@@ -421,7 +424,7 @@ export async function enviarEmailParte(params: {
   try {
     const response = await apiFetch(`${getBaseUrl()}/enviar-email-parte`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(params),
     });
     return handleResponse<any>(response);

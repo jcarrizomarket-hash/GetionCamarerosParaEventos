@@ -20,10 +20,9 @@ import { fetchWithRetry } from '../utils/retry';
 import { demoStore } from './demo-store';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
-console.log('🔍 VITE_DEMO_MODE:', import.meta.env.VITE_DEMO_MODE, '| IS_DEMO:', IS_DEMO);
 
-const REQUEST_TIMEOUT_MS = 5000;
-const MAX_RETRY_ATTEMPTS = 3;
+const REQUEST_TIMEOUT_MS = 15000;
+const MAX_RETRY_ATTEMPTS = 2;
 
 // Base URL para las Supabase Functions
 const getBaseUrl = (): string => {

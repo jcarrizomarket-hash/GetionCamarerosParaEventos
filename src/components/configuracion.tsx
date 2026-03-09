@@ -9,6 +9,7 @@ import { WhatsAppChatbotConfig } from './whatsapp-chatbot-config';
 import { useToast } from '../hooks/useToast';
 import { ConfirmDialog } from './ui/confirm-dialog';
 import { UtilidadesPanel } from './UtilidadesPanel';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface ConfiguracionProps {
     baseUrl: string;
@@ -26,14 +27,15 @@ export function Configuracion({ baseUrl, publicAnonKey, camareros = [], coordina
     const toast = useToast();
 
     // Confirm dialog state
-    const [confirmState, setConfirmState] = useState<{
+    const { confirm } = useConfirm();
+  const [confirmState, setConfirmState] = useState<{
         open: boolean;
         message: string;
         onConfirm: () => void;
     }>({ open: false, message: '', onConfirm: () => {} });
 
     const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
     const handleConfirmCancel = () => {
         setConfirmState(s => ({ ...s, open: false }));

@@ -10,6 +10,7 @@ import { useRoles } from '../../hooks/useRoles';
 import { useIdiomas } from '../../hooks/useIdiomas';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ui/confirm-dialog';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
@@ -19,6 +20,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   const toast = useToast();
 
   // Confirm dialog state
+  const { confirm } = useConfirm();
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     message: string;
@@ -26,7 +28,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

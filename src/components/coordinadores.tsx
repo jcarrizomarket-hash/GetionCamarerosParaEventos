@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { ConfirmDialog } from './ui/confirm-dialog';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface CoordinadoresProps {
   coordinadores: any[];
@@ -21,6 +22,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   const toast = useToast();
 
   // Confirm dialog state
+  const { confirm } = useConfirm();
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     message: string;
@@ -28,7 +30,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

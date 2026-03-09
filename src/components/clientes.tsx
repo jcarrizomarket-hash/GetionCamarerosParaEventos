@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
 import { ConfirmDialog } from './ui/confirm-dialog';
+import { useConfirm } from '../hooks/useConfirm';
 
 export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
@@ -18,6 +19,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
   });
 
   // Confirm dialog state
+  const { confirm } = useConfirm();
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     message: string;
@@ -25,7 +27,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

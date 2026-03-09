@@ -9,6 +9,7 @@ import { deduplicarPorId } from '../../utils/deduplicar';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { playNotificationSound as playSound, loadNotifConfig } from '../../hooks/useNotificationSounds';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export function EntradaPedidos({
   clientes,
@@ -28,6 +29,7 @@ export function EntradaPedidos({
   const toast = useToast();
 
   // Confirm dialog state
+  const { confirm } = useConfirm();
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     message: string;
@@ -35,7 +37,7 @@ export function EntradaPedidos({
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

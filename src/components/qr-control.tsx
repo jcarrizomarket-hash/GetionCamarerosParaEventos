@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { QrCode, Copy, RefreshCw, X, Check, Download } from 'lucide-react';
 import QRCodeLib from 'qrcode';
 import { ConfirmDialog } from './ui/confirm-dialog';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface QRControlProps {
   pedido: any;
@@ -17,6 +18,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   const [qrImageUrl, setQrImageUrl] = useState('');
 
   // Confirm dialog state
+  const { confirm } = useConfirm();
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     message: string;
@@ -24,7 +26,7 @@ export function QRControl({ pedido, baseUrl, publicAnonKey, onClose }: QRControl
   }>({ open: false, message: '', onConfirm: () => {} });
 
   const showConfirm = (message: string): Promise<boolean> =>
-    Promise.resolve(window.confirm(message));
+    confirm(message);
 
   const handleConfirmCancel = () => {
     setConfirmState(s => ({ ...s, open: false }));

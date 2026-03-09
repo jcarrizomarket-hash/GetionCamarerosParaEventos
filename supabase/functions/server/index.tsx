@@ -485,3 +485,5 @@ async function notificarCoordinador(coordinadorId: string, mensaje: string) {
     console.error('Error al notificar coordinador:', error);
   }
 }
+
+Deno.serve(app.fetch);

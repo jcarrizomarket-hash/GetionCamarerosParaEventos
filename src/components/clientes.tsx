@@ -4,6 +4,8 @@ import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
 import { ConfirmDialog } from './ui/confirm-dialog';
 import { useConfirm } from '../hooks/useConfirm';
 
+import { supabase } from '../hooks/useAuth';
+
 export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargarDatos }) {
   const [showForm, setShowForm] = useState(false);
   const [editandoClienteId, setEditandoClienteId] = useState(null);
@@ -49,9 +51,12 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
     return `CL${String(nuevoNumero).padStart(3, '0')}`;
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    if (submitting) return;
+    setSubmitting(true);
     try {
       if (editandoClienteId) {
         // Actualizar cliente existente
@@ -60,7 +65,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
           },
           body: JSON.stringify({
             ...clienteActualizado,
@@ -80,7 +85,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
           },
           body: JSON.stringify({
             numero: numeroCliente,
@@ -96,6 +101,8 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
       }
     } catch (error) {
       logger.error('Error al guardar cliente:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -122,7 +129,7 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
       const response = await fetch(`${baseUrl}/clientes/${clienteId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         }
       });
 

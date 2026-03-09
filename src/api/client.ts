@@ -37,10 +37,14 @@ const getBaseUrl = (): string => {
 // Headers comunes para todas las peticiones (JWT-only, sin shared secrets)
 const getHeaders = async (): Promise<HeadersInit> => {
   const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || supabaseAnonKey;
+  let token = session?.access_token;
+  if (!token || (session?.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    token = refreshed.session?.access_token;
+  }
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${token || supabaseAnonKey}`,
   };
 };
 

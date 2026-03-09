@@ -18,7 +18,7 @@ import type {
 import { supabaseFunctionEndpoint, supabaseAnonKey } from '../config/env';
 import { fetchWithRetry } from '../utils/retry';
 import { demoStore } from './demo-store';
-import { supabase } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { supabaseUrl, supabaseAnonKey } from '../config/env';
+import { supabase } from '../lib/supabase';
+
+
 
 export type UserRole = 'admin' | 'coordinador' | 'camarero' | 'cliente';
 
@@ -15,7 +16,7 @@ export interface AuthUser {
   clienteNombre?: string;
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);

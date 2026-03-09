@@ -68,7 +68,6 @@ export function Clientes({ clientes, setClientes, baseUrl, publicAnonKey, cargar
             Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
           },
           body: JSON.stringify({
-            ...clienteActualizado,
             ...formData
           })
         });

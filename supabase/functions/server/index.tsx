@@ -351,8 +351,13 @@ function mapClienteToFrontend(r: any) {
   return {
     id: `cliente:${r.id}`,
     nombre: r.nombre,
-    telefono: r.telefono,
-    email: r.email,
+    contacto1: r.contacto1,
+    contacto2: r.contacto2,
+    telefono1: r.telefono1,
+    telefono2: r.telefono2,
+    mail1: r.mail1,
+    mail2: r.mail2,
+    notas: r.notas,
     createdAt: r.created_at,
   };
 }

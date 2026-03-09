@@ -96,13 +96,24 @@ app.post('/make-server-25b11ac0/camareros', requireAuth, async (c) => {
     if (!parsed.success) return validationError(c, parsed.error);
     const { count } = await db.from('camareros').select('*', { count: 'exact', head: true });
     const numero = (count ?? 0) + 1;
+    const d = parsed.data as any;
     const { data, error } = await db.from('camareros').insert({
       numero,
-      nombre: parsed.data.nombre,
-      telefono: parsed.data.telefono,
-      email: parsed.data.email,
-      estado: parsed.data.activo === false ? 'inactivo' : 'activo',
-      comentarios: (parsed.data as any).notas,
+      codigo: d.codigo,
+      tipo_perfil: d.tipoPerfil || 'CAM',
+      nombre: d.nombre,
+      apellido: d.apellido || '',
+      telefono: d.telefono,
+      email: d.email,
+      estado: d.estado || 'activo',
+      especialidades: d.especialidades || [],
+      experiencia: d.experiencia,
+      comentarios: d.comentarios,
+      idiomas: d.idiomas || [],
+      otros_idiomas: d.otrosIdiomas,
+      certificaciones: d.certificaciones || [],
+      otras_certificaciones: d.otrasCertificaciones,
+      disponibilidad: d.disponibilidad || [],
     }).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
     return c.json({ success: true, data: mapCamareroToFrontend(data) });
@@ -117,12 +128,24 @@ app.put('/make-server-25b11ac0/camareros/:id', requireAuth, async (c) => {
     const body = await c.req.json();
     const parsed = validate(UpdateCamareroSchema, body);
     if (!parsed.success) return validationError(c, parsed.error);
+    const d = parsed.data as any;
     const update: any = {};
-    if (parsed.data.nombre !== undefined) update.nombre = parsed.data.nombre;
-    if (parsed.data.telefono !== undefined) update.telefono = parsed.data.telefono;
-    if (parsed.data.email !== undefined) update.email = parsed.data.email;
-    if (parsed.data.activo !== undefined) update.estado = parsed.data.activo ? 'activo' : 'inactivo';
-    if ((parsed.data as any).notas !== undefined) update.comentarios = (parsed.data as any).notas;
+    if (d.codigo !== undefined) update.codigo = d.codigo;
+    if (d.tipoPerfil !== undefined) update.tipo_perfil = d.tipoPerfil;
+    if (d.nombre !== undefined) update.nombre = d.nombre;
+    if (d.apellido !== undefined) update.apellido = d.apellido;
+    if (d.telefono !== undefined) update.telefono = d.telefono;
+    if (d.email !== undefined) update.email = d.email;
+    if (d.estado !== undefined) update.estado = d.estado;
+    if (d.activo !== undefined) update.estado = d.activo ? 'activo' : 'inactivo';
+    if (d.especialidades !== undefined) update.especialidades = d.especialidades;
+    if (d.experiencia !== undefined) update.experiencia = d.experiencia;
+    if (d.comentarios !== undefined) update.comentarios = d.comentarios;
+    if (d.idiomas !== undefined) update.idiomas = d.idiomas;
+    if (d.otrosIdiomas !== undefined) update.otros_idiomas = d.otrosIdiomas;
+    if (d.certificaciones !== undefined) update.certificaciones = d.certificaciones;
+    if (d.otrasCertificaciones !== undefined) update.otras_certificaciones = d.otrasCertificaciones;
+    if (d.disponibilidad !== undefined) update.disponibilidad = d.disponibilidad;
     const { data, error } = await db.from('camareros').update(update).eq('id', id).select().single();
     if (error) return c.json({ success: false, error: error.message }, 500);
     return c.json({ success: true, data: mapCamareroToFrontend(data) });
@@ -338,14 +361,23 @@ function mapCamareroToFrontend(r: any) {
   return {
     id: `camarero:${r.id}`,
     numero: r.numero,
+    codigo: r.codigo,
+    tipoPerfil: r.tipo_perfil,
     nombre: r.nombre,
-    apellidos: r.apellido,
+    apellido: r.apellido,
     telefono: r.telefono,
     email: r.email,
-    tipoPerfil: r.tipo_perfil,
+    estado: r.estado,
     activo: r.estado === 'activo',
-    notas: r.comentarios,
+    especialidades: r.especialidades ?? [],
+    experiencia: r.experiencia,
+    comentarios: r.comentarios,
     idiomas: r.idiomas ?? [],
+    otrosIdiomas: r.otros_idiomas,
+    certificaciones: r.certificaciones ?? [],
+    otrasCertificaciones: r.otras_certificaciones,
+    disponibilidad: r.disponibilidad ?? [],
+    notas: r.comentarios,
     createdAt: r.created_at,
   };
 }

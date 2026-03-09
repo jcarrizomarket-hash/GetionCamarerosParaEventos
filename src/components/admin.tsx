@@ -204,7 +204,7 @@ function TabCoordinadores({ coordinadores, onRefresh }: { coordinadores: any[]; 
           <h2 className="text-lg font-semibold text-gray-900">Gestión de Coordinadores</h2>
           <p className="text-sm text-gray-500">Administra los coordinadores del sistema</p>
         </div>
-        <button onClick={openNew} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">
+        <button onClick={openNew} style={{backgroundColor:"#4f46e5",color:"white"}} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm hover:opacity-90">
           <Plus className="h-4 w-4" />Nuevo Coordinador
         </button>
       </div>
@@ -231,7 +231,7 @@ function TabCoordinadores({ coordinadores, onRefresh }: { coordinadores: any[]; 
             </div>
           </div>
           <div className="mt-4 flex gap-2">
-            <button onClick={handleSave} disabled={saving || !form.nombre.trim()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar'}</button>
+            <button onClick={handleSave} disabled={saving || !form.nombre.trim()} style={{backgroundColor:"#4f46e5",color:"white",opacity: (saving || !form.nombre.trim()) ? 0.6 : 1}} className="rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90">{saving ? 'Guardando…' : 'Guardar'}</button>
             <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
           </div>
         </div>

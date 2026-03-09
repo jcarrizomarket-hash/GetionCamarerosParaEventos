@@ -11,6 +11,7 @@ import { useIdiomas } from '../../hooks/useIdiomas';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { useConfirm } from '../../hooks/useConfirm';
+import { supabase } from '../../hooks/useAuth';
 
 export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores = [], baseUrl, publicAnonKey, cargarDatos }: CamarerosProps) {
   const [showForm, setShowForm] = useState(false);
@@ -240,8 +241,8 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
   // --- Operaciones CRUD Camarero ---
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    if (!formData.nombre || !formData.apellido) {
-      toast.warning('Por favor completa nombre y apellido');
+    if (!formData.nombre) {
+      toast.warning('Por favor completa el nombre');
       return;
     }
 
@@ -250,15 +251,20 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     const body = editingCamarero ? { ...editingCamarero, ...formData } : formData;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || publicAnonKey;
       const response = await fetch(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body)
       });
       const result = await response.json();
       if (result.success) {
+        toast.success(editingCamarero ? 'Perfil actualizado' : 'Perfil creado');
         await cargarDatos();
         resetForm();
+      } else {
+        toast.error(result.error || 'Error al guardar');
       }
     } catch (error) { logger.error('Error:', error); }
   };
@@ -345,7 +351,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
       {/* Header y Botones Superiores */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Camareros</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Perfiles</h2>
           <p className="text-gray-500 text-sm">Administra tu equipo, habilidades y disponibilidad.</p>
         </div>
         <div className="flex gap-3">

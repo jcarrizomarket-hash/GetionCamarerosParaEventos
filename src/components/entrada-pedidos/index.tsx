@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger';
+import { supabase } from '../../hooks/useAuth';
 import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import type { EntradaPedidosProps, FormData, Pedido } from './types';
@@ -243,7 +244,7 @@ export function EntradaPedidos({
       logger.info(`🗑️ Eliminando pedido con ID: ${id}`);
       const response = await fetch(`${baseUrl}/pedidos/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${publicAnonKey}` },
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}` },
       });
       const result = await response.json();
       logger.info('📝 Respuesta del servidor:', { status: response.status, result });
@@ -322,7 +323,7 @@ _Por favor confirme recepción de este mensaje._`;
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`,
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`,
         },
         body: JSON.stringify(dataToSend),
       });

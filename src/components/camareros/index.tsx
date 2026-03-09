@@ -205,7 +205,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({ ...selectedCamarero, disponibilidad: disponibilidadFinal })
       });
@@ -228,7 +228,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({ ...selectedCamarero, disponibilidad })
       });
@@ -301,7 +301,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     try {
       const response = await fetch(`${baseUrl}/camareros/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${publicAnonKey}` }
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}` }
       });
       if (response.ok) {
         await cargarDatos();
@@ -315,7 +315,7 @@ export function Camareros({ camareros, setCamareros, pedidos = [], coordinadores
     try {
       const response = await fetch(`${baseUrl}/camareros/${camarero.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}` },
         body: JSON.stringify({ ...camarero, estado: nuevoEstado })
       });
       if (response.ok) await cargarDatos();

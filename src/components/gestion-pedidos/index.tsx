@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger';
+import { supabase } from '../../hooks/useAuth';
 import { useState, useEffect, useMemo } from 'react';
 import { QRControl } from '../qr-control';
 import { GestionPedidosProps } from './types';
@@ -47,7 +48,7 @@ export function GestionPedidos({ pedidos, setPedidos, camareros, baseUrl, public
           try {
             await fetch(`${baseUrl}/pedidos/${pedido.id}`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}` },
               body: JSON.stringify({ ...pedido, asignaciones: asignacionesFiltradas })
             });
           } catch (error) { logger.error('Error al eliminar asignación rechazada:', error); }

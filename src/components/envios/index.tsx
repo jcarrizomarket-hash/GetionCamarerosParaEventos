@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { supabase } from '../../hooks/useAuth';
 import { logger } from '../../utils/logger';
 import { Send, MessageSquare, Users, Bot, FileCheck } from 'lucide-react';
 import type { EnviosProps } from './types';
@@ -83,7 +84,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           pedidoId: selectedEvento.id,
@@ -131,7 +132,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           chatId: `chat:${selectedChatEvento.id}`,
@@ -172,7 +173,7 @@ Por favor confirma tu asistencia respondiendo este mensaje.`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           messages: [...chatbotMessages, userMessage],
@@ -275,7 +276,7 @@ Generado: ${new Date().toLocaleString('es-ES')}`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           eventoId: evento.id,

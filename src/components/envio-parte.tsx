@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { supabase } from '../hooks/useAuth';
 import { useState } from 'react';
 import { Printer, Mail, X, Send, FileText, User, AtSign, MessageSquare, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
@@ -141,7 +142,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
               onClick={async () => {
                 try {
                   const response = await fetch(`${baseUrl}/verificar-email-config`, {
-                    headers: { Authorization: `Bearer ${publicAnonKey}` }
+                    headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}` }
                   });
                   const data = await response.json();
                   logger.info('🔍 DIAGNÓSTICO COMPLETO:', data);
@@ -446,7 +447,7 @@ export function EnvioParte({ pedidos, camareros, coordinadores, clientes, baseUr
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
-                      Authorization: `Bearer ${publicAnonKey}`
+                      Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
                     },
                     body: JSON.stringify({
                       destinatario: emailData.destinatario,

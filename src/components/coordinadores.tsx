@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { supabase } from '../hooks/useAuth';
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
@@ -51,7 +52,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
           },
           body: JSON.stringify({
             ...editingCoordinador,
@@ -76,7 +77,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
           },
           body: JSON.stringify({ nombre, telefono, email })
         });
@@ -111,7 +112,7 @@ export function Coordinadores({ coordinadores, setCoordinadores, baseUrl, public
       const response = await fetch(`${baseUrl}/coordinadores/${coordinador.id}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         }
       });
       

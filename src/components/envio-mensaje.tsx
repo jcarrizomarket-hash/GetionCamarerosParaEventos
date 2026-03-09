@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { supabase } from '../hooks/useAuth';
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Search, Phone, MoreVertical, Check, X as XIcon, Clock } from 'lucide-react';
 import { supabaseFunctionEndpoint } from '../config/env';
@@ -83,7 +84,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           token: token,
@@ -169,7 +170,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           ...eventoSeleccionado,
@@ -198,7 +199,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           ...eventoSeleccionado,
@@ -237,7 +238,7 @@ export function EnvioMensaje({ pedidos, camareros, coordinadores, baseUrl, publi
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || publicAnonKey}`
         },
         body: JSON.stringify({
           ...eventoSeleccionado,

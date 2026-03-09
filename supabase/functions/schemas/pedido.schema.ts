@@ -4,7 +4,8 @@ const AsignacionSchema = z.object({
   camareroId: z.string().min(1, 'El ID del camarero es requerido'),
   camareroNumero: z.number().int().positive(),
   camareroNombre: z.string().min(1),
-  estado: z.enum(['pendiente', 'enviado', 'confirmado', 'no confirmado']),
+  camareroTelefono: z.string().optional(),
+  estado: z.union([z.enum(['pendiente', 'enviado', 'confirmado', 'rechazado', 'no confirmado']), z.literal('')]),
   turno: z.union([z.literal(1), z.literal(2)]).optional(),
   horaEntrada: z.string().optional(),
   horaSalida: z.string().optional(),
@@ -30,6 +31,8 @@ export const PedidoSchema = z.object({
   camisa: z.enum(['blanca', 'negra']),
   asignaciones: z.array(AsignacionSchema),
   notas: z.string().optional(),
+  coordinadorId: z.string().optional(),
+  coordinadorNombre: z.string().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

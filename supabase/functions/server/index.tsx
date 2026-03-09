@@ -348,13 +348,16 @@ app.get('/make-server-25b11ac0/informes/camarero', requireAuth, async (c) => {
 // ============== CONFIRMACIONES ==============
 
 // ============== USUARIOS (Admin) ==============
-app.get('/make-server-25b11ac0/usuarios', requireAuth, async (c) => {
+app.get('/make-server-25b11ac0/usuarios', async (c) => {
+  console.log('🚀 USUARIOS ENDPOINT HIT');
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    console.log('🔑 URL:', url ? 'OK' : 'MISSING');
+    console.log('🔑 KEY:', key ? 'OK' : 'MISSING');
+    const supabaseAdmin = createClient(url!, key!);
     const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+    console.log('📋 listUsers error:', error, 'users:', data?.users?.length);
     if (error) throw error;
     const usuarios = data.users.map(u => ({
       id: u.id,

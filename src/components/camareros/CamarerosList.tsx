@@ -1,5 +1,7 @@
-import { Edit2, Calendar, Trash2, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Edit2, Calendar, Trash2, Users, QrCode } from 'lucide-react';
 import { CamareroDetail } from './CamareroDetail';
+import { CamareroQR } from './CamareroQR';
 
 interface CamarerosListProps {
   listaCamareros: any[];
@@ -12,7 +14,6 @@ interface CamarerosListProps {
   editarCamarero: (camarero: any) => void;
   eliminarCamarero: (id: any) => void;
   toggleApercibido: (camarero: any) => void;
-  // Detail props
   modoDisponibilidad: string;
   setModoDisponibilidad: (modo: string) => void;
   fechaInicio: string;
@@ -59,6 +60,8 @@ export function CamarerosList({
   agregarDisponibilidad,
   eliminarDisponibilidad,
 }: CamarerosListProps) {
+  const [qrCamarero, setQrCamarero] = useState<any>(null);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-6 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -82,8 +85,6 @@ export function CamarerosList({
           {listaCamareros.map((camarero) => (
             <div key={camarero.id} className={`p-6 hover:bg-gray-50 transition-colors ${verApercibidos ? 'bg-amber-50/30' : ''}`}>
               <div className="flex flex-col lg:flex-row gap-6">
-
-                {/* Info Principal */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <span className={`px-2 py-1 rounded-md text-xs font-bold font-mono ${verApercibidos ? 'bg-amber-200 text-amber-900' : 'bg-blue-100 text-blue-800'}`}>
@@ -96,7 +97,6 @@ export function CamarerosList({
                       </span>
                     )}
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-600">
                     <p><span className="font-medium">Tel:</span> {camarero.telefono}</p>
                     <p><span className="font-medium">Email:</span> {camarero.email}</p>
@@ -109,7 +109,6 @@ export function CamarerosList({
                   </div>
                 </div>
 
-                {/* Acciones */}
                 <div className="flex lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-3 mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-gray-100">
                   <div className="flex gap-2">
                     <button
@@ -122,6 +121,13 @@ export function CamarerosList({
                     >
                       <Calendar className="w-5 h-5" />
                     </button>
+                    <button
+                      onClick={() => setQrCamarero(camarero)}
+                      className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      title="Generar QR Check-in"
+                    >
+                      <QrCode className="w-5 h-5" />
+                    </button>
                     <button onClick={() => editarCamarero(camarero)} className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg">
                       <Edit2 className="w-5 h-5" />
                     </button>
@@ -129,21 +135,18 @@ export function CamarerosList({
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
-
                   <button
                     onClick={() => toggleApercibido(camarero)}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide border transition-all ${
-                      camarero.estado === 'apercibido'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide border transition-all ${camarero.estado === 'apercibido'
                         ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
                         : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                    }`}
+                      }`}
                   >
                     {camarero.estado === 'apercibido' ? 'Reactivar' : 'Apercibir'}
                   </button>
                 </div>
               </div>
 
-              {/* Calendario inline con opciones avanzadas */}
               {showCalendario && selectedCamarero?.id === camarero.id && (
                 <CamareroDetail
                   camarero={camarero}
@@ -168,6 +171,15 @@ export function CamarerosList({
             </div>
           ))}
         </div>
+      )}
+
+      {qrCamarero && (
+        <CamareroQR
+          camarero={qrCamarero}
+          pedidoId="sin-pedido"
+          pedidoNumero="Check-in General"
+          onClose={() => setQrCamarero(null)}
+        />
       )}
     </div>
   );

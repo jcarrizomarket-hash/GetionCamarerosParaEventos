@@ -200,7 +200,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       action: () => setActiveTab('pedidos')
     },
     {
-      title: 'Camareros Disponibles',
+      title: 'Empleados Disponibles',
       icon: UserCheck,
       color: 'green',
       action: () => setActiveTab('camareros'),

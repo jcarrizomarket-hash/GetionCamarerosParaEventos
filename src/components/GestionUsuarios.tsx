@@ -86,7 +86,11 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
       });
       const result = await response.json();
       if (result.success) cargarUsuarios();
-    } catch {}
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar usuario');
+    } finally {
+      setCreando(false);
+    }
   }
 
   async function crearUsuario(e: React.FormEvent) {

@@ -207,7 +207,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       count: metrics.camarerosDisponibles
     },
     {
-      title: 'Camareros Apercibidos',
+      title: 'Empleados Apercibidos',
       icon: UserX,
       color: 'red',
       action: () => setActiveTab('camareros'),

@@ -65,7 +65,7 @@ jobs:
           TEST_BASE_URL: 'http://127.0.0.1:4173'
         run: |
           # Arrancar vite preview con --host para escuchar en 0.0.0.0
-          npx vite preview --port 4173 --host 127.0.0.1 &
+          npx vite preview --port 4173 --host 0.0.0.0 &
           SERVER_PID=$!
           # Esperar hasta 60s que el servidor responda
           echo "Waiting for server..."

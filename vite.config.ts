@@ -53,7 +53,7 @@
       },
     },
     build: {
-      target: 'es2018',
+      target: 'esnext',
       outDir: 'dist',
     },
     server: {

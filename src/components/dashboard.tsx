@@ -221,7 +221,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       count: metrics.camarerosActivos
     },
     {
-      title: 'Camareros en Reserva',
+      title: 'Empleados en Reserva',
       icon: Shield,
       color: 'orange',
       action: () => setActiveTab('camareros'),

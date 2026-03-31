@@ -201,28 +201,28 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       action: () => setActiveTab('pedidos')
     },
     {
-      title: '{genericLabel}s Disponibles',
+      title: {genericLabel} + 's Disponibles',
       icon: UserCheck,
       color: 'green',
       action: () => setActiveTab('camareros'),
       count: metrics.camarerosDisponibles
     },
     {
-      title: '{genericLabel}s Apercibidos',
+      title: {genericLabel} + 's Apercibidos',
       icon: UserX,
       color: 'red',
       action: () => setActiveTab('camareros'),
       count: metrics.camarerosApercibidos
     },
     {
-      title: '{genericLabel}s Activos',
+      title: {genericLabel} + 's Activos',
       icon: Users,
       color: 'teal',
       action: () => setActiveTab('camareros'),
       count: metrics.camarerosActivos
     },
     {
-      title: '{genericLabel}s en Reserva',
+      title: {genericLabel} + 's en Reserva',
       icon: Shield,
       color: 'orange',
       action: () => setActiveTab('camareros'),

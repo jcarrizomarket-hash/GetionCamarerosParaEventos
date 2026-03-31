@@ -62,15 +62,15 @@ jobs:
       - name: Run E2E tests
         working-directory: src
         env:
-          TEST_BASE_URL: 'http://127.0.0.1:4173'
+          TEST_BASE_URL: 'http://localhost:4173'
         run: |
           # Arrancar vite preview con --host para escuchar en 0.0.0.0
-          npx vite preview --port 4173 --host 127.0.0.1 &
+          npx vite preview --port 4173 --host 0.0.0.0 &
           SERVER_PID=$!
           # Esperar hasta 60s que el servidor responda
           echo "Waiting for server..."
           for i in $(seq 1 60); do
-            if curl -sf --max-time 2 http://127.0.0.1:4173 > /dev/null 2>&1; then
+            if curl -sf --max-time 2 http://localhost:4173 > /dev/null 2>&1; then
               echo "Server ready after ${i}s"
               break
             fi
@@ -82,7 +82,7 @@ jobs:
             sleep 1
           done
           echo "=== Response from server ==="
-          curl -s http://127.0.0.1:4173 | grep -o '<[^>]*>' | head -20
+          curl -s http://localhost:4173 | grep -o '<[^>]*>' | head -20
           npx playwright test --config playwright.config.ts --project=chromium
           EXIT_CODE=$?
           kill $SERVER_PID 2>/dev/null || true

@@ -46,7 +46,7 @@ export function CamareroForm({
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-4">
       <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
         <h3 className="text-lg font-bold text-gray-900">
-          {editingCamarero ? 'Editar Camarero' : 'Nuevo Camarero'}
+          {editingCamarero ? 'Editar Empleado' : 'Nuevo Empleado'}
         </h3>
         <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
           <XCircle className="w-6 h-6" />

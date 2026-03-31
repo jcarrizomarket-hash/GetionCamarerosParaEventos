@@ -80,7 +80,7 @@ export function PedidoDetail({
               </div>
               <div>
                 <p className="text-gray-500 mb-1">Requeridos</p>
-                <p className="font-medium text-gray-800">{requeridos} camareros</p>
+                <p className="font-medium text-gray-800">{requeridos} empleados</p>
               </div>
             </div>
           </div>

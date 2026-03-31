@@ -285,7 +285,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       {/* Bienvenida */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg p-8 text-white">
         <h1 className="text-3xl font-bold mb-2">Dashboard de Gestión</h1>
-        <p className="text-blue-100">Resumen general de eventos, camareros y operaciones</p>
+        <p className="text-blue-100">Resumen general de eventos, empleados y operaciones</p>
       </div>
 
       {/* Métricas de Eventos */}
@@ -309,7 +309,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
             <div className="flex items-center justify-between pt-4 border-t border-blue-300">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-700 font-medium">Camareros necesarios</span>
+                <span className="text-sm text-blue-700 font-medium">Empleados necesarios</span>
               </div>
               <span className="text-xl font-bold text-blue-900">{metrics.camarerosNecesariosDiario}</span>
             </div>
@@ -329,7 +329,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
             <div className="flex items-center justify-between pt-4 border-t border-purple-300">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-purple-600" />
-                <span className="text-sm text-purple-700 font-medium">Camareros necesarios</span>
+                <span className="text-sm text-purple-700 font-medium">Empleados necesarios</span>
               </div>
               <span className="text-xl font-bold text-purple-900">{metrics.camarerosNecesariosSemanal}</span>
             </div>
@@ -349,7 +349,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
             <div className="flex items-center justify-between pt-4 border-t border-indigo-300">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm text-indigo-700 font-medium">Camareros necesarios</span>
+                <span className="text-sm text-indigo-700 font-medium">Empleados necesarios</span>
               </div>
               <span className="text-xl font-bold text-indigo-900">{metrics.camarerosNecesariosMensual}</span>
             </div>
@@ -361,7 +361,7 @@ export function Dashboard({ camareros, pedidos, clientes, setActiveTab, baseUrl,
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Users className="w-6 h-6 text-purple-600" />
-          Estado de Camareros
+          Estado de Empleados
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">

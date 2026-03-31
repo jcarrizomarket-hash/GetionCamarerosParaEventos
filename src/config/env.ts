@@ -11,6 +11,8 @@
  *   4. VITE_SUPABASE_PROJECT_ID         – ID del proyecto (modo legacy)
  */
 
+export const employeeLabel: string = 'Empleado';
+
 /** Full Supabase project URL, e.g. https://<id>.supabase.co */
 export const supabaseUrl: string =
   import.meta.env.VITE_SUPABASE_URL ?? '';

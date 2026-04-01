@@ -12,6 +12,8 @@
  */
 
 export const employeeLabel: string = 'Empleado';
+export const maxEmployees: number = 5;
+
 
 /** Full Supabase project URL, e.g. https://<id>.supabase.co */
 export const supabaseUrl: string =

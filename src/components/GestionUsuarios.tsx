@@ -120,7 +120,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
       if (!data.user) throw new Error('No se pudo crear el usuario');
 
       setExito(`Usuario ${form.email} creado correctamente como ${ROLE_LABELS[form.role]}.`);
-      setForm({ nombre: '', email: '', password: '', role: ROLES.COORDINADOR, camareroId: '', clienteNombre: '' });
+      setForm({ nombre: '', email: '', password: '', role: ROLES.COORDINADOR as UserRole, camareroId: '', clienteNombre: '' });
       cargarUsuarios();
     } catch (err: any) {
       setError(err.message || 'Error al crear usuario');

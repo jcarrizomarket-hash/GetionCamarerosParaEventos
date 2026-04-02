@@ -135,7 +135,7 @@ export default function App() {
     { id: 'informes', label: 'Informes', icon: FileText, roles: ['admin', 'coordinador'] as UserRole[] },
     { id: 'envios', label: 'Envíos', icon: Send, roles: ['admin', 'coordinador'] as UserRole[] },
     { id: 'configuracion', label: 'Configuración', icon: Settings, roles: ['admin'] as UserRole[] },
-    { id: 'usuarios', label: 'Usuarios', icon: UserCog, roles: ['admin'] as UserRole[] },
+    { id: 'usuarios', label: 'Usuarios', icon: UserCog, roles: ['admin', 'coordinador'] as UserRole[] },
     { id: 'mis-servicios', label: 'Mis Servicios', icon: CalendarDays, roles: ['camarero'] as UserRole[] },
     { id: 'mis-pedidos', label: 'Mis Pedidos', icon: CalendarDays, roles: ['cliente'] as UserRole[] },
   ];

@@ -12,6 +12,13 @@
  */
 
 export const employeeLabel: string = 'Empleado';
+export const maxEmployees: number = 5;
+export const ROLES = {
+  CAMARERO: 'camarero',
+  CLIENTE: 'cliente',
+  COORDINADOR: 'coordinador'
+};
+
 
 /** Full Supabase project URL, e.g. https://<id>.supabase.co */
 export const supabaseUrl: string =

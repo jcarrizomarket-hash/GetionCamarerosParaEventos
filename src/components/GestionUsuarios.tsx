@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Trash2, RefreshCw, Shield, Users, User, Building2 } from 'lucide-react';
 import { supabase } from '../hooks/useAuth';
+import { ROLES as ROLES, employeeLabel as genericLabel } from '../config/env';
 import type { UserRole } from '../hooks/useAuth';
+
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrador',
@@ -108,8 +110,8 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
           data: {
             nombre: form.nombre,
             role: form.role,
-            ...(form.role === 'camarero' && form.camareroId ? { camareroId: form.camareroId } : {}),
-            ...(form.role === 'cliente' && form.clienteNombre ? { clienteNombre: form.clienteNombre } : {}),
+            ...(form.role === ROLES.CAMARERO && form.camareroId ? { camareroId: form.camareroId } : {}),
+            ...(form.role === ROLES.CLIENTE && form.clienteNombre ? { clienteNombre: form.clienteNombre } : {}),
           },
         },
       });
@@ -118,7 +120,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
       if (!data.user) throw new Error('No se pudo crear el usuario');
 
       setExito(`Usuario ${form.email} creado correctamente como ${ROLE_LABELS[form.role]}.`);
-      setForm({ nombre: '', email: '', password: '', role: 'coordinador', camareroId: '', clienteNombre: '' });
+      setForm({ nombre: '', email: '', password: '', role: ROLES.COORDINADOR as UserRole, camareroId: '', clienteNombre: '' });
       cargarUsuarios();
     } catch (err: any) {
       setError(err.message || 'Error al crear usuario');
@@ -191,7 +193,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
             </div>
 
             {/* Campo extra según rol */}
-            {form.role === 'camarero' && (
+            {form.role === ROLES.CAMARERO && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Vincular con camarero del sistema
@@ -209,7 +211,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
               </div>
             )}
 
-            {form.role === 'cliente' && (
+            {form.role === ROLES.CLIENTE && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Vincular con cliente del sistema
@@ -274,7 +276,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
                   <div>
                     <p className="font-medium text-gray-900 text-sm">{u.nombre || u.email}</p>
                     <p className="text-xs text-gray-500">{u.email}</p>
-                    {u.camareroId && <p className="text-xs text-purple-600">Camarero vinculado</p>}
+                    {u.camareroId && <p className="text-xs text-purple-600">${genericLabel} vinculado</p>}
                     {u.clienteNombre && <p className="text-xs text-green-600">Cliente: {u.clienteNombre}</p>}
                   </div>
                   <div className="flex items-center gap-2">

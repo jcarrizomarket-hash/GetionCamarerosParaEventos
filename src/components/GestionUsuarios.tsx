@@ -203,7 +203,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
                   onChange={e => setForm(f => ({ ...f, camareroId: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                  <option value="">— Seleccionar camarero —</option>
+                  <option value="">— Seleccionar ${genericLabel} —</option>
                   {camareros.map(c => (
                     <option key={c.id} value={c.id}>#{c.numero} {c.nombre} {c.apellido}</option>
                   ))}
@@ -234,7 +234,7 @@ export function GestionUsuarios({ camareros, clientes, baseUrl, publicAnonKey }:
           {exito && <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">{exito}</div>}
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
-            ⚠️ El usuario recibirá un email de confirmación de Supabase. Para saltear esto, deshabilitá "Confirm email" en Supabase → Authentication → Settings.
+            ⚠️ El usuario recibirá un email de confirmación de Supabase. Para saltear esto, deshabilitar "Confirm email" en Supabase → Authentication → Settings.
           </div>
 
           <button
